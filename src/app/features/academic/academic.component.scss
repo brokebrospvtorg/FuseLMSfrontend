@@ -1,0 +1,81 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.academic-tab__subheading {
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #101d3c;
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.75rem;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+.timetable-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.timetable-grid__corner {
+  background: transparent;
+}
+
+.timetable-grid__day-header {
+  text-align: center;
+  font-weight: 600;
+  color: #101d3c;
+  padding: 0.5rem 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.timetable-grid__period-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #8b93a7;
+  font-size: 0.8rem;
+  background: #f8f9fb;
+  border-radius: 8px;
+}
+
+.timetable-grid__cell {
+  min-height: 76px;
+  border-radius: 8px;
+  background: #f8f9fb;
+  border: 1px solid #eef0f5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.4rem;
+  gap: 0.15rem;
+}
+
+.timetable-grid__cell--filled {
+  background: #eaf1fb;
+  border-color: #cddcf0;
+}
+
+.timetable-grid__subject {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #14213d;
+}
+
+.timetable-grid__teacher {
+  font-size: 0.72rem;
+  color: #4a5170;
+}
+
+.timetable-grid__time {
+  font-size: 0.68rem;
+  color: #8b93a7;
+}

@@ -1,0 +1,9 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.marks-tab__select {
+  margin-bottom: 1rem;
+}

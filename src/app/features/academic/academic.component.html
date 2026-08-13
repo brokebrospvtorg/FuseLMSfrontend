@@ -1,0 +1,94 @@
+<div class="page">
+  <h1 class="page__title">Timetable &amp; Subject Requests</h1>
+
+  <p-card>
+    <p-tabView>
+      <p-tabPanel header="Timetable">
+        @if (timetableLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (timetableError()) {
+          <p-message severity="error" [text]="timetableError()!" />
+        } @else if (timetable().length === 0) {
+          <p class="page__empty">No timetable published yet for this batch.</p>
+        } @else {
+          <div class="timetable-grid" [style.grid-template-columns]="'80px repeat(' + gridDays.length + ', 1fr)'">
+            <div class="timetable-grid__corner"></div>
+            @for (day of gridDays; track day) {
+              <div class="timetable-grid__day-header">{{ gridDayLabels[day] }}</div>
+            }
+
+            @for (period of gridPeriods(); track period) {
+              <div class="timetable-grid__period-label">P{{ period }}</div>
+              @for (day of gridDays; track day) {
+                @let slot = slotFor(day, period);
+                <div class="timetable-grid__cell" [class.timetable-grid__cell--filled]="slot">
+                  @if (slot) {
+                    <span class="timetable-grid__subject">{{ slot.subject_name }}</span>
+                    <span class="timetable-grid__teacher">{{ slot.teacher_name }}</span>
+                    <span class="timetable-grid__time">{{ slot.start_time }}–{{ slot.end_time }}</span>
+                  }
+                </div>
+              }
+            }
+          </div>
+        }
+      </p-tabPanel>
+
+      <p-tabPanel header="Subject Requests">
+        @if (requestsLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (requestsError()) {
+          <p-message severity="error" [text]="requestsError()!" />
+        } @else {
+          <h3 class="academic-tab__subheading">Available Subjects</h3>
+          @if (availableSubjects().length === 0) {
+            <p class="page__empty">No subjects available to request right now.</p>
+          } @else {
+            <p-table [value]="availableSubjects()">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Subject</th>
+                  <th>Code</th>
+                  <th></th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.code ?? '—' }}</td>
+                  <td>
+                    <button pButton type="button" label="Request" class="p-button-sm"
+                            [loading]="requestingSubjectId() === row.id"
+                            (click)="requestSubject(row.id)"></button>
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+
+          <h3 class="academic-tab__subheading">My Requests</h3>
+          @if (myRequests().length === 0) {
+            <p class="page__empty">You haven't requested any subjects yet.</p>
+          } @else {
+            <p-table [value]="myRequests()">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>Requested</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.subject_name ?? row.subject_id }}</td>
+                  <td><p-tag [severity]="severityFor(row.status)" [value]="row.status" /></td>
+                  <td>{{ row.requested_at | date: 'mediumDate' }}</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        }
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

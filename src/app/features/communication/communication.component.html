@@ -1,0 +1,68 @@
+<div class="page">
+  <h1 class="page__title">Feedback, Complaints &amp; Notifications</h1>
+
+  <p-card>
+    <p-tabView>
+      <p-tabPanel header="Feedback / Complaints">
+        <div class="comm-tab__form">
+          <input pInputText type="text" placeholder="What's this about? (optional)"
+                 [ngModel]="newComplaintSubject()" (ngModelChange)="newComplaintSubject.set($event)" />
+          <textarea pTextarea rows="3" placeholder="Describe the issue…"
+                    [ngModel]="newComplaintDescription()" (ngModelChange)="newComplaintDescription.set($event)"></textarea>
+          <button pButton type="button" label="Submit" [loading]="submitting()"
+                  (click)="submitComplaint()" [disabled]="!newComplaintDescription().trim()"></button>
+        </div>
+
+        @if (complaintsLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (complaintsError()) {
+          <p-message severity="error" [text]="complaintsError()!" />
+        } @else if (complaints().length === 0) {
+          <p class="page__empty">No complaints submitted yet.</p>
+        } @else {
+          <p-table [value]="complaints()">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Subject</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Submitted</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.subject_of_complaint ?? '—' }}</td>
+                <td>{{ row.description }}</td>
+                <td><p-tag [severity]="severityFor(row.status)" [value]="row.status" /></td>
+                <td>{{ row.created_at | date: 'mediumDate' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </p-tabPanel>
+
+      <p-tabPanel header="Notifications">
+        @if (notificationsLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (notificationsError()) {
+          <p-message severity="error" [text]="notificationsError()!" />
+        } @else if (notifications().length === 0) {
+          <p class="page__empty">You're all caught up — no notifications.</p>
+        } @else {
+          <ul class="comm-tab__notif-list">
+            @for (n of notifications(); track n.id) {
+              <li class="comm-tab__notif" [class.comm-tab__notif--unread]="!n.read_at">
+                <span class="comm-tab__notif-message">{{ n.message }}</span>
+                <span class="comm-tab__notif-date">{{ n.created_at | date: 'short' }}</span>
+                @if (!n.read_at) {
+                  <button pButton type="button" label="Mark read" class="p-button-text p-button-sm"
+                          (click)="markRead(n.id)"></button>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

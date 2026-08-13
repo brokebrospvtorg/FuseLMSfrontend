@@ -1,0 +1,142 @@
+<div class="page">
+  <h1 class="page__title">Grade Overrides</h1>
+
+  <p-card>
+    @if (pickerLoading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else {
+      <div class="grades-tab__filters">
+        <p-select
+          [options]="levelOptions()"
+          [ngModel]="selectedLevelId()"
+          (ngModelChange)="onLevelChanged($event)"
+          placeholder="Class / Level"
+          [showClear]="true"
+          styleClass="w-full md:w-16rem">
+        </p-select>
+        <p-select
+          [options]="subjectOptions()"
+          [ngModel]="selectedSubjectId()"
+          (ngModelChange)="selectedSubjectId.set($event); onFiltersChanged()"
+          placeholder="Subject"
+          styleClass="w-full md:w-16rem">
+        </p-select>
+        <p-select
+          [options]="batchOptions()"
+          [ngModel]="selectedBatchId()"
+          (ngModelChange)="selectedBatchId.set($event); onFiltersChanged()"
+          placeholder="Batch"
+          styleClass="w-full md:w-16rem">
+        </p-select>
+        <input
+          pInputText
+          [ngModel]="studentSearch()"
+          (ngModelChange)="studentSearch.set($event)"
+          placeholder="Search student..."
+          class="w-full md:w-16rem" />
+      </div>
+
+      @if (!selectedSubjectId() || !selectedBatchId()) {
+        <p class="page__empty">Pick a subject and batch above to see computed grades.</p>
+      } @else if (gradesLoading()) {
+        <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+      } @else if (visibleGrades().length === 0) {
+        <p class="page__empty">No grades computed yet — the subject's assessments may not be published.</p>
+      } @else {
+        <p-table [value]="visibleGrades()">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Student</th>
+              <th>Computed %</th>
+              <th>Grade</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr>
+              <td>{{ row.student_name }}</td>
+              <td>{{ row.computed_percentage !== null ? (row.computed_percentage + '%') : '—' }}</td>
+              <td>{{ row.letter_grade ?? '—' }}</td>
+              <td>
+                @if (row.is_overridden) {
+                  <p-tag severity="info" value="Overridden" />
+                } @else {
+                  <p-tag severity="secondary" value="Auto-computed" />
+                }
+              </td>
+              <td>
+                <p-button label="Override" size="small" severity="secondary" (onClick)="openOverrideDialog(row)" />
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    }
+  </p-card>
+
+  @if (selectedSubjectId() && selectedBatchId()) {
+    <p-card styleClass="mt-4">
+      <h2 class="grades-tab__audit-title">Override History</h2>
+      @if (auditLoading()) {
+        <div class="page__loading"><p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" /></div>
+      } @else if (auditHistory().length === 0) {
+        <p class="page__empty">No overrides recorded yet for this subject/batch.</p>
+      } @else {
+        <p-table [value]="auditHistory()">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>When</th>
+              <th>New Grade</th>
+              <th>Reason</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-entry>
+            <tr>
+              <td>{{ entry.created_at | date: 'medium' }}</td>
+              <td>{{ entry.new_value?.letter_grade ?? '—' }}</td>
+              <td>{{ entry.new_value?.reason ?? '—' }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    </p-card>
+  }
+</div>
+
+<p-dialog header="Override Grade" [(visible)]="overrideDialogOpen" [modal]="true" [style]="{ width: '28rem' }">
+  @if (overridingGrade(); as grade) {
+    <p class="grades-tab__override-context">
+      Current: <strong>{{ grade.letter_grade ?? '—' }}</strong>
+      ({{ grade.computed_percentage !== null ? (grade.computed_percentage + '%') : 'no computed %' }})
+    </p>
+  }
+
+  <div class="grades-tab__form-field">
+    <label for="override-grade">New Letter Grade</label>
+    <input
+      id="override-grade"
+      pInputText
+      [ngModel]="overrideLetterGrade()"
+      (ngModelChange)="overrideLetterGrade.set($event)"
+      placeholder="e.g. A"
+      class="w-full" />
+  </div>
+
+  <div class="grades-tab__form-field">
+    <label for="override-reason">Reason (required — this is logged to the audit log and the Teacher is notified)</label>
+    <textarea
+      id="override-reason"
+      pTextarea
+      rows="3"
+      [ngModel]="overrideReason()"
+      (ngModelChange)="overrideReason.set($event)"
+      class="w-full">
+    </textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="overrideDialogOpen.set(false)" />
+    <p-button label="Confirm Override" [loading]="submittingOverride()" [disabled]="!canSubmitOverride()" (onClick)="submitOverride()" />
+  </ng-template>
+</p-dialog>

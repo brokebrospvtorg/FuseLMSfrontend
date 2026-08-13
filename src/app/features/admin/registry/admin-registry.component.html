@@ -1,0 +1,145 @@
+<div class="page">
+  <h1 class="page__title">Information Registry</h1>
+
+  <p-card>
+    @if (error()) {
+      <p-message severity="error" [text]="error()!" styleClass="page__banner" />
+    }
+
+    <div class="registry__toolbar">
+      <div class="registry__filters">
+        <p-select
+          [options]="roleFilterOptions"
+          [ngModel]="roleFilter()"
+          (ngModelChange)="roleFilter.set($event); onRoleFilterChanged()"
+          placeholder="All roles"
+          styleClass="w-full md:w-14rem">
+        </p-select>
+        <input
+          pInputText
+          type="text"
+          placeholder="Search by name or email"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          class="w-full md:w-20rem" />
+      </div>
+      <p-button label="Add User" icon="pi pi-plus" (onClick)="openAddDialog()" />
+    </div>
+
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (filteredUsers().length === 0) {
+      <p class="page__empty">No users match the current filters.</p>
+    } @else {
+      <p-table [value]="filteredUsers()" [rows]="20" [paginator]="filteredUsers().length > 20">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Login</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.full_name }}</td>
+            <td>{{ row.email }}</td>
+            <td>{{ roleLabel(row.role) }}</td>
+            <td><p-tag [severity]="statusSeverity(row.status)" [value]="row.status" /></td>
+            <td>{{ row.last_login_at ? (row.last_login_at | date: 'medium') : '—' }}</td>
+            <td>{{ row.created_at | date: 'mediumDate' }}</td>
+            <td class="registry__row-actions">
+              <p-button label="Edit Role" size="small" severity="secondary" (onClick)="openEditRoleDialog(row)" />
+              @if (row.status !== 'pending') {
+                <p-button
+                  [label]="row.status === 'active' ? 'Suspend' : 'Reactivate'"
+                  size="small"
+                  [severity]="row.status === 'active' ? 'danger' : 'success'"
+                  (onClick)="toggleStatus(row)" />
+              }
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<!-- Add User dialog -->
+<p-dialog header="Add User" [(visible)]="addDialogOpen" [modal]="true" [style]="{ width: '30rem' }">
+  <div class="registry__form-field">
+    <label for="new-full-name">Full Name</label>
+    <input id="new-full-name" pInputText [ngModel]="newFullName()" (ngModelChange)="newFullName.set($event)" class="w-full" />
+  </div>
+  <div class="registry__form-field">
+    <label for="new-email">Email</label>
+    <input id="new-email" pInputText type="email" [ngModel]="newEmail()" (ngModelChange)="newEmail.set($event)" class="w-full" />
+  </div>
+  <div class="registry__form-field">
+    <label for="new-role">Role</label>
+    <p-select
+      id="new-role"
+      [options]="assignableRoleOptions"
+      [ngModel]="newRole()"
+      (ngModelChange)="newRole.set($event)"
+      placeholder="Select a role"
+      styleClass="w-full">
+    </p-select>
+  </div>
+
+  @if (newRole() === 'student') {
+    <div class="registry__form-field">
+      <label for="new-roll-number">Roll Number</label>
+      <input id="new-roll-number" pInputText [ngModel]="newRollNumber()" (ngModelChange)="newRollNumber.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-admission-date">Admission Date</label>
+      <p-datepicker id="new-admission-date" [ngModel]="newAdmissionDate()" (ngModelChange)="newAdmissionDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
+    </div>
+  }
+
+  @if (newRole() === 'teacher') {
+    <div class="registry__form-field">
+      <label for="new-designation">Designation</label>
+      <input id="new-designation" pInputText [ngModel]="newDesignation()" (ngModelChange)="newDesignation.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-hire-date">Hire Date</label>
+      <p-datepicker id="new-hire-date" [ngModel]="newHireDate()" (ngModelChange)="newHireDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
+    </div>
+  }
+
+  <p class="registry__hint">
+    The account is created as "pending" with an activation link — for now that link is console-logged on the backend, not actually emailed.
+  </p>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="addDialogOpen.set(false)" />
+    <p-button label="Create Account" [loading]="addSubmitting()" (onClick)="submitAddUser()" />
+  </ng-template>
+</p-dialog>
+
+<!-- Edit Role dialog -->
+<p-dialog header="Edit Role" [(visible)]="editRoleDialogOpen" [modal]="true" [style]="{ width: '26rem' }">
+  @if (editingUser(); as user) {
+    <p class="registry__edit-context">{{ user.full_name }} — currently {{ roleLabel(user.role) }}</p>
+    <div class="registry__form-field">
+      <label for="edit-role">New Role</label>
+      <p-select
+        id="edit-role"
+        [options]="assignableRoleOptions"
+        [ngModel]="editRoleValue()"
+        (ngModelChange)="editRoleValue.set($event)"
+        styleClass="w-full">
+      </p-select>
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="editRoleDialogOpen.set(false)" />
+    <p-button label="Save" [loading]="editRoleSubmitting()" (onClick)="submitEditRole()" />
+  </ng-template>
+</p-dialog>

@@ -1,0 +1,118 @@
+<div class="page">
+  <h1 class="page__title">Marks &amp; Assessments</h1>
+
+  <p-card>
+    @if (pickerLoading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (assignmentOptions().length === 0) {
+      <p class="page__empty">You don't have any subject assignments yet. Ask your Coordinator to assign you a subject/batch.</p>
+    } @else {
+      <div class="marks-tab__select">
+        <p-select
+          [options]="assignmentOptions()"
+          optionLabel="label"
+          [ngModel]="selectedCombination()"
+          (ngModelChange)="onCombinationSelected($event)"
+          placeholder="Select a subject / batch"
+          styleClass="w-full md:w-25rem">
+        </p-select>
+      </div>
+
+      @if (selectedSubjectId() && selectedBatchId()) {
+        <div class="marks-tab__header">
+          <p-button label="New Assessment" icon="pi pi-plus" (onClick)="openCreateDialog()" />
+        </div>
+
+        @if (assessmentsLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (assessments().length === 0) {
+          <p class="page__empty">No assessments yet for this subject/batch — create one above.</p>
+        } @else {
+          <p-table [value]="assessments()">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Name</th>
+                <th>Max Marks</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.name }}</td>
+                <td>{{ row.max_marks }}</td>
+                <td>
+                  <p-tag [severity]="row.status === 'published' ? 'success' : 'warn'" [value]="row.status" />
+                </td>
+                <td class="marks-tab__row-actions">
+                  <p-button label="Enter Marks" size="small" severity="secondary" (onClick)="selectAssessmentForMarks(row)" />
+                  @if (row.status === 'draft') {
+                    <p-button label="Publish" size="small" (onClick)="publish(row)" />
+                  }
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+
+        @if (activeAssessment()) {
+          <div class="marks-tab__entry">
+            <h3>Entering marks: {{ activeAssessment()!.name }}</h3>
+
+            @if (rosterLoading()) {
+              <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+            } @else if (roster().length === 0) {
+              <p class="page__empty">No students are enrolled in this subject/batch yet.</p>
+            } @else {
+              <p-table [value]="roster()">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Roll No.</th>
+                    <th>Student</th>
+                    <th>Marks (/ {{ activeAssessment()!.max_marks }})</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-row>
+                  <tr>
+                    <td>{{ row.roll_number ?? '—' }}</td>
+                    <td>{{ row.full_name }}</td>
+                    <td>
+                      <p-inputNumber
+                        [(ngModel)]="row.marks_obtained"
+                        [min]="0"
+                        [max]="activeAssessment()!.max_marks"
+                        styleClass="w-8rem" />
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+
+              <p-button
+                label="Save Marks"
+                icon="pi pi-save"
+                [loading]="savingMarks()"
+                (onClick)="saveMarks()"
+                styleClass="marks-tab__save-btn" />
+            }
+          </div>
+        }
+      }
+    }
+  </p-card>
+</div>
+
+<p-dialog header="New Assessment" [(visible)]="createDialogOpen" [modal]="true" [style]="{ width: '28rem' }">
+  <div class="marks-tab__form-field">
+    <label for="assessment-name">Name</label>
+    <input id="assessment-name" pInputText [ngModel]="newName()" (ngModelChange)="newName.set($event)" placeholder="e.g. Midterm" class="w-full" />
+  </div>
+  <div class="marks-tab__form-field">
+    <label for="assessment-max">Max Marks</label>
+    <p-inputNumber id="assessment-max" [ngModel]="newMaxMarks()" (ngModelChange)="newMaxMarks.set($event)" [min]="1" styleClass="w-full" />
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="createDialogOpen.set(false)" />
+    <p-button label="Create" [loading]="creating()" (onClick)="submitCreateAssessment()" />
+  </ng-template>
+</p-dialog>

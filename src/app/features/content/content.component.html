@@ -1,0 +1,66 @@
+<div class="page">
+  <h1 class="page__title">Lecture Materials &amp; Lectures</h1>
+
+  <p-card>
+    <p-tabView>
+      <p-tabPanel header="Lecture Materials">
+        @if (materialsLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (materialsError()) {
+          <p-message severity="error" [text]="materialsError()!" />
+        } @else if (materials().length === 0) {
+          <p class="page__empty">No materials uploaded yet for your enrolled subjects.</p>
+        } @else {
+          <p-table [value]="materials()">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Subject</th>
+                <th>Type</th>
+                <th>Title</th>
+                <th></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.subject_name }}</td>
+                <td><p-tag severity="info" [value]="row.material_type" /></td>
+                <td>{{ row.title }}</td>
+                <td>
+                  <a [href]="row.gcr_link" target="_blank" rel="noopener">
+                    <button pButton type="button" icon="pi pi-external-link" label="Open" class="p-button-sm p-button-outlined"></button>
+                  </a>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </p-tabPanel>
+
+      <p-tabPanel header="Lectures">
+        @if (lecturesLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (lecturesError()) {
+          <p-message severity="error" [text]="lecturesError()!" />
+        } @else if (lectures().length === 0) {
+          <p class="page__empty">No lectures uploaded yet for your enrolled subjects.</p>
+        } @else {
+          <div class="content-tab__lecture-grid">
+            @for (lecture of lectures(); track lecture.id) {
+              <div class="content-tab__lecture-card">
+                <div class="content-tab__lecture-embed">
+                  <iframe
+                    [src]="embedUrl(lecture.youtube_video_id)"
+                    frameborder="0"
+                    allowfullscreen>
+                  </iframe>
+                </div>
+                <p class="content-tab__lecture-subject">{{ lecture.subject_name }}</p>
+                <p class="content-tab__lecture-title">{{ lecture.title }}</p>
+              </div>
+            }
+          </div>
+        }
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

@@ -1,0 +1,38 @@
+.page__title {
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #101d3c;
+  margin: 0 0 1.25rem;
+}
+
+.page__loading {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 0;
+}
+
+.page__empty {
+  color: #8b93a7;
+  font-size: 0.9rem;
+  margin: 0;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.page__pct-cell {
+  min-width: 160px;
+}
+
+::ng-deep .p-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(16, 29, 60, 0.08);
+  background: #ffffff;
+  color: #101d3c;
+}
+
+::ng-deep .p-card-header {
+  background: #101d3c;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.9rem 1.25rem;
+  border-radius: 12px 12px 0 0;
+}

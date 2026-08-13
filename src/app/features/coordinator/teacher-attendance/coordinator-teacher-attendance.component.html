@@ -1,0 +1,63 @@
+<div class="page">
+  <h1 class="page__title">Teacher Attendance</h1>
+
+  <p-card>
+    <div class="registry__toolbar">
+      <p-datepicker
+        [ngModel]="selectedDate()"
+        (ngModelChange)="selectedDate.set($event); onDateChanged()"
+        dateFormat="dd M yy"
+        [showIcon]="true"
+        styleClass="registry__date-field">
+      </p-datepicker>
+
+      <p-button
+        label="Save Daily Log"
+        [loading]="saving()"
+        [disabled]="loading()"
+        (onClick)="saveDailyLog()">
+      </p-button>
+    </div>
+
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (rows().length === 0) {
+      <p class="page__empty">No active teachers found.</p>
+    } @else {
+      <p-table [value]="rows()">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Teacher</th>
+            <th>Periods This Day</th>
+            <th>Status</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.full_name }}</td>
+            <td>
+              @if (row.period_count === 0) {
+                <p-tag severity="secondary" value="No periods scheduled" />
+              } @else {
+                {{ row.period_count }}
+              }
+            </td>
+            <td>
+              @if (row.period_count === 0) {
+                <span class="registry__na">—</span>
+              } @else {
+                <p-selectButton
+                  [options]="statusOptions"
+                  [ngModel]="row.status === 'unset' ? null : row.status"
+                  (ngModelChange)="setStatus(row, $event)"
+                  optionLabel="label"
+                  optionValue="value">
+                </p-selectButton>
+              }
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>

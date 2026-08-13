@@ -1,0 +1,97 @@
+<div class="page">
+  <h1 class="page__title">Subject Requests</h1>
+
+  <p-card>
+    <div class="requests__filters">
+      <p-select
+        [options]="filterOptions"
+        [ngModel]="selectedFilter()"
+        (ngModelChange)="selectedFilter.set($event); onFilterChanged()"
+        placeholder="Status"
+        styleClass="w-full md:w-14rem">
+      </p-select>
+    </div>
+
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (requests().length === 0) {
+      <p class="page__empty">No subject requests here right now.</p>
+    } @else {
+      <p-table [value]="requests()">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Student</th>
+            <th>Subject Requested</th>
+            <th>Batch</th>
+            <th>Date Submitted</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.student_name }}</td>
+            <td>{{ row.subject_name }}</td>
+            <td>{{ row.batch_name }}</td>
+            <td>{{ row.requested_at | date: 'mediumDate' }}</td>
+            <td>
+              @switch (row.status) {
+                @case (SubjectRequestStatus.Requested) {
+                  <p-tag severity="warn" value="Pending" />
+                }
+                @case (SubjectRequestStatus.Approved) {
+                  <p-tag severity="success" value="Approved" />
+                }
+                @case (SubjectRequestStatus.Rejected) {
+                  <p-tag severity="danger" value="Rejected" />
+                }
+              }
+            </td>
+            <td>
+              @if (row.status === SubjectRequestStatus.Requested) {
+                <div class="requests__actions">
+                  <p-button label="Approve" size="small" (onClick)="openDialog(row, 'approved')" />
+                  <p-button label="Reject" size="small" severity="danger" [outlined]="true" (onClick)="openDialog(row, 'rejected')" />
+                </div>
+              }
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<p-dialog
+  [header]="dialogAction() === 'approved' ? 'Approve Subject Request' : 'Reject Subject Request'"
+  [(visible)]="dialogOpen"
+  [modal]="true"
+  [style]="{ width: '28rem' }">
+  @if (actioningRequest(); as row) {
+    <p class="requests__dialog-context">
+      <strong>{{ row.student_name }}</strong> requested <strong>{{ row.subject_name }}</strong> for {{ row.batch_name }}.
+    </p>
+  }
+
+  <div class="requests__form-field">
+    <label for="review-comment">Comment (optional)</label>
+    <textarea
+      id="review-comment"
+      pTextarea
+      rows="3"
+      [ngModel]="comment()"
+      (ngModelChange)="comment.set($event)"
+      placeholder="Visible to the student in their notification."
+      class="w-full">
+    </textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="dialogOpen.set(false)" />
+    <p-button
+      [label]="dialogAction() === 'approved' ? 'Confirm Approval' : 'Confirm Rejection'"
+      [severity]="dialogAction() === 'approved' ? 'primary' : 'danger'"
+      [loading]="submitting()"
+      (onClick)="submitDecision()" />
+  </ng-template>
+</p-dialog>

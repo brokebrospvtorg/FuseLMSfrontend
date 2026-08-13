@@ -1,0 +1,43 @@
+.registry__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.registry__filters {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.registry__row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.registry__form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}
+
+.registry__hint {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary, #64748b);
+  margin-top: 0.5rem;
+}
+
+.registry__edit-context {
+  margin-bottom: 1rem;
+  color: var(--text-color-secondary, #64748b);
+}

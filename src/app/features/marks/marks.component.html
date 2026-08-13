@@ -1,0 +1,75 @@
+<div class="page">
+  <h1 class="page__title">Grades</h1>
+
+  <p-card>
+    <p-tabView>
+      <p-tabPanel header="Grade Report">
+        @if (gradesLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (gradesError()) {
+          <p-message severity="error" [text]="gradesError()!" />
+        } @else if (gradeReport().length === 0) {
+          <p class="page__empty">No grades published yet for this batch.</p>
+        } @else {
+          <p-table [value]="gradeReport()">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Subject</th>
+                <th>Percentage</th>
+                <th>Grade</th>
+                <th></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.subject_name }}</td>
+                <td>{{ row.computed_percentage !== null ? (row.computed_percentage + '%') : '—' }}</td>
+                <td>{{ row.letter_grade ?? '—' }}</td>
+                <td>
+                  @if (row.is_overridden) {
+                    <p-tag severity="info" value="Adjusted by Coordinator" />
+                  }
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </p-tabPanel>
+
+      <p-tabPanel header="Marks Report">
+        <div class="marks-tab__select">
+          <p-select
+            [options]="subjectOptions()"
+            [ngModel]="selectedSubjectId()"
+            (ngModelChange)="onSubjectSelected($event)"
+            placeholder="Select a subject"
+            styleClass="w-full md:w-20rem">
+          </p-select>
+        </div>
+
+        @if (marksLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (subjectMarks()) {
+          <p-table [value]="subjectMarks()!.assessments">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Assessment</th>
+                <th>Marks Obtained</th>
+                <th>Max Marks</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.assessment_name }}</td>
+                <td>{{ row.marks_obtained }}</td>
+                <td>{{ row.max_marks }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        } @else {
+          <p class="page__empty">Pick a subject above to see its assessment-by-assessment breakdown.</p>
+        }
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

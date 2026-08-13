@@ -1,0 +1,86 @@
+<div class="p-6 flex flex-col gap-5">
+  <div>
+    <h1 class="text-xl font-bold text-navy">Fee Ledger</h1>
+    <p class="text-sm text-slate-500">Vouchers and payment status for your linked children.</p>
+  </div>
+
+  @if (childrenLoading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (childrenError()) {
+    <p-message severity="error" [text]="childrenError()!" />
+  } @else if (children().length === 0) {
+    <p-message severity="info" text="No children are linked to your account yet." />
+  } @else {
+    <p-card>
+      <div class="max-w-xs">
+        <label class="text-sm font-medium text-slate-600 mb-1 block">Child</label>
+        <p-select
+          [options]="children()"
+          optionLabel="full_name"
+          [ngModel]="selectedChild()"
+          (ngModelChange)="selectedChild.set($event)"
+          styleClass="w-full"
+        />
+      </div>
+    </p-card>
+
+    <p-card>
+      @if (vouchersLoading()) {
+        <div class="flex justify-center py-6">
+          <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
+        </div>
+      } @else if (vouchersError()) {
+        <p-message severity="error" [text]="vouchersError()!" />
+      } @else if (vouchersForSelectedChild().length === 0) {
+        <p-message severity="info" text="No fee vouchers have been generated for this child yet." />
+      } @else {
+        <p-table [value]="vouchersForSelectedChild()" styleClass="p-datatable-sm">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Amount</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr>
+              <td>{{ row.amount | number: '1.0-0' }}</td>
+              <td>{{ row.due_date | date: 'mediumDate' }}</td>
+              <td><p-tag [severity]="severityFor(row.status)" [value]="row.status" /></td>
+              <td>
+                @if (row.status === 'pending' || row.status === 'rejected') {
+                  <button pButton type="button" label="Upload Proof" class="p-button-sm"
+                          (click)="openUploadDialog(row.id)"></button>
+                }
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    </p-card>
+  }
+</div>
+
+<p-dialog
+  header="Upload Payment Proof"
+  [visible]="uploadDialogVisible()"
+  (visibleChange)="uploadDialogVisible.set($event)"
+  [modal]="true"
+  [style]="{ width: '28rem' }"
+>
+  <p-fileUpload
+    mode="basic"
+    chooseLabel="Choose File"
+    accept="image/*,.pdf"
+    [maxFileSize]="5000000"
+    [customUpload]="true"
+    (uploadHandler)="onUpload($event)"
+    [auto]="true"
+  ></p-fileUpload>
+  @if (uploading()) {
+    <p class="text-sm text-slate-500 mt-2">Uploading…</p>
+  }
+</p-dialog>

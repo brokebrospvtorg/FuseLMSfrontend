@@ -1,0 +1,29 @@
+.grades-tab__filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.grades-tab__override-context {
+  margin-bottom: 1rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.grades-tab__form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}
+
+.grades-tab__audit-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}

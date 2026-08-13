@@ -1,0 +1,116 @@
+<div class="p-6 flex flex-col gap-6">
+  <div>
+    <h1 class="text-xl font-bold text-navy">Complaints</h1>
+    <p class="text-sm text-slate-500">Submit a complaint on your child's behalf, and track what's happened to past ones.</p>
+  </div>
+
+  @if (childrenLoading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (childrenError()) {
+    <p-message severity="error" [text]="childrenError()!" />
+  } @else if (children().length === 0) {
+    <p-message severity="info" text="No children are linked to your account yet." />
+  } @else {
+    <!-- Launch Pad -->
+    <p-card>
+      <h2 class="font-semibold text-navy mb-3">Submit a Complaint</h2>
+
+      @if (submitError()) {
+        <p-message severity="error" [text]="submitError()!" styleClass="mb-3 w-full" />
+      }
+
+      <div class="flex flex-col gap-4">
+        <div class="max-w-xs">
+          <label class="text-sm font-medium text-slate-600 mb-1 block">Child</label>
+          <p-select
+            [options]="children()"
+            optionLabel="full_name"
+            [ngModel]="formChild()"
+            (ngModelChange)="formChild.set($event)"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-600 mb-1 block">Title</label>
+          <input
+            pInputText
+            class="w-full"
+            placeholder='Short summary, e.g. "Timetable clash for Physics"'
+            [ngModel]="title()"
+            (ngModelChange)="title.set($event)"
+          />
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-600 mb-1 block">Description</label>
+          <textarea
+            pTextarea
+            rows="5"
+            class="w-full"
+            placeholder="Describe the issue in detail..."
+            [ngModel]="description()"
+            (ngModelChange)="onDescriptionChange($event)"
+          ></textarea>
+          <p class="text-xs mt-1" [class]="descriptionRemaining() < 50 ? 'text-amber-600' : 'text-slate-400'">
+            {{ descriptionRemaining() }} characters remaining
+          </p>
+        </div>
+
+        <div>
+          <p-button label="Submit Complaint" icon="pi pi-send" [loading]="submitting()" (onClick)="submit()" />
+        </div>
+      </div>
+    </p-card>
+
+    <!-- Ticket History -->
+    <p-card>
+      <h2 class="font-semibold text-navy mb-3">Your Complaint History</h2>
+
+      @if (complaintsLoading()) {
+        <div class="flex justify-center py-6">
+          <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
+        </div>
+      } @else if (complaintsError()) {
+        <p-message severity="error" [text]="complaintsError()!" />
+      } @else if (complaints().length === 0) {
+        <p-message severity="info" text="You haven't submitted any complaints yet." />
+      } @else {
+        <div class="flex flex-col gap-5">
+          @for (c of complaints(); track c.id) {
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-start justify-between mb-2">
+                <div>
+                  <p class="font-medium text-navy">{{ c.subject_of_complaint || 'Untitled complaint' }}</p>
+                  <p class="text-xs text-slate-400">{{ c.created_at | date: 'medium' }}</p>
+                </div>
+                <p-tag [severity]="severityFor(c.status)" [value]="c.status" />
+              </div>
+              <p class="text-sm text-slate-600 mb-3">{{ c.description }}</p>
+
+              <p-timeline [value]="timelineFor(c.status)" layout="horizontal" align="top" styleClass="parent-complaint-timeline">
+                <ng-template pTemplate="content" let-step>
+                  <span class="text-xs" [class]="step.reached ? 'text-navy font-medium' : 'text-slate-400'">
+                    {{ step.label }}
+                  </span>
+                </ng-template>
+                <ng-template pTemplate="marker" let-step>
+                  <span
+                    class="inline-block w-3 h-3 rounded-full"
+                    [class]="step.reached ? (step.active ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-300'"
+                  ></span>
+                </ng-template>
+              </p-timeline>
+
+              @if (c.resolved_at) {
+                <p class="text-xs text-slate-400 mt-2">Resolved {{ c.resolved_at | date: 'medium' }}</p>
+              }
+            </div>
+          }
+        </div>
+      }
+    </p-card>
+  }
+</div>

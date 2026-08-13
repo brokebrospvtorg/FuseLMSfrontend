@@ -1,0 +1,95 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.attendance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+::ng-deep .attendance-card .p-card-body {
+  padding: 1.25rem;
+}
+
+.attendance-card__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.attendance-card__ring {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.attendance-card__ring-inner {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attendance-card__pct {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #101d3c;
+}
+
+.attendance-card__subject {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1rem;
+  color: #101d3c;
+  margin: 0 0 0.6rem;
+}
+
+.attendance-card__breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.attendance-card__stat {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #f4f5f9;
+  color: #4a5170;
+}
+
+.attendance-card__stat--present { background: #e6f6ea; color: #2f9e44; }
+.attendance-card__stat--absent { background: #fdecec; color: #e5484d; }
+.attendance-card__stat--late { background: #fff4e0; color: #b3720a; }
+.attendance-card__stat--excused { background: #eaf1fb; color: #2f6fbb; }
+
+.attendance-log__title {
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #101d3c;
+  font-size: 1.1rem;
+  margin: 0 0 1rem;
+}
+
+.attendance-log__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  align-items: center;
+}
+
+::ng-deep .attendance-log__filter-field {
+  min-width: 180px;
+}

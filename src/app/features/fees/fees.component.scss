@@ -1,0 +1,11 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.fees-tab__uploading {
+  margin-top: 0.75rem;
+  color: #4a5170;
+  font-size: 0.85rem;
+}

@@ -1,0 +1,95 @@
+<div class="page">
+  <h1 class="page__title">Attendance Report</h1>
+
+  @if (summaryLoading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else if (summaryError()) {
+    <p-message severity="error" [text]="summaryError()!" />
+  } @else if (summary().length === 0) {
+    <p-card><p class="page__empty">No attendance records yet — nothing has been marked for you this batch.</p></p-card>
+  } @else {
+    <div class="attendance-grid">
+      @for (row of summary(); track row.subject_id) {
+        <p-card styleClass="attendance-card">
+          <div class="attendance-card__body">
+            <div
+              class="attendance-card__ring"
+              [style.background]="'conic-gradient(' + ringColor(row.attendance_percentage) + ' ' + (row.attendance_percentage * 3.6) + 'deg, #eef0f5 0deg)'">
+              <div class="attendance-card__ring-inner">
+                <span class="attendance-card__pct">{{ row.attendance_percentage }}%</span>
+              </div>
+            </div>
+            <h3 class="attendance-card__subject">{{ row.subject_name }}</h3>
+            <div class="attendance-card__breakdown">
+              <span class="attendance-card__stat attendance-card__stat--present">{{ row.present_count }} Present</span>
+              <span class="attendance-card__stat attendance-card__stat--absent">{{ row.absent_count }} Absent</span>
+              <span class="attendance-card__stat attendance-card__stat--late">{{ row.late_count }} Late</span>
+              <span class="attendance-card__stat attendance-card__stat--excused">{{ row.excused_count }} Excused</span>
+            </div>
+          </div>
+        </p-card>
+      }
+    </div>
+  }
+
+  <p-card styleClass="attendance-log-card">
+    <h2 class="attendance-log__title">Detailed Log</h2>
+
+    <div class="attendance-log__filters">
+      <p-select
+        [options]="subjectOptions()"
+        [ngModel]="filterSubjectId()"
+        (ngModelChange)="filterSubjectId.set($event)"
+        placeholder="All subjects"
+        [showClear]="true"
+        styleClass="attendance-log__filter-field">
+      </p-select>
+
+      <p-datepicker
+        [ngModel]="filterDateFrom()"
+        (ngModelChange)="filterDateFrom.set($event)"
+        placeholder="From date"
+        dateFormat="dd M yy"
+        [showIcon]="true"
+        styleClass="attendance-log__filter-field">
+      </p-datepicker>
+
+      <p-datepicker
+        [ngModel]="filterDateTo()"
+        (ngModelChange)="filterDateTo.set($event)"
+        placeholder="To date"
+        dateFormat="dd M yy"
+        [showIcon]="true"
+        styleClass="attendance-log__filter-field">
+      </p-datepicker>
+
+      <button pButton type="button" label="Apply" (click)="loadRecords()"></button>
+      <button pButton type="button" label="Clear" class="p-button-outlined" (click)="clearFilters()"></button>
+    </div>
+
+    @if (recordsLoading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (recordsError()) {
+      <p-message severity="error" [text]="recordsError()!" />
+    } @else if (records().length === 0) {
+      <p class="page__empty">No records match this filter.</p>
+    } @else {
+      <p-table [value]="records()" [rows]="10" [paginator]="records().length > 10">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Date</th>
+            <th>Subject</th>
+            <th>Status</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.date | date: 'mediumDate' }}</td>
+            <td>{{ row.subject_name }}</td>
+            <td><p-tag [severity]="statusSeverity(row.status)" [value]="row.status" /></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>

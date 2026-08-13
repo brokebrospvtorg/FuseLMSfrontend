@@ -1,0 +1,132 @@
+<div class="max-w-6xl mx-auto">
+
+  @if (loading()) {
+    <div class="flex justify-center py-24">
+      <svg class="animate-spin h-8 w-8 text-navy" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+      </svg>
+    </div>
+  } @else {
+
+    <!-- Quick stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-4">
+        <p class="text-xs text-slate-400 font-medium mb-1">Attendance</p>
+        <p [class]="'text-2xl font-bold ' + attendanceColor(summary()?.attendance_percentage ?? 0)">
+          {{ summary()?.attendance_percentage ?? 0 }}%
+        </p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-4">
+        <p class="text-xs text-slate-400 font-medium mb-1">Pending Assessments</p>
+        <p class="text-2xl font-bold text-navy">{{ summary()?.pending_assessments_count ?? 0 }}</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-4">
+        <p class="text-xs text-slate-400 font-medium mb-1">Active Subjects</p>
+        <p class="text-2xl font-bold text-navy">{{ summary()?.active_subjects_count ?? 0 }}</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-4">
+        <p class="text-xs text-slate-400 font-medium mb-1">Today's Classes</p>
+        <p class="text-2xl font-bold text-navy">{{ todaysClasses().length }}</p>
+      </div>
+    </div>
+
+    <!-- Profile + Personal Info -->
+    <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-5 mb-5">
+
+      <!-- Profile card -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="bg-navy text-white font-semibold px-5 py-3">Profile</div>
+        <div class="p-6 flex flex-col items-center text-center gap-3">
+          <div class="w-20 h-20 rounded-full bg-navy overflow-hidden flex items-center justify-center">
+            <img src="assets/images/inklings-logo.png" alt="Inklings Academy" class="w-full h-full object-cover" />
+          </div>
+
+          <dl class="w-full text-left mt-2 text-sm">
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <dt class="font-semibold text-navy">Class</dt>
+              <dd class="text-slate-500">{{ profile()?.class_name || '—' }}</dd>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <dt class="font-semibold text-navy">Registration ID</dt>
+              <dd class="text-slate-500">{{ profile()?.student_profile?.roll_number || '—' }}</dd>
+            </div>
+            <div class="flex justify-between py-2">
+              <dt class="font-semibold text-navy">Registration Date</dt>
+              <dd class="text-slate-500">{{ formatDate(profile()?.student_profile?.admission_date) }}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Personal Info & Other -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="bg-navy text-white font-semibold px-5 py-3">Personal Info &amp; Other</div>
+        <dl class="p-6 text-sm">
+          <div class="flex justify-between py-2 border-b border-slate-100">
+            <dt class="font-semibold text-navy">Name</dt>
+            <dd class="text-slate-500">{{ profile()?.user?.full_name || '—' }}</dd>
+          </div>
+          @for (field of ['Father\'s Name', 'Date of Birth', 'Gender', 'Religion', 'Nationality', 'CNIC #', 'Department']; track field) {
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <dt class="font-semibold text-navy">{{ field }}</dt>
+              <dd class="text-slate-400 italic">Not set</dd>
+            </div>
+          }
+          <div class="flex justify-between py-2">
+            <dt class="font-semibold text-navy">Registration Date</dt>
+            <dd class="text-slate-500">{{ formatDate(profile()?.student_profile?.admission_date) }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Academic Progress + Classes -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="bg-navy text-white font-semibold px-5 py-3">Academic Progress</div>
+        <div class="p-5">
+          @if (attendanceBySubject().length === 0) {
+            <p class="text-sm text-slate-400 py-6 text-center">No attendance recorded yet.</p>
+          } @else {
+            <ul class="flex flex-col gap-1">
+              @for (row of attendanceBySubject(); track row.subject_id) {
+                <li class="flex justify-between items-center py-2 border-b border-slate-100 last:border-0 text-sm">
+                  <span class="text-navy font-medium">{{ row.subject_name }}</span>
+                  <span [class]="'font-bold ' + attendanceColor(row.attendance_percentage)">
+                    {{ row.attendance_percentage }}%
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="bg-navy text-white font-semibold px-5 py-3">Classes</div>
+        <div class="p-5">
+          @if (todaysClasses().length === 0) {
+            <p class="text-sm text-slate-400 py-6 text-center">No classes scheduled for today.</p>
+          } @else {
+            <ul class="flex flex-col gap-1">
+              @for (cls of todaysClasses(); track cls.id) {
+                <li class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
+                  <span class="w-9 h-9 flex-shrink-0 rounded-lg bg-slate-100 text-navy text-xs font-bold
+                               flex items-center justify-center">
+                    P{{ cls.period_number }}
+                  </span>
+                  <div class="flex flex-col text-sm">
+                    <span class="font-medium text-navy">{{ cls.subject_name }}</span>
+                    <span class="text-xs text-slate-400">{{ cls.teacher_name }} · {{ cls.start_time }}–{{ cls.end_time }}</span>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

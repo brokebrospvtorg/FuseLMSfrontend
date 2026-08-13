@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Brand tokens as Tailwind theme extensions (v4 CSS-based config) */
+@theme {
+  --color-navy: #101d3c;
+  --color-navy-deep: #0b1530;
+  --font-serif-display: 'Playfair Display', Georgia, serif;
+}

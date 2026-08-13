@@ -1,0 +1,11 @@
+.registry__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.registry__na {
+  color: var(--text-color-secondary, #94a3b8);
+}

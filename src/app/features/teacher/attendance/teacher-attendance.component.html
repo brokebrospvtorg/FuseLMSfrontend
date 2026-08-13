@@ -1,0 +1,84 @@
+<div class="page">
+  <h1 class="page__title">Mark Attendance</h1>
+
+  @if (pickerLoading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else if (pickerError()) {
+    <p-message severity="error" [text]="pickerError()!" />
+  } @else {
+    <p-card>
+      <div class="attendance-toolbar">
+        <div class="attendance-toolbar__field">
+          <label>Date</label>
+          <p-datepicker
+            [ngModel]="selectedDate()"
+            (ngModelChange)="selectedDate.set($event); onDateChanged()"
+            dateFormat="dd M yy"
+            [showIcon]="true">
+          </p-datepicker>
+        </div>
+
+        <div class="attendance-toolbar__field attendance-toolbar__field--grow">
+          <label>Period</label>
+          @if (periodOptions().length === 0) {
+            <p class="page__empty">No periods scheduled for this day.</p>
+          } @else {
+            <p-select
+              [options]="periodOptions()"
+              optionLabel="label"
+              placeholder="Select a period"
+              [ngModel]="selectedPeriod()"
+              (ngModelChange)="onPeriodSelected($event)"
+              styleClass="w-full">
+            </p-select>
+          }
+        </div>
+      </div>
+    </p-card>
+
+    @if (selectedPeriod()) {
+      <p-card>
+        <div class="attendance-toolbar">
+          <h2 class="attendance-toolbar__title">{{ selectedPeriod()!.label }}</h2>
+          <p-button
+            label="Submit Attendance"
+            [loading]="saving()"
+            [disabled]="rosterLoading() || roster().length === 0"
+            (onClick)="submit()">
+          </p-button>
+        </div>
+
+        @if (rosterLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+        } @else if (roster().length === 0) {
+          <p class="page__empty">No students actively enrolled in this class yet.</p>
+        } @else {
+          <p-table [value]="roster()">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Roll No.</th>
+                <th>Student</th>
+                <th>Status</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.roll_number ?? '—' }}</td>
+                <td>{{ row.full_name }}</td>
+                <td>
+                  <p-selectButton
+                    [options]="statusOptions"
+                    [ngModel]="row.status"
+                    (ngModelChange)="setStatus(row, $event)"
+                    optionLabel="label"
+                    optionValue="value">
+                  </p-selectButton>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </p-card>
+    }
+  }
+</div>

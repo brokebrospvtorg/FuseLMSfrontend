@@ -1,0 +1,79 @@
+<div class="p-6 flex flex-col gap-5">
+  <div>
+    <h1 class="text-xl font-bold text-navy">Academic Transcript</h1>
+    <p class="text-sm text-slate-500">Subject-wise grades and the assessments behind each one.</p>
+  </div>
+
+  @if (childrenLoading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (childrenError()) {
+    <p-message severity="error" [text]="childrenError()!" />
+  } @else if (children().length === 0) {
+    <p-message severity="info" text="No children are linked to your account yet." />
+  } @else {
+    <p-card>
+      <div class="max-w-xs">
+        <label class="text-sm font-medium text-slate-600 mb-1 block">Child</label>
+        <p-select
+          [options]="children()"
+          optionLabel="full_name"
+          [ngModel]="selectedChild()"
+          (ngModelChange)="onChildChange($event)"
+          styleClass="w-full"
+        />
+      </div>
+    </p-card>
+
+    @if (transcriptLoading()) {
+      <div class="flex justify-center py-6">
+        <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
+      </div>
+    } @else if (transcriptError()) {
+      <p-message severity="error" [text]="transcriptError()!" />
+    } @else if (transcript().length === 0) {
+      <p-message severity="info" text="No grades computed for this child yet." />
+    } @else {
+      @for (subject of transcript(); track subject.subject_id) {
+        <p-card>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-navy">
+              {{ subject.subject_name }}
+              @if (subject.is_overridden) {
+                <span class="text-xs text-amber-600 font-medium ml-2">Grade overridden by Coordinator</span>
+              }
+            </h2>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-slate-500">
+                {{ subject.computed_percentage !== null ? (subject.computed_percentage | number: '1.0-1') + '%' : 'No grade yet' }}
+              </span>
+              <p-tag [severity]="severityFor(subject.computed_percentage)" [value]="subject.letter_grade ?? '—'" />
+            </div>
+          </div>
+
+          @if (subject.assessments.length === 0) {
+            <p class="text-sm text-slate-400">No published assessments for this subject yet.</p>
+          } @else {
+            <p-table [value]="subject.assessments" styleClass="p-datatable-sm">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Assessment</th>
+                  <th>Obtained</th>
+                  <th>Total</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-a>
+                <tr>
+                  <td>{{ a.assessment_name }}</td>
+                  <td>{{ a.marks_obtained }}</td>
+                  <td>{{ a.max_marks }}</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        </p-card>
+      }
+    }
+  }
+</div>

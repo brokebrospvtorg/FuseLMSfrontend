@@ -1,0 +1,44 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.content-tab__lecture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.content-tab__lecture-card {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eef0f5;
+}
+
+.content-tab__lecture-embed {
+  position: relative;
+  padding-top: 56.25%;
+
+  iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+}
+
+.content-tab__lecture-subject {
+  margin: 0.75rem 0.75rem 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b93a7;
+}
+
+.content-tab__lecture-title {
+  margin: 0.25rem 0.75rem 0.75rem;
+  font-weight: 600;
+  color: #101d3c;
+}

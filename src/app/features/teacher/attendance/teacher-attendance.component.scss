@@ -1,0 +1,31 @@
+.attendance-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.attendance-toolbar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-color-secondary, #64748b);
+  }
+}
+
+.attendance-toolbar__field--grow {
+  flex: 1;
+  min-width: 16rem;
+}
+
+.attendance-toolbar__title {
+  margin: 0;
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 600;
+}

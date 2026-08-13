@@ -1,0 +1,96 @@
+<div class="max-w-6xl mx-auto">
+
+  @if (childrenLoading()) {
+    <div class="flex justify-center py-24">
+      <svg class="animate-spin h-8 w-8 text-navy" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+      </svg>
+    </div>
+  } @else if (childrenError()) {
+    <p class="text-red-600 py-8">{{ childrenError() }}</p>
+  } @else if (children().length === 0) {
+    <p class="text-slate-500 py-8">No children are linked to your account yet. Contact the school office to get linked.</p>
+  } @else {
+
+    <!-- Child Switcher -->
+    <div class="relative inline-block mb-6">
+      <button
+        type="button"
+        (click)="toggleSwitcher()"
+        class="flex items-center gap-3 bg-white rounded-xl shadow-sm border border-slate-200 px-4 py-2.5 hover:border-navy transition-colors">
+        <div class="w-9 h-9 rounded-full bg-navy text-white flex items-center justify-center text-sm font-semibold">
+          {{ selectedChild() ? initialsFor(selectedChild()!.full_name) : '' }}
+        </div>
+        <div class="text-left">
+          <p class="text-sm font-semibold text-navy leading-tight">{{ selectedChild()?.full_name }}</p>
+          @if (selectedChild()?.relationship) {
+            <p class="text-xs text-slate-400 leading-tight">Your {{ selectedChild()?.relationship }}</p>
+          }
+        </div>
+        @if (children().length > 1) {
+          <svg class="w-4 h-4 text-slate-400 ml-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        }
+      </button>
+
+      @if (switcherOpen() && children().length > 1) {
+        <div class="absolute z-10 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+          @for (child of children(); track child.student_id) {
+            <button
+              type="button"
+              (click)="selectChild(child.student_id)"
+              class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+              [class.bg-slate-50]="child.student_id === selectedStudentId()">
+              <div class="w-8 h-8 rounded-full bg-navy text-white flex items-center justify-center text-xs font-semibold">
+                {{ initialsFor(child.full_name) }}
+              </div>
+              <div>
+                <p class="text-sm font-medium text-navy leading-tight">{{ child.full_name }}</p>
+                @if (child.roll_number) {
+                  <p class="text-xs text-slate-400 leading-tight">Roll #{{ child.roll_number }}</p>
+                }
+              </div>
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Performance Overview Grid -->
+    @if (overviewLoading()) {
+      <div class="flex justify-center py-16">
+        <svg class="animate-spin h-6 w-6 text-navy" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+        </svg>
+      </div>
+    } @else if (overview()) {
+      <!-- FIX: Wrapped inside a secondary @if to safely scope the 'as data' alias -->
+      @if (overview(); as data) {
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-5">
+            <p class="text-xs text-slate-400 font-medium mb-1">Current Batch</p>
+            <p class="text-xl font-bold text-navy">
+              {{ data.current_batch_name ?? 'No active batch' }}
+              @if (data.current_batch_year) { <span class="text-base font-medium text-slate-400">{{ data.current_batch_year }}</span> }
+            </p>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-5">
+            <p class="text-xs text-slate-400 font-medium mb-1">Overall Attendance</p>
+            <p [class]="'text-2xl font-bold ' + attendanceColor()">
+              {{ data.overall_attendance_percentage !== null ? data.overall_attendance_percentage + '%' : 'No records yet' }}
+            </p>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-5">
+            <p class="text-xs text-slate-400 font-medium mb-1">Aggregate Grade</p>
+            <p class="text-2xl font-bold text-navy">
+              {{ data.aggregate_grade_percentage !== null ? data.aggregate_grade_percentage + '%' : 'No grades yet' }}
+            </p>
+          </div>
+        </div>
+      }
+    }
+  }
+</div>
