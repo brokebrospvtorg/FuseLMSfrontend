@@ -2,13 +2,21 @@
  * Single source of truth for app-wide config that differs between
  * local dev and production (currently just the API base URL).
  *
- * Kept as a plain constant rather than Angular's old environment.ts/
- * environment.prod.ts pattern — this is a one-time single-deployment
- * app, not a multi-environment SaaS, so the extra fileReplacements
- * build-config wiring isn't worth the ceremony. If FUSE LMS ever needs
- * staging/prod/multiple client deployments, migrate this to proper
- * environment files at that point.
+ * Runtime hostname check instead of Angular's environment.ts/
+ * environment.prod.ts file-replacement pattern — this is a one-time
+ * single-deployment app, not a multi-environment SaaS, so the extra
+ * fileReplacements build-config wiring isn't worth the ceremony. This way
+ * the SAME build works correctly whether it's running via `ng serve` on
+ * localhost or deployed on Vercel — no separate prod build step to forget.
+ *
  */
+const PRODUCTION_API_BASE_URL = 'https://fuselmsback-production.up.railway.app/api';
+const LOCAL_API_BASE_URL = 'http://localhost:8000/api';
+
+const isLocalHost =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 export const APP_CONFIG = {
-  apiBaseUrl: 'http://localhost:8000/api',
+  apiBaseUrl: isLocalHost ? LOCAL_API_BASE_URL : PRODUCTION_API_BASE_URL,
 } as const;
