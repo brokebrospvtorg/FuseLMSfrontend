@@ -1,0 +1,43 @@
+<div class="page">
+  <h1 class="page__title">Timetable</h1>
+
+  @if (loading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else if (error()) {
+    <p-message severity="error" [text]="error()!" />
+  } @else if (schedule().length === 0) {
+    <p-card>
+      <p class="page__empty">Your Coordinator hasn't scheduled any periods for you yet.</p>
+    </p-card>
+  } @else {
+    <div class="timetable-grid">
+      @for (day of weekDays; track day) {
+        <p-card styleClass="timetable-grid__day" [class.timetable-grid__day--today]="day === today">
+          <div class="timetable-grid__day-header">
+            <h3>{{ dayLabels[day] }}</h3>
+            @if (day === today) {
+              <p-tag severity="info" value="Today" />
+            }
+          </div>
+
+          @if (scheduleByDay()[day].length === 0) {
+            <p class="page__empty timetable-grid__empty">No periods</p>
+          } @else {
+            <ul class="timetable-grid__periods">
+              @for (entry of scheduleByDay()[day]; track entry.id) {
+                <li class="timetable-grid__period">
+                  <span class="timetable-grid__period-badge">P{{ entry.period_number }}</span>
+                  <div class="timetable-grid__period-details">
+                    <span class="timetable-grid__subject">{{ entry.subject_name }}</span>
+                    <span class="timetable-grid__meta">{{ entry.batch_name }}</span>
+                    <span class="timetable-grid__meta">{{ entry.start_time }} – {{ entry.end_time }}</span>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </p-card>
+      }
+    </div>
+  }
+</div>

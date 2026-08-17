@@ -17,16 +17,10 @@
 }
 
 .content-tab__lecture-embed {
-  position: relative;
-  padding-top: 56.25%;
-
-  iframe {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
+  // Aspect-ratio sizing now lives inside app-youtube-player itself
+  // (shared/ui/youtube-player) — this wrapper is just a passthrough so the
+  // lecture-embed div doesn't stack a second, conflicting 16:9 box on top
+  // of the player's own.
 }
 
 .content-tab__lecture-subject {
@@ -41,4 +35,13 @@
   margin: 0.25rem 0.75rem 0.75rem;
   font-weight: 600;
   color: #101d3c;
+}
+
+.content-tab__gcr-link {
+  display: block;
+  margin: 0 0.75rem 0.75rem;
+
+  button {
+    width: 100%;
+  }
 }

@@ -64,7 +64,8 @@
 
 <p-dialog
   [header]="dialogAction() === 'approved' ? 'Approve Subject Request' : 'Reject Subject Request'"
-  [(visible)]="dialogOpen"
+  [visible]="dialogOpen()"
+  (visibleChange)="dialogOpen.set($event)"
   [modal]="true"
   [style]="{ width: '28rem' }">
   @if (actioningRequest(); as row) {

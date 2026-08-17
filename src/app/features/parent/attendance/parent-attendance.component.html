@@ -1,0 +1,117 @@
+<div class="p-6 flex flex-col gap-5">
+  <div>
+    <h1 class="text-xl font-bold text-navy">Attendance</h1>
+    <p class="text-sm text-slate-500">Present/Absent/Leave breakdown and recent activity.</p>
+  </div>
+
+  @if (childrenLoading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (childrenError()) {
+    <p-message severity="error" [text]="childrenError()!" />
+  } @else if (children().length === 0) {
+    <p-message severity="info" text="No children are linked to your account yet." />
+  } @else {
+    <p-card>
+      <div class="max-w-xs">
+        <label class="text-sm font-medium text-slate-600 mb-1 block">Child</label>
+        <p-select
+          [options]="children()"
+          optionLabel="full_name"
+          [ngModel]="selectedChild()"
+          (ngModelChange)="onChildChange($event)"
+          styleClass="w-full">
+        </p-select>
+      </div>
+    </p-card>
+
+    @if (summaryLoading()) {
+      <div class="flex justify-center py-6">
+        <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
+      </div>
+    } @else if (summaryError()) {
+      <p-message severity="error" [text]="summaryError()!" />
+    } @else {
+      @if (summary(); as data) {
+        <!-- Overall gauges -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-white rounded-xl shadow-sm border-l-4 border-navy p-5">
+            <p class="text-xs text-slate-400 font-medium mb-1">Overall Attendance</p>
+            <p [class]="'text-2xl font-bold ' + gaugeColorClass(data.overall_attendance_percentage)">
+              {{ data.overall_attendance_percentage !== null ? data.overall_attendance_percentage + '%' : 'No records yet' }}
+            </p>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border-l-4 border-green-500 p-5">
+            <p class="text-xs text-slate-400 font-medium mb-1">Present</p>
+            <p class="text-2xl font-bold text-navy">{{ data.overall_present_count }}</p>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border-l-4 border-red-500 p-5">
+            <p class="text-xs text-slate-400 font-medium mb-1">Absent</p>
+            <p class="text-2xl font-bold text-navy">{{ data.overall_absent_count }}</p>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border-l-4 border-blue-400 p-5">
+            <p class="text-xs text-slate-400 font-medium mb-1">Leave (Excused)</p>
+            <p class="text-2xl font-bold text-navy">{{ data.overall_excused_count }}</p>
+          </div>
+        </div>
+
+        <!-- Subject-wise breakdown -->
+        <p-card header="Subject-wise Breakdown">
+          @if (data.by_subject.length === 0) {
+            <p class="text-sm text-slate-500">No attendance records yet.</p>
+          } @else {
+            <p-table [value]="data.by_subject">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Subject</th>
+                  <th>Present</th>
+                  <th>Absent</th>
+                  <th>Late</th>
+                  <th>Excused</th>
+                  <th>Attendance %</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.subject_name }}</td>
+                  <td>{{ row.present_count }}</td>
+                  <td>{{ row.absent_count }}</td>
+                  <td>{{ row.late_count }}</td>
+                  <td>{{ row.excused_count }}</td>
+                  <td [class]="gaugeColorClass(row.attendance_percentage) + ' font-semibold'">
+                    {{ row.attendance_percentage }}%
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        </p-card>
+
+        <!-- Recent activity -->
+        <p-card header="Recent Activity">
+          @if (data.recent_activity.length === 0) {
+            <p class="text-sm text-slate-500">No attendance records yet.</p>
+          } @else {
+            <p-table [value]="data.recent_activity" [paginator]="true" [rows]="10">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Date</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.date | date: 'mediumDate' }}</td>
+                  <td>{{ row.subject_name }}</td>
+                  <td><p-tag [severity]="severityFor(row.status)" [value]="row.status" /></td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        </p-card>
+      }
+    }
+  }
+</div>

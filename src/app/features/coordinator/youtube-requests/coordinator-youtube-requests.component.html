@@ -1,0 +1,120 @@
+<div class="page">
+  <h1 class="page__title">Video Change Requests</h1>
+  <p class="page__subtitle">Teachers' proposed changes to an already-locked YouTube video. Approving updates the live lecture immediately.</p>
+
+  <p-card>
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (loadError()) {
+      <p-message severity="error" [text]="loadError()!" />
+    } @else if (requests().length === 0) {
+      <p class="page__empty">No pending video change requests right now.</p>
+    } @else {
+      <p-table [value]="requests()" [rows]="10" [paginator]="requests().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Teacher</th>
+            <th>Lecture</th>
+            <th>Subject</th>
+            <th>Current</th>
+            <th>Proposed</th>
+            <th>Reason</th>
+            <th>Requested</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.requester_name ?? '—' }}</td>
+            <td>{{ row.lecture_title ?? '—' }}</td>
+            <td>{{ row.subject_name ?? '—' }}</td>
+            <td class="requests__thumb-cell">
+              @if (row.current_video_id) {
+                <img
+                  class="requests__thumb"
+                  [src]="'https://i.ytimg.com/vi/' + row.current_video_id + '/default.jpg'"
+                  alt="Current video thumbnail" />
+              } @else {
+                <span class="requests__thumb-empty">No video set</span>
+              }
+            </td>
+            <td class="requests__thumb-cell">
+              @if (proposedVideoId(row); as videoId) {
+                <img
+                  class="requests__thumb requests__thumb--proposed"
+                  [src]="'https://i.ytimg.com/vi/' + videoId + '/default.jpg'"
+                  alt="Proposed video thumbnail" />
+              } @else {
+                <span class="requests__thumb-empty">Unrecognized link</span>
+              }
+            </td>
+            <td>{{ row.reason || '—' }}</td>
+            <td>{{ row.created_at | date: 'mediumDate' }}</td>
+            <td>
+              <div class="requests__actions">
+                <p-button label="Approve" size="small" (onClick)="openDialog(row, 'approved')" />
+                <p-button label="Reject" size="small" severity="danger" [outlined]="true" (onClick)="openDialog(row, 'rejected')" />
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<p-dialog
+  [header]="dialogAction() === 'approved' ? 'Approve Video Change' : 'Reject Video Change'"
+  [visible]="dialogOpen()"
+  (visibleChange)="dialogOpen.set($event)"
+  [modal]="true"
+  [style]="{ width: '46rem' }">
+  @if (actioningRequest(); as row) {
+    <p class="requests__dialog-context">
+      <strong>{{ row.requester_name }}</strong> — {{ row.lecture_title }} ({{ row.subject_name }})
+    </p>
+
+    <!-- Task 6.1: side-by-side current vs proposed video preview -->
+    <div class="requests__compare">
+      <div class="requests__compare-col">
+        <p class="requests__compare-label">Current</p>
+        <app-youtube-player [videoId]="row.current_video_id" title="Current video" />
+      </div>
+      <i class="pi pi-arrow-right requests__compare-arrow"></i>
+      <div class="requests__compare-col">
+        <p class="requests__compare-label requests__compare-label--proposed">Proposed</p>
+        @if (proposedVideoId(row); as videoId) {
+          <app-youtube-player [videoId]="videoId" title="Proposed video" />
+        } @else {
+          <p-message severity="warn" text="This URL doesn't look like a recognizable YouTube link — approving will fail server-side." />
+        }
+      </div>
+    </div>
+
+    @if (row.reason) {
+      <p class="requests__dialog-reason"><strong>Teacher's reason:</strong> {{ row.reason }}</p>
+    }
+  }
+
+  <div class="requests__form-field">
+    <label for="review-note">Review Note (optional)</label>
+    <textarea
+      id="review-note"
+      pTextarea
+      rows="3"
+      [ngModel]="reviewNote()"
+      (ngModelChange)="reviewNote.set($event)"
+      placeholder="Visible to the teacher in their notification."
+      class="w-full">
+    </textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="dialogOpen.set(false)" />
+    <p-button
+      [label]="dialogAction() === 'approved' ? 'Confirm Approval' : 'Confirm Rejection'"
+      [severity]="dialogAction() === 'approved' ? 'primary' : 'danger'"
+      [loading]="submitting()"
+      (onClick)="submitDecision()" />
+  </ng-template>
+</p-dialog>

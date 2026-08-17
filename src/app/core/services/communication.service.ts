@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
-import { Complaint, CreateComplaint, Notification } from '../models/communication.model';
+import { Complaint, CreateComplaint, Notification, ResolveComplaintPayload } from '../models/communication.model';
 
 @Injectable({ providedIn: 'root' })
 export class CommunicationService {
@@ -26,6 +26,14 @@ export class CommunicationService {
     return this.http.post<Complaint>(`${this.apiBaseUrl}/complaints`, payload, { withCredentials: true });
   }
 
+  /** Coordinator/Admin only (backend-enforced) — progress or close a
+   *  complaint, optionally with a reply the submitter will see. */
+  resolveComplaint(complaintId: string, payload: ResolveComplaintPayload): Observable<Complaint> {
+    return this.http.patch<Complaint>(`${this.apiBaseUrl}/complaints/${complaintId}`, payload, {
+      withCredentials: true,
+    });
+  }
+
   getMyNotifications(): Observable<Notification[]> {
     return this.http.get<Notification[]>(`${this.apiBaseUrl}/notifications`, { withCredentials: true });
   }
@@ -34,6 +42,15 @@ export class CommunicationService {
     return this.http.patch<Notification>(
       `${this.apiBaseUrl}/notifications/${id}/read`,
       {},
+      { withCredentials: true },
+    );
+  }
+
+  /** Admin Sub-Sprint 4: broadcast to a role, or every active user if role is omitted. */
+  broadcastNotification(message: string, role?: string): Observable<{ recipient_count: number }> {
+    return this.http.post<{ recipient_count: number }>(
+      `${this.apiBaseUrl}/notifications/broadcast`,
+      { message, role: role ?? null },
       { withCredentials: true },
     );
   }

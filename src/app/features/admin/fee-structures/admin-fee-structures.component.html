@@ -1,0 +1,97 @@
+<div class="p-6 flex flex-col gap-5">
+  <div class="fee-structures__header">
+    <div>
+      <h1 class="text-xl font-bold text-navy">Fee Structures</h1>
+      <p class="text-sm text-slate-500">Set a default fee per subject, or a per-student override (e.g. a scholarship rate).</p>
+    </div>
+    <p-button label="Add Fee" icon="pi pi-plus" (onClick)="openCreateDialog()" />
+  </div>
+
+  <p-card>
+    <div class="fee-structures__filter">
+      <label>Subject</label>
+      <p-select
+        [options]="subjectFilterOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="subjectFilter()"
+        (ngModelChange)="subjectFilter.set($event); loadStructures()"
+        styleClass="w-full md:w-16rem" />
+    </div>
+  </p-card>
+
+  @if (loading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (structures().length === 0) {
+    <p class="text-slate-500 py-4">No fee structures set yet — click "Add Fee" to set one.</p>
+  } @else {
+    <p-card>
+      <p-table [value]="structures()" [rows]="10" [paginator]="structures().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Subject</th>
+            <th>Scope</th>
+            <th>Amount</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.subject_name }}</td>
+            <td>{{ row.student_name ? row.student_name : 'Default (all students)' }}</td>
+            <td>{{ row.amount | number: '1.0-2' }}</td>
+            <td class="fee-structures__row-actions">
+              <p-button label="Edit" size="small" severity="secondary" (onClick)="openEditDialog(row)" />
+              <p-button label="Remove" size="small" severity="danger" (onClick)="deleteStructure(row)" />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  }
+</div>
+
+<p-dialog 
+  [header]="dialogMode() === 'create' ? 'Add Fee' : 'Edit Fee'" 
+  [visible]="dialogOpen()" 
+  (visibleChange)="dialogOpen.set($event)" 
+  [modal]="true" 
+  [style]="{ width: '26rem' }">
+  @if (dialogMode() === 'create') {
+    <div class="fee-structures__form-field">
+      <label>Subject</label>
+      <p-select 
+        [options]="subjects()" 
+        optionLabel="name" 
+        optionValue="id" 
+        [ngModel]="formSubjectId()" 
+        (ngModelChange)="formSubjectId.set($event)" 
+        styleClass="w-full" />
+    </div>
+    <div class="fee-structures__form-field">
+      <label>Applies to</label>
+      <p-select
+        [options]="studentSelectOptions()"
+        optionLabel="full_name"
+        optionValue="id"
+        [ngModel]="formStudentId()"
+        (ngModelChange)="formStudentId.set($event)"
+        styleClass="w-full" />
+    </div>
+  } @else {
+    <p class="fee-structures__edit-context">
+      Editing amount only — subject and scope can't change here.
+    </p>
+  }
+  <div class="fee-structures__form-field">
+    <label>Amount</label>
+    <p-inputNumber [ngModel]="formAmount()" (ngModelChange)="formAmount.set($event)" mode="currency" currency="PKR" locale="en-PK" styleClass="w-full" />
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="dialogOpen.set(false)" />
+    <p-button label="Save" [loading]="submitting()" (onClick)="submit()" />
+  </ng-template>
+</p-dialog>

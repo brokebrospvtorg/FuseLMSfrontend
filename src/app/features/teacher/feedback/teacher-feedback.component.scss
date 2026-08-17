@@ -1,0 +1,22 @@
+.feedback-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #101d3c;
+  }
+}
+
+.feedback-history-card {
+  margin-top: 1.5rem;
+}
+
+.feedback-history__description {
+  max-width: 22rem;
+  white-space: normal;
+  word-break: break-word;
+}

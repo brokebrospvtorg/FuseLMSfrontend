@@ -1,0 +1,71 @@
+<div class="p-6 flex flex-col gap-5">
+  <div>
+    <h1 class="text-xl font-bold text-navy">Timetable</h1>
+    <p class="text-sm text-slate-500">Weekly class schedule.</p>
+  </div>
+
+  @if (childrenLoading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (childrenError()) {
+    <p-message severity="error" [text]="childrenError()!" />
+  } @else if (children().length === 0) {
+    <p-message severity="info" text="No children are linked to your account yet." />
+  } @else {
+    <p-card>
+      <div class="max-w-xs">
+        <label class="text-sm font-medium text-slate-600 mb-1 block">Child</label>
+        <p-select
+          [options]="children()"
+          optionLabel="full_name"
+          [ngModel]="selectedChild()"
+          (ngModelChange)="onChildChange($event)"
+          styleClass="w-full">
+        </p-select>
+      </div>
+    </p-card>
+
+    @if (entriesLoading()) {
+      <div class="flex justify-center py-6">
+        <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
+      </div>
+    } @else if (entriesError()) {
+      <p-message severity="error" [text]="entriesError()!" />
+    } @else if (entries().length === 0) {
+      <p-message severity="info" text="No subjects enrolled yet, so there's nothing scheduled." />
+    } @else {
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        @for (day of weekDays; track day) {
+          <div
+            class="rounded-xl border p-4 bg-white"
+            [class.border-navy]="day === today"
+            [class.border-2]="day === today"
+            [class.shadow-md]="day === today"
+            [class.border-slate-200]="day !== today">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-navy">{{ dayLabels[day] }}</h3>
+              @if (day === today) {
+                <span class="text-xs font-medium text-white bg-navy rounded-full px-2 py-0.5">Today</span>
+              }
+            </div>
+
+            @if (entriesByDay()[day].length === 0) {
+              <p class="text-xs text-slate-400">No periods</p>
+            } @else {
+              <div class="flex flex-col gap-2">
+                @for (period of entriesByDay()[day]; track period.id) {
+                  <div class="rounded-lg bg-slate-50 border border-slate-100 p-2.5">
+                    <p class="text-xs font-medium text-slate-400">{{ period.start_time }} – {{ period.end_time }}</p>
+                    <p class="text-sm font-semibold text-navy leading-tight mt-0.5">{{ period.subject_name }}</p>
+                    <p class="text-xs text-slate-500 leading-tight">{{ period.teacher_name }}</p>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

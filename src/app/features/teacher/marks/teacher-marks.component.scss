@@ -26,8 +26,34 @@
   }
 }
 
+.marks-tab__entry-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+
+  h3 {
+    margin-bottom: 0;
+  }
+}
+
+.marks-tab__locked-notice {
+  display: block;
+  margin-bottom: 1.25rem;
+}
+
 .marks-tab__save-btn {
   margin-top: 1rem;
+}
+
+.marks-tab__requests-card {
+  margin-top: 1.5rem;
+}
+
+.marks-tab__dialog-subtitle {
+  color: #8b93a7;
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
 }
 
 .marks-tab__form-field {

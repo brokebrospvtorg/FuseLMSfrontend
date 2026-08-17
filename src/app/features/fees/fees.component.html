@@ -37,7 +37,7 @@
     </p-card>
   }
 
-  <p-dialog header="Upload Payment Proof" [(visible)]="uploadDialogVisible" [modal]="true" [style]="{ width: '28rem' }">
+  <p-dialog header="Upload Payment Proof" [visible]="uploadDialogVisible()" (visibleChange)="uploadDialogVisible.set($event)" [modal]="true" [style]="{ width: '28rem' }">
     <p-fileUpload
       mode="basic"
       chooseLabel="Choose File"

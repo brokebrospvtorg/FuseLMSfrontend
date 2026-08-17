@@ -1,0 +1,88 @@
+@use '../../../shared/styles/page';
+
+// Same 4-card modifier the Coordinator Dashboard already added — kept here
+// too rather than promoted to shared/page.scss, since only these two
+// dashboards use 4 stat cards (Teacher/Student stay at 3).
+.dashboard-stats--4 {
+  grid-template-columns: repeat(4, 1fr);
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-stat-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.role-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.role-breakdown__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #eef0f5;
+  font-size: 0.9rem;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.role-breakdown__label {
+  color: #101d3c;
+  font-weight: 500;
+}
+
+.role-breakdown__count {
+  color: #101d3c;
+  font-weight: 700;
+}
+
+.quick-links {
+  margin: 0;
+  padding-left: 1.1rem;
+
+  li {
+    padding: 0.35rem 0;
+    color: #101d3c;
+    font-size: 0.9rem;
+  }
+
+  a {
+    color: #101d3c;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}

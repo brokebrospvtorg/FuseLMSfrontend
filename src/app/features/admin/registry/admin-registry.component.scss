@@ -41,3 +41,43 @@
   margin-bottom: 1rem;
   color: var(--text-color-secondary, #64748b);
 }
+
+.registry__readonly-section {
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background: #f8f9fb;
+  border: 1px solid #eef0f5;
+}
+
+.registry__readonly-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8b93a7;
+  margin: 0 0 0.5rem;
+}
+
+.registry__readonly-empty {
+  font-size: 0.85rem;
+  color: #8b93a7;
+  margin: 0;
+}
+
+.registry__readonly-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  color: #14213d;
+}
+
+.registry__readonly-muted {
+  color: #8b93a7;
+  font-size: 0.82rem;
+}

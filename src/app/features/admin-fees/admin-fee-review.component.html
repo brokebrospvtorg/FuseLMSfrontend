@@ -1,5 +1,5 @@
 <div class="page">
-  <h1 class="page__title">Pending Fee Proofs</h1>
+  <h1 class="page__title">Fee Proof Review</h1>
 
   @if (errorMessage()) {
     <p-message severity="error" [text]="errorMessage()!" styleClass="page__banner" />
@@ -7,45 +7,103 @@
 
   @if (loading()) {
     <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
-  } @else if (pendingVouchers().length === 0) {
-    <p-card><p class="page__empty">Nothing waiting on review right now.</p></p-card>
   } @else {
-    <p-card>
-      <p-table [value]="pendingVouchers()">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Student</th>
-            <th>Amount</th>
-            <th>Due Date</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-row>
-          <tr>
-            <td>{{ row.student_full_name }}</td>
-            <td>{{ row.amount | number: '1.0-0' }}</td>
-            <td>{{ row.due_date | date: 'mediumDate' }}</td>
-            <td><p-tag severity="info" value="Submitted — Awaiting Review" /></td>
-            <td class="page__actions">
-              <button
-                pButton type="button" label="View Proof" class="p-button-sm p-button-outlined"
-                (click)="openViewer(row)">
-              </button>
-              <button
-                pButton type="button" label="Approve" class="p-button-sm p-button-success"
-                [disabled]="actioningProofId() === row.latest_proof_id"
-                (click)="approve(row)">
-              </button>
-              <button
-                pButton type="button" label="Reject" class="p-button-sm p-button-danger"
-                [disabled]="actioningProofId() === row.latest_proof_id"
-                (click)="openRejectDialog(row)">
-              </button>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
+    <p-card header="Pending Review">
+      @if (pendingVouchers().length === 0) {
+        <p class="page__empty">Nothing waiting on review right now.</p>
+      } @else {
+        <p-table [value]="pendingVouchers()">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Student</th>
+              <th>Amount</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr>
+              <td>{{ row.student_full_name }}</td>
+              <td>{{ row.amount | number: '1.0-0' }}</td>
+              <td>{{ row.due_date | date: 'mediumDate' }}</td>
+              <td><p-tag severity="info" value="Submitted — Awaiting Review" /></td>
+              <td class="page__actions">
+                <button
+                  pButton type="button" label="View Proof" class="p-button-sm p-button-outlined"
+                  (click)="openViewer(row)">
+                </button>
+                <button
+                  pButton type="button" label="Approve" class="p-button-sm p-button-success"
+                  [disabled]="actioningProofId() === row.latest_proof_id"
+                  (click)="approve(row)">
+                </button>
+                <button
+                  pButton type="button" label="Reject" class="p-button-sm p-button-danger"
+                  [disabled]="actioningProofId() === row.latest_proof_id"
+                  (click)="openRejectDialog(row)">
+                </button>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    </p-card>
+
+    <!-- Sub-Sprint 5: historical view — already-decided proofs, filterable
+         by how far back to look. Toggled rather than always-open since most
+         visits to this screen are "handle what's pending", not browsing history. -->
+    <p-card styleClass="fee-review__history-card">
+      <div class="fee-review__history-header">
+        <button pButton type="button" [label]="showHistory() ? 'Hide History' : 'Show History'"
+                class="p-button-sm p-button-text" (click)="showHistory.set(!showHistory())">
+        </button>
+        @if (showHistory()) {
+          <p-select
+            [options]="historyFilterOptions"
+            [ngModel]="historyFilter()"
+            (ngModelChange)="historyFilter.set($event)"
+            optionLabel="label"
+            optionValue="value"
+            styleClass="w-12rem">
+          </p-select>
+        }
+      </div>
+
+      @if (showHistory()) {
+        @if (historicalVouchers().length === 0) {
+          <p class="page__empty">No decided proofs in this window.</p>
+        } @else {
+          <p-table [value]="historicalVouchers()">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Student</th>
+                <th>Amount</th>
+                <th>Generated</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td>{{ row.student_full_name }}</td>
+                <td>{{ row.amount | number: '1.0-0' }}</td>
+                <td>{{ row.generated_at | date: 'mediumDate' }}</td>
+                <td>
+                  <p-tag [severity]="row.status === 'paid' ? 'success' : 'danger'"
+                         [value]="row.status === 'paid' ? 'Paid' : 'Rejected'" />
+                </td>
+                <td class="page__actions">
+                  <button
+                    pButton type="button" label="View Proof" class="p-button-sm p-button-outlined"
+                    (click)="openViewer(row)">
+                  </button>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      }
     </p-card>
   }
 
@@ -54,7 +112,8 @@
        never linked to directly, so RBAC applies on every open. -->
   <p-dialog
     [header]="'Payment Proof — ' + (activeVoucher()?.student_full_name ?? '')"
-    [(visible)]="viewerVisible"
+    [visible]="viewerVisible()"
+    (visibleChange)="viewerVisible.set($event)"
     [modal]="true"
     [style]="{ width: '40rem' }"
     (onHide)="closeViewer()">
@@ -73,7 +132,7 @@
   </p-dialog>
 
   <!-- Requirement #3: rejection reason input -->
-  <p-dialog header="Reject Proof" [(visible)]="rejectDialogVisible" [modal]="true" [style]="{ width: '28rem' }">
+  <p-dialog header="Reject Proof" [visible]="rejectDialogVisible()" (visibleChange)="rejectDialogVisible.set($event)" [modal]="true" [style]="{ width: '28rem' }">
     <p class="reject-dialog__prompt">
       Rejecting {{ rejectTargetVoucher()?.student_full_name }}'s payment proof. This lets them re-upload —
       let them know why:

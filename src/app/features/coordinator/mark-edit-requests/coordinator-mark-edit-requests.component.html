@@ -1,0 +1,79 @@
+<div class="page">
+  <h1 class="page__title">Mark Edit Requests</h1>
+
+  <p-card>
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (requests().length === 0) {
+      <p class="page__empty">No pending mark edit requests right now.</p>
+    } @else {
+      <p-table [value]="requests()" [rows]="10" [paginator]="requests().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Student</th>
+            <th>Subject</th>
+            <th>Assessment</th>
+            <th>Current Marks</th>
+            <th>Requested Marks</th>
+            <th>Reason</th>
+            <th>Requested</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.student_name }}</td>
+            <td>{{ row.subject_name }}</td>
+            <td>{{ row.assessment_name }}</td>
+            <td>{{ row.current_marks_obtained }}</td>
+            <td><strong>{{ row.requested_change.marks_obtained }}</strong></td>
+            <td>{{ row.reason || '—' }}</td>
+            <td>{{ row.created_at | date: 'mediumDate' }}</td>
+            <td>
+              <div class="requests__actions">
+                <p-button label="Approve" size="small" (onClick)="openDialog(row, 'approved')" />
+                <p-button label="Reject" size="small" severity="danger" [outlined]="true" (onClick)="openDialog(row, 'rejected')" />
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<p-dialog
+  [header]="dialogAction() === 'approved' ? 'Approve Mark Edit Request' : 'Reject Mark Edit Request'"
+  [visible]="dialogOpen()"
+  (visibleChange)="dialogOpen.set($event)"
+  [modal]="true"
+  [style]="{ width: '28rem' }">
+  @if (actioningRequest(); as row) {
+    <p class="requests__dialog-context">
+      <strong>{{ row.student_name }}</strong> — {{ row.subject_name }} / {{ row.assessment_name }}:
+      {{ row.current_marks_obtained }} → <strong>{{ row.requested_change.marks_obtained }}</strong>
+    </p>
+  }
+
+  <div class="requests__form-field">
+    <label for="review-note">Review Note (optional)</label>
+    <textarea
+      id="review-note"
+      pTextarea
+      rows="3"
+      [ngModel]="reviewNote()"
+      (ngModelChange)="reviewNote.set($event)"
+      placeholder="Visible to the teacher in their notification."
+      class="w-full">
+    </textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="dialogOpen.set(false)" />
+    <p-button
+      [label]="dialogAction() === 'approved' ? 'Confirm Approval' : 'Confirm Rejection'"
+      [severity]="dialogAction() === 'approved' ? 'primary' : 'danger'"
+      [loading]="submitting()"
+      (onClick)="submitDecision()" />
+  </ng-template>
+</p-dialog>

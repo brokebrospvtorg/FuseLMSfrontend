@@ -1,0 +1,57 @@
+@if (context.loading()) {
+  <div class="flex items-center gap-2 text-slate-400 text-sm mb-6">
+    <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+    </svg>
+    Loading your children...
+  </div>
+} @else if (context.error()) {
+  <p class="text-red-600 text-sm mb-6">{{ context.error() }}</p>
+} @else if (context.children().length === 0) {
+  <p class="text-slate-500 text-sm mb-6">No children are linked to your account yet. Contact the school office to get linked.</p>
+} @else {
+  <div class="relative inline-block mb-6">
+    <button
+      type="button"
+      (click)="toggleSwitcher()"
+      class="flex items-center gap-3 bg-white rounded-xl shadow-sm border border-slate-200 px-4 py-2.5 hover:border-navy transition-colors">
+      <div class="w-9 h-9 rounded-full bg-navy text-white flex items-center justify-center text-sm font-semibold">
+        {{ context.selectedChild() ? initialsFor(context.selectedChild()!.full_name) : '' }}
+      </div>
+      <div class="text-left">
+        <p class="text-sm font-semibold text-navy leading-tight">{{ context.selectedChild()?.full_name }}</p>
+        @if (context.selectedChild()?.relationship) {
+          <p class="text-xs text-slate-400 leading-tight">Your {{ context.selectedChild()?.relationship }}</p>
+        }
+      </div>
+      @if (context.children().length > 1) {
+        <svg class="w-4 h-4 text-slate-400 ml-2" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+        </svg>
+      }
+    </button>
+
+    @if (switcherOpen() && context.children().length > 1) {
+      <div class="absolute z-10 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+        @for (child of context.children(); track child.student_id) {
+          <button
+            type="button"
+            (click)="pick(child.student_id)"
+            class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+            [class.bg-slate-50]="child.student_id === context.selectedStudentId()">
+            <div class="w-8 h-8 rounded-full bg-navy text-white flex items-center justify-center text-xs font-semibold">
+              {{ initialsFor(child.full_name) }}
+            </div>
+            <div>
+              <p class="text-sm font-medium text-navy leading-tight">{{ child.full_name }}</p>
+              @if (child.roll_number) {
+                <p class="text-xs text-slate-400 leading-tight">Roll #{{ child.roll_number }}</p>
+              }
+            </div>
+          </button>
+        }
+      </div>
+    }
+  </div>
+}

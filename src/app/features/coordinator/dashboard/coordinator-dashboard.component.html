@@ -1,0 +1,50 @@
+<div class="page">
+  <h1 class="page__title">Welcome, {{ coordinatorName }}</h1>
+
+  @if (loading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else {
+
+    <div class="dashboard-stats dashboard-stats--4">
+      <a routerLink="/coordinator/mark-edit-requests" class="dashboard-stat-link">
+        <p-card styleClass="dashboard-stat">
+          <span class="dashboard-stat__label">Pending Mark Edit Requests</span>
+          <span class="dashboard-stat__value">{{ pendingMarkEditRequestsCount() }}</span>
+          <span class="dashboard-stat__caption">Awaiting your Approve / Reject</span>
+        </p-card>
+      </a>
+
+      <p-card styleClass="dashboard-stat">
+        <span class="dashboard-stat__label">Open Complaints</span>
+        <span class="dashboard-stat__value">{{ openComplaintsCount() }}</span>
+        <span class="dashboard-stat__caption">Not yet moved to In Progress or Resolved</span>
+      </p-card>
+
+      <a routerLink="/coordinator/fees-review" class="dashboard-stat-link">
+        <p-card styleClass="dashboard-stat">
+          <span class="dashboard-stat__label">Pending Fee Proofs</span>
+          <span class="dashboard-stat__value">{{ pendingFeeProofsCount() }}</span>
+          <span class="dashboard-stat__caption">Proof uploaded, awaiting review</span>
+        </p-card>
+      </a>
+
+      <a routerLink="/coordinator/subject-requests" class="dashboard-stat-link">
+        <p-card styleClass="dashboard-stat">
+          <span class="dashboard-stat__label">Unassigned Subject Requests</span>
+          <span class="dashboard-stat__value">{{ unassignedSubjectRequestsCount() }}</span>
+          <span class="dashboard-stat__caption">Student/Parent requests awaiting review</span>
+        </p-card>
+      </a>
+    </div>
+
+    <p-card header="Quick Links">
+      <ul class="quick-links">
+        <li><a routerLink="/coordinator/registry">Information Registry</a> — view/edit Students, Teachers, Parents</li>
+        <li><a routerLink="/coordinator/teacher-attendance">Teacher Attendance</a> — mark today's attendance</li>
+        <li><a routerLink="/coordinator/grades">Grade Overrides</a> — class averages &amp; overrides</li>
+        <li><a routerLink="/coordinator/mark-edit-requests">Mark Edit Requests</a> — approve or reject teacher requests</li>
+        <li><a routerLink="/coordinator/fees-review">Fee Proofs</a> — approve or reject payment proofs</li>
+      </ul>
+    </p-card>
+  }
+</div>

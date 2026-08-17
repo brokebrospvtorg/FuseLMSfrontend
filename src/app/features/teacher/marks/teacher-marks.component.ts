@@ -18,12 +18,16 @@ import { AcademicsStaffService } from '../../../core/services/academics-staff.se
 import { AuthService } from '../../../core/services/auth.service';
 import { Subject, Batch } from '../../../core/models/academic.model';
 import {
-  AssessmentFull, RosterEntry, MarkUpsertPayload, TeacherAssignment,
+  AssessmentFull, RosterEntry, MarkUpsertPayload, TeacherAssignment, MarkEditRequestFull,
 } from '../../../core/models/academics-staff.model';
 
-/** Working row for the marks-entry grid: roster entry + editable marks_obtained. */
+/** Working row for the marks-entry grid: roster entry + editable marks_obtained.
+ *  mark_id is null until marks are actually saved (i.e. before the row is
+ *  locked) — Request Edit only makes sense once there's a real Mark row to
+ *  reference. */
 interface MarksEntryRow extends RosterEntry {
   marks_obtained: number | null;
+  mark_id: string | null;
 }
 
 @Component({
@@ -92,6 +96,33 @@ export class TeacherMarksComponent implements OnInit {
   rosterLoading = signal(false);
   savingMarks = signal(false);
 
+  // Sub-Sprint 4.2 — true once marks already exist for this assessment,
+  // whether from a submission earlier in this session or a prior one.
+  // Same pattern as the Attendance screen's lock: driven by what's
+  // actually in the DB (re-fetched on select), not just local state, so
+  // revisiting an already-graded assessment loads read-only. Unlocking
+  // this later goes through the Sub-Sprint 5 "Request Edit" workflow —
+  // this screen doesn't provide any other way to edit locked marks.
+  locked = signal(false);
+
+  // --- Sub-Sprint 5.1 — Request Edit dialog ---
+  editRequestDialogOpen = signal(false);
+  editRequestTarget = signal<MarksEntryRow | null>(null);
+  editRequestNewMarks = signal<number | null>(null);
+  editRequestReason = signal('');
+  submittingEditRequest = signal(false);
+
+  // --- Sub-Sprint 5.2 — status tracking ---
+  myEditRequests = signal<MarkEditRequestFull[]>([]);
+  editRequestsLoading = signal(true);
+
+  // mark_ids with a request already pending, so the "Request Edit" button
+  // can be disabled instead of letting the Teacher hit the 400 from a
+  // duplicate submission.
+  pendingRequestMarkIds = computed(() => new Set(
+    this.myEditRequests().filter((r) => r.status === 'pending').map((r) => r.mark_id),
+  ));
+
   constructor(
     private staffService: AcademicsStaffService,
     private authService: AuthService,
@@ -108,6 +139,18 @@ export class TeacherMarksComponent implements OnInit {
         });
       },
       error: () => this.pickerLoading.set(false),
+    });
+    this.loadMyEditRequests();
+  }
+
+  private loadMyEditRequests(): void {
+    this.editRequestsLoading.set(true);
+    this.staffService.getMyMarkEditRequests().subscribe({
+      next: (requests) => {
+        this.myEditRequests.set(requests);
+        this.editRequestsLoading.set(false);
+      },
+      error: () => this.editRequestsLoading.set(false),
     });
   }
 
@@ -196,6 +239,7 @@ export class TeacherMarksComponent implements OnInit {
 
   selectAssessmentForMarks(assessment: AssessmentFull): void {
     this.activeAssessment.set(assessment);
+    this.locked.set(false);
     const subjectId = this.selectedSubjectId();
     const batchId = this.selectedBatchId();
     if (!subjectId || !batchId) return;
@@ -205,10 +249,15 @@ export class TeacherMarksComponent implements OnInit {
       next: (roster) => {
         this.staffService.getMarks(assessment.id).subscribe({
           next: (marks) => {
-            const marksByStudent = new Map(marks.map((m) => [m.student_id, m.marks_obtained]));
+            const marksByStudent = new Map(marks.map((m) => [m.student_id, m]));
             this.roster.set(
-              roster.map((r) => ({ ...r, marks_obtained: marksByStudent.get(r.student_id) ?? null })),
+              roster.map((r) => {
+                const mark = marksByStudent.get(r.student_id);
+                return { ...r, marks_obtained: mark?.marks_obtained ?? null, mark_id: mark?.id ?? null };
+              }),
             );
+            // Any marks already saved for this assessment → read-only.
+            this.locked.set(marks.length > 0);
             this.rosterLoading.set(false);
           },
           error: () => this.rosterLoading.set(false),
@@ -220,7 +269,7 @@ export class TeacherMarksComponent implements OnInit {
 
   saveMarks(): void {
     const assessment = this.activeAssessment();
-    if (!assessment) return;
+    if (!assessment || this.locked()) return;
 
     const entries: MarkUpsertPayload[] = this.roster()
       .filter((r) => r.marks_obtained !== null)
@@ -235,12 +284,72 @@ export class TeacherMarksComponent implements OnInit {
     this.staffService.upsertMarks(assessment.id, entries).subscribe({
       next: () => {
         this.savingMarks.set(false);
-        Swal.fire({ icon: 'success', title: 'Marks saved', timer: 1400, showConfirmButton: false });
+        this.locked.set(true); // lock immediately — don't wait for a refetch
+        Swal.fire({
+          icon: 'success',
+          title: 'Marks saved',
+          text: 'Marks are now locked. To change them later, use the Request Edit button on that row.',
+          timer: 2400,
+          showConfirmButton: false,
+        });
       },
       error: (err) => {
         this.savingMarks.set(false);
         Swal.fire({ icon: 'error', title: 'Could not save marks', text: err?.error?.detail ?? 'Please try again.' });
       },
     });
+  }
+
+  // -------------------------------------------------------------------
+  // Sub-Sprint 5.1 — Request Edit (on a locked marks row)
+  // -------------------------------------------------------------------
+  openEditRequestDialog(row: MarksEntryRow): void {
+    if (!row.mark_id) return;
+    this.editRequestTarget.set(row);
+    this.editRequestNewMarks.set(row.marks_obtained);
+    this.editRequestReason.set('');
+    this.editRequestDialogOpen.set(true);
+  }
+
+  submitEditRequest(): void {
+    const target = this.editRequestTarget();
+    const newMarks = this.editRequestNewMarks();
+    const reason = this.editRequestReason().trim();
+    const maxMarks = this.activeAssessment()?.max_marks;
+
+    if (!target?.mark_id || newMarks === null) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Enter the new marks value.' });
+      return;
+    }
+    if (!reason) {
+      Swal.fire({ icon: 'warning', title: 'Reason required', text: 'Add a short justification for the Coordinator.' });
+      return;
+    }
+    if (maxMarks !== undefined && newMarks > maxMarks) {
+      Swal.fire({ icon: 'warning', title: 'Too high', text: `Marks cannot exceed ${maxMarks}.` });
+      return;
+    }
+
+    this.submittingEditRequest.set(true);
+    this.staffService
+      .requestMarkEdit(target.mark_id, { requested_change: { marks_obtained: newMarks }, reason })
+      .subscribe({
+        next: () => {
+          this.submittingEditRequest.set(false);
+          this.editRequestDialogOpen.set(false);
+          this.loadMyEditRequests();
+          Swal.fire({
+            icon: 'success',
+            title: 'Request sent',
+            text: 'Your Coordinator will review this edit request.',
+            timer: 2000,
+            showConfirmButton: false,
+          });
+        },
+        error: (err) => {
+          this.submittingEditRequest.set(false);
+          Swal.fire({ icon: 'error', title: 'Could not send request', text: err?.error?.detail ?? 'Please try again.' });
+        },
+      });
   }
 }

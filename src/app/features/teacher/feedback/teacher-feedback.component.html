@@ -1,0 +1,60 @@
+<div class="page">
+  <h1 class="page__title">Feedback &amp; Complaints</h1>
+
+  <p-card header="Submit Feedback">
+    <div class="feedback-form__field">
+      <label for="feedback-subject">Subject</label>
+      <input
+        id="feedback-subject"
+        pInputText
+        [ngModel]="newSubject()"
+        (ngModelChange)="newSubject.set($event)"
+        placeholder="e.g. Timetable clash on Wednesdays"
+        class="w-full" />
+    </div>
+    <div class="feedback-form__field">
+      <label for="feedback-description">Description</label>
+      <textarea
+        id="feedback-description"
+        pTextarea
+        rows="4"
+        [ngModel]="newDescription()"
+        (ngModelChange)="newDescription.set($event)"
+        placeholder="Describe the issue or feedback for your Coordinator/Admin"
+        class="w-full">
+      </textarea>
+    </div>
+    <p-button label="Submit" icon="pi pi-send" [loading]="submitting()" (onClick)="submitFeedback()" />
+  </p-card>
+
+  <p-card header="My Submissions" styleClass="feedback-history-card">
+    @if (complaintsLoading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (complaintsError()) {
+      <p-message severity="error" [text]="complaintsError()!" />
+    } @else if (complaints().length === 0) {
+      <p class="page__empty">You haven't submitted any feedback yet.</p>
+    } @else {
+      <p-table [value]="complaints()">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Subject</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Coordinator Reply</th>
+            <th>Submitted</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.subject_of_complaint ?? '—' }}</td>
+            <td class="feedback-history__description">{{ row.description }}</td>
+            <td><p-tag [severity]="severityFor(row.status)" [value]="labelFor(row.status)" /></td>
+            <td>{{ row.resolution_message ?? '—' }}</td>
+            <td>{{ row.created_at | date: 'mediumDate' }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>

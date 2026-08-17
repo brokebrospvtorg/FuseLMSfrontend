@@ -15,3 +15,15 @@
   &__prompt { margin-bottom: 0.75rem; color: var(--text-color-secondary); }
   &__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
 }
+
+.fee-review {
+  &__history-card { margin-top: 1.5rem; }
+  &__history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+}

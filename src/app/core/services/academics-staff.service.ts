@@ -3,10 +3,11 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
-import { Subject, Batch, Level, SubjectRequestReviewRow, ReviewSubjectRequestPayload } from '../models/academic.model';
+import { Subject, Batch, Level, SubjectRequestReviewRow, ReviewSubjectRequestPayload, TeachingScheduleEntry } from '../models/academic.model';
 import {
-  AssessmentFull, CreateAssessmentRequest, RosterEntry, MarkUpsertPayload, MarkFull,
+  AssessmentFull, CreateAssessmentRequest, UpdateAssessmentRequest, RosterEntry, MarkUpsertPayload, MarkFull,
   GradeFull, GradeOverridePayload, TeacherAssignment, AuditLogEntry,
+  CreateMarkEditRequestPayload, MarkEditRequestFull, ReviewMarkEditRequestPayload,
 } from '../models/academics-staff.model';
 
 /**
@@ -20,8 +21,17 @@ import {
 export class AcademicsStaffService {
   private readonly marksUrl = `${APP_CONFIG.apiBaseUrl}/academics`;
   private readonly academicUrl = `${APP_CONFIG.apiBaseUrl}/academic`;
+  private readonly timetableUrl = `${APP_CONFIG.apiBaseUrl}/timetable`;
 
   constructor(private http: HttpClient) {}
+
+  /** The teacher's own weekly schedule (GET /api/timetable/my-teaching-schedule) —
+   *  every slot where they're the assigned teacher, across all subjects/batches. */
+  getMyTeachingSchedule(): Observable<TeachingScheduleEntry[]> {
+    return this.http.get<TeachingScheduleEntry[]>(`${this.timetableUrl}/my-teaching-schedule`, {
+      withCredentials: true,
+    });
+  }
 
   // --- Pickers (level / subject / batch / my assignments) ---
   getLevels(): Observable<Level[]> {
@@ -68,6 +78,20 @@ export class AcademicsStaffService {
     });
   }
 
+  /** Coordinator/Admin direct edit — bypasses the Teacher lock. See
+   *  AssessmentUpdate's docstring for why this is narrower than create. */
+  updateAssessment(assessmentId: string, payload: UpdateAssessmentRequest): Observable<AssessmentFull> {
+    return this.http.patch<AssessmentFull>(`${this.marksUrl}/assessments/${assessmentId}`, payload, {
+      withCredentials: true,
+    });
+  }
+
+  /** Coordinator/Admin direct delete — cascades to the assessment's marks
+   *  server-side and recomputes affected grades. 204, no body. */
+  deleteAssessment(assessmentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.marksUrl}/assessments/${assessmentId}`, { withCredentials: true });
+  }
+
   // --- Marks ---
   getMarks(assessmentId: string): Observable<MarkFull[]> {
     return this.http.get<MarkFull[]>(`${this.marksUrl}/assessments/${assessmentId}/marks`, {
@@ -79,6 +103,49 @@ export class AcademicsStaffService {
     return this.http.put<MarkFull[]>(`${this.marksUrl}/assessments/${assessmentId}/marks`, entries, {
       withCredentials: true,
     });
+  }
+
+  /** Coordinator/Admin direct delete of one student's mark — same
+   *  "bypass the Teacher lock" rationale as the assessment endpoints. */
+  deleteMark(markId: string): Observable<void> {
+    return this.http.delete<void>(`${this.marksUrl}/marks/${markId}`, { withCredentials: true });
+  }
+
+  // --- Mark Edit Requests (Sub-Sprint 5) ---
+  requestMarkEdit(markId: string, payload: CreateMarkEditRequestPayload): Observable<MarkEditRequestFull> {
+    return this.http.post<MarkEditRequestFull>(`${this.marksUrl}/marks/${markId}/edit-requests`, payload, {
+      withCredentials: true,
+    });
+  }
+
+  /** The signed-in Teacher's own edit requests, newest first — powers the
+   *  Sub-Sprint 5.2 status-tracking list (Pending/Approved/Rejected). */
+  getMyMarkEditRequests(): Observable<MarkEditRequestFull[]> {
+    return this.http.get<MarkEditRequestFull[]>(`${this.marksUrl}/marks/edit-requests/mine`, {
+      withCredentials: true,
+    });
+  }
+
+  /** Coordinator/Admin queue of pending mark-edit requests submitted by
+   *  Teachers (GET /api/academics/marks/edit-requests/pending). Same
+   *  enriched shape as getMyMarkEditRequests(), just server-filtered to
+   *  every teacher's pending requests instead of just the caller's own. */
+  getPendingMarkEditRequests(): Observable<MarkEditRequestFull[]> {
+    return this.http.get<MarkEditRequestFull[]>(`${this.marksUrl}/marks/edit-requests/pending`, {
+      withCredentials: true,
+    });
+  }
+
+  /** Approve/reject a mark edit request, with an optional review note
+   *  (schema_update_3.sql). Approving writes the requested change straight
+   *  to the Mark row server-side and notifies the requesting Teacher either
+   *  way — nothing further to do here after the call succeeds. */
+  reviewMarkEditRequest(requestId: string, payload: ReviewMarkEditRequestPayload): Observable<MarkEditRequestFull> {
+    return this.http.patch<MarkEditRequestFull>(
+      `${this.marksUrl}/marks/edit-requests/${requestId}`,
+      payload,
+      { withCredentials: true },
+    );
   }
 
   // --- Grades (Coordinator view + override) ---

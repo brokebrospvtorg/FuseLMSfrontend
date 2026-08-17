@@ -1,0 +1,97 @@
+<div class="page">
+  <h1 class="page__title">Feedback &amp; Complaints</h1>
+
+  <p-card>
+    <div class="complaints__filters">
+      <p-select
+        [options]="filterOptions"
+        [ngModel]="selectedFilter()"
+        (ngModelChange)="selectedFilter.set($event)"
+        placeholder="Status"
+        styleClass="w-full md:w-14rem">
+      </p-select>
+    </div>
+
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (filteredComplaints().length === 0) {
+      <p class="page__empty">Nothing here right now.</p>
+    } @else {
+      <p-table [value]="filteredComplaints()">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Submitted By</th>
+            <th>Regarding</th>
+            <th>Subject</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>
+              {{ row.submitted_by_name }}
+              <span class="complaints__role-tag">({{ row.submitted_by_role }})</span>
+            </td>
+            <td>{{ row.student_name || '—' }}</td>
+            <td>{{ row.subject_of_complaint || row.description | slice: 0:40 }}</td>
+            <td>{{ row.created_at | date: 'mediumDate' }}</td>
+            <td>
+              <p-tag [severity]="severityFor(row.status)" [value]="row.status.replace('_', ' ')" />
+            </td>
+            <td>
+              <p-button label="Respond" size="small" (onClick)="openRespondDialog(row)" />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<p-dialog
+  header="Respond to Complaint"
+  [visible]="dialogOpen()"
+  (visibleChange)="dialogOpen.set($event)"
+  [modal]="true"
+  [style]="{ width: '32rem' }">
+  @if (actioningComplaint(); as row) {
+    <p class="complaints__dialog-context">
+      <strong>{{ row.submitted_by_name }}</strong> ({{ row.submitted_by_role }})
+      @if (row.student_name) {
+        — regarding <strong>{{ row.student_name }}</strong>
+      }
+    </p>
+    <p class="complaints__dialog-description">{{ row.description }}</p>
+  }
+
+  <div class="complaints__form-field">
+    <label for="new-status">Status</label>
+    <p-select
+      inputId="new-status"
+      [options]="statusOptions"
+      [ngModel]="newStatus()"
+      (ngModelChange)="newStatus.set($event)"
+      styleClass="w-full">
+    </p-select>
+  </div>
+
+  <div class="complaints__form-field">
+    <label for="resolution-message">Reply (visible to the submitter)</label>
+    <textarea
+      id="resolution-message"
+      pTextarea
+      rows="4"
+      [ngModel]="resolutionMessage()"
+      (ngModelChange)="resolutionMessage.set($event)"
+      placeholder="What did you do about this, or why is it being closed?"
+      class="w-full">
+    </textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="dialogOpen.set(false)" />
+    <p-button label="Send Response" [loading]="submitting()" (onClick)="submitResponse()" />
+  </ng-template>
+</p-dialog>

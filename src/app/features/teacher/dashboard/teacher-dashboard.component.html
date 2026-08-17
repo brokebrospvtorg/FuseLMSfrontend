@@ -1,0 +1,46 @@
+<div class="page">
+  <h1 class="page__title">Welcome, {{ teacherName }}</h1>
+
+  @if (loading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else {
+
+    <div class="dashboard-stats">
+      <p-card styleClass="dashboard-stat">
+        <span class="dashboard-stat__label">Assigned Classes</span>
+        <span class="dashboard-stat__value">{{ assignedClassesCount() }}</span>
+        <span class="dashboard-stat__caption">Distinct subject + batch combinations</span>
+      </p-card>
+
+      <p-card styleClass="dashboard-stat">
+        <span class="dashboard-stat__label">Today's Lectures</span>
+        <span class="dashboard-stat__value">{{ todaysLectures().length }}</span>
+        <span class="dashboard-stat__caption">Periods scheduled for you today</span>
+      </p-card>
+
+      <p-card styleClass="dashboard-stat">
+        <span class="dashboard-stat__label">Pending Requests</span>
+        <span class="dashboard-stat__value">{{ pendingEditRequestsCount() }}</span>
+        <span class="dashboard-stat__caption">Mark edit requests awaiting Coordinator review</span>
+      </p-card>
+    </div>
+
+    <p-card header="Today's Schedule">
+      @if (todaysLectures().length === 0) {
+        <p class="page__empty">No periods scheduled for you today.</p>
+      } @else {
+        <ul class="schedule-list">
+          @for (entry of todaysLectures(); track entry.id) {
+            <li class="schedule-list__item">
+              <span class="schedule-list__period">P{{ entry.period_number }}</span>
+              <div class="schedule-list__details">
+                <span class="schedule-list__subject">{{ entry.subject_name }}</span>
+                <span class="schedule-list__meta">{{ entry.start_time }}–{{ entry.end_time }}</span>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </p-card>
+  }
+</div>

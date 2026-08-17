@@ -22,7 +22,12 @@
     </div>
 
     <nav class="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
-      @for (item of navItems; track item.route) {
+      @for (item of navItems; track item.route; let i = $index) {
+        @if (item.section && (i === 0 || item.section !== navItems[i - 1].section)) {
+          <div class="px-3.5 pt-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-wider text-slate-500 first:pt-0">
+            {{ item.section }}
+          </div>
+        }
         <a
           [routerLink]="item.route"
           routerLinkActive="bg-white/10 text-white font-semibold"

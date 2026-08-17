@@ -31,3 +31,21 @@ export interface FeeProof {
   status: FeeProofStatus;
   rejection_reason: string | null;
 }
+
+/** Mirrors FeeStructureOut — Admin Sub-Sprint 4 "preset layouts." */
+export interface FeeStructure {
+  id: string;
+  subject_id: string;
+  subject_name: string | null;
+  student_id: string | null;
+  student_name: string | null;
+  amount: number;
+  set_by: string;
+  created_at: string;
+}
+
+export interface CreateFeeStructureRequest {
+  subject_id: string;
+  student_id?: string | null;
+  amount: number;
+}

@@ -3,7 +3,11 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
-import { ParentChild, ParentChildOverview, ParentSubjectTranscript } from '../models/parent.model';
+import {
+  ParentChild, ParentChildOverview, ParentSubjectTranscript,
+  ParentAttendanceSummary, ParentTimetableEntry,
+  ParentSubjectRequest, CreateParentSubjectRequest, ParentAvailableSubjects,
+} from '../models/parent.model';
 
 @Injectable({ providedIn: 'root' })
 export class ParentService {
@@ -25,5 +29,40 @@ export class ParentService {
     return this.http.get<ParentSubjectTranscript[]>(`${this.baseUrl}/child/${studentId}/report-card`, {
       withCredentials: true,
     });
+  }
+
+  getChildAttendanceSummary(studentId: string): Observable<ParentAttendanceSummary> {
+    return this.http.get<ParentAttendanceSummary>(`${this.baseUrl}/child/${studentId}/attendance-summary`, {
+      withCredentials: true,
+    });
+  }
+
+  getChildTimetable(studentId: string): Observable<ParentTimetableEntry[]> {
+    return this.http.get<ParentTimetableEntry[]>(`${this.baseUrl}/child/${studentId}/timetable`, {
+      withCredentials: true,
+    });
+  }
+
+  getAvailableSubjectsForChild(studentId: string): Observable<ParentAvailableSubjects> {
+    return this.http.get<ParentAvailableSubjects>(`${this.baseUrl}/child/${studentId}/available-subjects`, {
+      withCredentials: true,
+    });
+  }
+
+  getSubjectRequestsForChild(studentId: string): Observable<ParentSubjectRequest[]> {
+    return this.http.get<ParentSubjectRequest[]>(`${this.baseUrl}/child/${studentId}/subject-requests`, {
+      withCredentials: true,
+    });
+  }
+
+  createSubjectRequestForChild(
+    studentId: string,
+    payload: CreateParentSubjectRequest,
+  ): Observable<ParentSubjectRequest> {
+    return this.http.post<ParentSubjectRequest>(
+      `${this.baseUrl}/child/${studentId}/subject-requests`,
+      payload,
+      { withCredentials: true },
+    );
   }
 }

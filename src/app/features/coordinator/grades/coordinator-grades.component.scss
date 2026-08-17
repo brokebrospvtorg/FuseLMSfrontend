@@ -22,6 +22,94 @@
   }
 }
 
+.grades-tab__analytics {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  background: #f7f8fb;
+  border-radius: 12px;
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.grades-tab__average {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+// Self-contained (this component's stylesheet doesn't @use the shared
+// page.scss dashboard-stat classes), rather than silently depending on
+// styles that may not actually be in scope here.
+.grades-tab__stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #8b93a7;
+  font-weight: 500;
+}
+
+.grades-tab__stat-value {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #101d3c;
+  margin: 0.2rem 0;
+}
+
+.grades-tab__stat-caption {
+  display: block;
+  font-size: 0.75rem;
+  color: #a7b0c5;
+}
+
+.grades-tab__distribution-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.25rem 0;
+  }
+}
+
+.grades-tab__distribution-letter {
+  width: 6.5rem;
+  flex-shrink: 0;
+  font-weight: 600;
+  color: #101d3c;
+  font-size: 0.85rem;
+}
+
+.grades-tab__distribution-bar-track {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 4px;
+  background: #e5e8f0;
+  overflow: hidden;
+}
+
+.grades-tab__distribution-bar {
+  display: block;
+  height: 100%;
+  background: #101d3c;
+  border-radius: 4px;
+}
+
+.grades-tab__distribution-count {
+  width: 5.5rem;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 0.8rem;
+  color: #8b93a7;
+}
+
 .grades-tab__audit-title {
   font-size: 1rem;
   font-weight: 600;

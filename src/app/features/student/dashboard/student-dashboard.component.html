@@ -67,12 +67,42 @@
             <dt class="font-semibold text-navy">Name</dt>
             <dd class="text-slate-500">{{ profile()?.user?.full_name || '—' }}</dd>
           </div>
-          @for (field of ['Father\'s Name', 'Date of Birth', 'Gender', 'Religion', 'Nationality', 'CNIC #', 'Department']; track field) {
-            <div class="flex justify-between py-2 border-b border-slate-100">
-              <dt class="font-semibold text-navy">{{ field }}</dt>
-              <dd class="text-slate-400 italic">Not set</dd>
-            </div>
-          }
+          <div class="flex justify-between py-2 border-b border-slate-100">
+            <dt class="font-semibold text-navy">Father's Name</dt>
+            <dd [class]="profile()?.student_profile?.father_name ? 'text-slate-500' : 'text-slate-400 italic'">
+              {{ profile()?.student_profile?.father_name || 'Not set' }}
+            </dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-100">
+            <dt class="font-semibold text-navy">Date of Birth</dt>
+            <dd [class]="profile()?.student_profile?.date_of_birth ? 'text-slate-500' : 'text-slate-400 italic'">
+              {{ profile()?.student_profile?.date_of_birth ? formatDate(profile()?.student_profile?.date_of_birth) : 'Not set' }}
+            </dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-100">
+            <dt class="font-semibold text-navy">Gender</dt>
+            <dd [class]="profile()?.student_profile?.gender ? 'text-slate-500' : 'text-slate-400 italic'">
+              {{ profile()?.student_profile?.gender || 'Not set' }}
+            </dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-100">
+            <dt class="font-semibold text-navy">Religion</dt>
+            <dd [class]="profile()?.student_profile?.religion ? 'text-slate-500' : 'text-slate-400 italic'">
+              {{ profile()?.student_profile?.religion || 'Not set' }}
+            </dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-100">
+            <dt class="font-semibold text-navy">Nationality</dt>
+            <dd [class]="profile()?.student_profile?.nationality ? 'text-slate-500' : 'text-slate-400 italic'">
+              {{ profile()?.student_profile?.nationality || 'Not set' }}
+            </dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-100">
+            <dt class="font-semibold text-navy">CNIC #</dt>
+            <dd [class]="profile()?.student_profile?.cnic ? 'text-slate-500' : 'text-slate-400 italic'">
+              {{ profile()?.student_profile?.cnic || 'Not set' }}
+            </dd>
+          </div>
           <div class="flex justify-between py-2">
             <dt class="font-semibold text-navy">Registration Date</dt>
             <dd class="text-slate-500">{{ formatDate(profile()?.student_profile?.admission_date) }}</dd>

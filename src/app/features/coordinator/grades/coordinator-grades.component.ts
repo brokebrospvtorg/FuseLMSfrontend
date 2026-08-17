@@ -65,6 +65,30 @@ export class CoordinatorGradesComponent implements OnInit {
     return this.grades().filter((g) => g.student_name.toLowerCase().includes(term));
   });
 
+  // --- Class average & grade distribution (Sub-Sprint 2 requirement) ---
+  // Derived entirely from the already-loaded `grades` signal — no extra
+  // backend call needed. Deliberately reads from `grades()` (the full
+  // subject+batch set), not `visibleGrades()`, so the student-search box
+  // narrows the table without skewing the class-wide analytics.
+  classAverage = computed(() => {
+    const withPercentage = this.grades().filter((g) => g.computed_percentage !== null);
+    if (withPercentage.length === 0) return null;
+    const sum = withPercentage.reduce((acc, g) => acc + Number(g.computed_percentage), 0);
+    return Math.round((sum / withPercentage.length) * 10) / 10;
+  });
+
+  gradeDistribution = computed(() => {
+    const counts = new Map<string, number>();
+    for (const g of this.grades()) {
+      const key = g.letter_grade ?? 'Not yet graded';
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const total = this.grades().length || 1;
+    return Array.from(counts.entries())
+      .map(([letter_grade, count]) => ({ letter_grade, count, pct: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.count - a.count);
+  });
+
   // --- Audit trail (Sub-Sprint 6.3 requirement: history of past overrides) ---
   auditHistory = signal<AuditLogEntry[]>([]);
   auditLoading = signal(false);

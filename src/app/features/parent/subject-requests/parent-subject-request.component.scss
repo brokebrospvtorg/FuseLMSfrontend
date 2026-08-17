@@ -1,0 +1,19 @@
+.page__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.page__loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.page__empty {
+  color: var(--text-color-secondary, #64748b);
+}
+
+.request-form {
+  max-width: 28rem;
+}

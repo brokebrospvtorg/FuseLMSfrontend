@@ -92,6 +92,24 @@ export interface TimetableEntry {
   end_time: string;
 }
 
+/** Mirrors TimetableSlotDetailOut — used by the Teacher's own schedule
+ *  (GET /api/timetable/my-teaching-schedule), distinct from TimetableEntry
+ *  above which is the Student's enrollment-derived view. batch_name added
+ *  Sub-Sprint 6.1 for the weekly grid's "Class Name" column. */
+export interface TeachingScheduleEntry {
+  id: string;
+  subject_id: string;
+  subject_name: string;
+  teacher_id: string;
+  teacher_name: string;
+  batch_id: string;
+  batch_name: string;
+  day_of_week: string;
+  period_number: number;
+  start_time: string;
+  end_time: string;
+}
+
 export interface DashboardSummary {
   attendance_percentage: number;
   pending_assessments_count: number;

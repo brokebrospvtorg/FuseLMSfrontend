@@ -4,6 +4,12 @@
   margin: 0 0 1.25rem;
 }
 
+.page__subtitle {
+  color: #8b93a7;
+  font-size: 0.88rem;
+  margin: -0.75rem 0 1.25rem;
+}
+
 .page__loading {
   display: flex;
   justify-content: center;
@@ -35,4 +41,92 @@
   font-weight: 600;
   padding: 0.9rem 1.25rem;
   border-radius: 12px 12px 0 0;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+::ng-deep .dashboard-stat .p-card-body {
+  padding: 1.1rem 1.25rem;
+}
+
+.dashboard-stat__label {
+  display: block;
+  font-size: 0.8rem;
+  color: #8b93a7;
+  font-weight: 500;
+}
+
+.dashboard-stat__value {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #101d3c;
+  margin: 0.2rem 0;
+
+  &--muted {
+    color: #b5bccb;
+  }
+}
+
+.dashboard-stat__caption {
+  display: block;
+  font-size: 0.75rem;
+  color: #a7b0c5;
+}
+
+.schedule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.schedule-list__item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #eef0f5;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.schedule-list__period {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  background: #eef1f8;
+  color: #101d3c;
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.schedule-list__details {
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-list__subject {
+  font-weight: 600;
+  color: #101d3c;
+  font-size: 0.95rem;
+}
+
+.schedule-list__meta {
+  font-size: 0.8rem;
+  color: #8b93a7;
 }

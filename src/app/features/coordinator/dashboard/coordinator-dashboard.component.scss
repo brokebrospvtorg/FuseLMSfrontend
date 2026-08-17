@@ -1,0 +1,48 @@
+@use '../../../shared/styles/page';
+
+// The shared .dashboard-stats grid is authored for 3 cards (Teacher
+// Dashboard); Coordinator's overview needs 4, so add a modifier here
+// rather than changing the shared column count under everyone else.
+.dashboard-stats--4 {
+  grid-template-columns: repeat(4, 1fr);
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-stat-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.quick-links {
+  margin: 0;
+  padding-left: 1.1rem;
+
+  li {
+    padding: 0.35rem 0;
+    color: #101d3c;
+    font-size: 0.9rem;
+  }
+
+  a {
+    color: #101d3c;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}

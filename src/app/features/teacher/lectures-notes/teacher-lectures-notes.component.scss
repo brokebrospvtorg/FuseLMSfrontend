@@ -1,0 +1,71 @@
+.lectures__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.lectures__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  label { font-size: 0.85rem; font-weight: 600; }
+}
+
+.lectures__inline-link,
+.lectures__locked-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.lectures__locked-link input {
+  flex: 1;
+  min-width: 12rem;
+  opacity: 0.75;
+}
+
+// Video cells stack vertically (player needs real width, unlike the
+// single-line classroom link) rather than reusing the link layout above.
+.lectures__inline-video,
+.lectures__locked-video {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 18rem;
+}
+
+.lectures__inline-video-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.lectures__form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label { font-size: 0.85rem; font-weight: 600; }
+}
+
+.lectures__edit-context {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #64748b);
+  margin-bottom: 1rem;
+}
+
+.lectures__edit-context-url {
+  display: block;
+  font-weight: 600;
+  word-break: break-all;
+  color: var(--text-color, #1e293b);
+}
+
+.lectures__hint {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary, #64748b);
+}

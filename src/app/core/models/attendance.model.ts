@@ -83,3 +83,67 @@ export interface StudentAttendanceMarkRequest {
   date: string;
   records: StudentAttendanceMarkItem[];
 }
+
+/** GET /api/attendance/my-period-records — Sub-Sprint 3.2 lock/historical check */
+export interface PeriodRecord {
+  student_user_id: string;
+  status: AttendanceStatus;
+  marked_at: string;
+}
+
+// --- Coordinator: Student Attendance override (Coordinator Portal Sub-Sprint 3) ---
+
+/** GET /api/attendance/coordinator/roster — one row per enrolled student,
+ *  status null if nothing recorded for this slot+date yet at all. */
+export interface CoordinatorRosterEntry {
+  student_user_id: string;
+  full_name: string;
+  status: AttendanceStatus | null;
+}
+
+export interface CoordinatorStudentOverrideRequest {
+  timetable_slot_id: string;
+  subject_id: string;
+  date: string;
+  records: StudentAttendanceMarkItem[];
+}
+
+// --- Timetable Builder (Coordinator Portal Sub-Sprint 3) ---
+
+/** Mirrors TimetableSlotDetailOut — joined names for the builder grid. */
+export interface TimetableSlotDetail {
+  id: string;
+  subject_id: string;
+  subject_name: string;
+  teacher_id: string;
+  teacher_name: string;
+  batch_id: string;
+  batch_name: string;
+  day_of_week: string;
+  period_number: number;
+  start_time: string;
+  end_time: string;
+}
+
+export interface CreateTimetableSlotRequest {
+  level_id: string;
+  subject_id: string;
+  teacher_id: string;
+  batch_id: string;
+  day_of_week: string;
+  period_number: number;
+  start_time: string;
+  end_time: string;
+}
+
+/** Every field optional — PATCH sends only what's changing. */
+export interface UpdateTimetableSlotRequest {
+  level_id?: string;
+  subject_id?: string;
+  teacher_id?: string;
+  batch_id?: string;
+  day_of_week?: string;
+  period_number?: number;
+  start_time?: string;
+  end_time?: string;
+}

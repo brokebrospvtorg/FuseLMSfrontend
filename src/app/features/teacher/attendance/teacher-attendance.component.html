@@ -40,13 +40,25 @@
       <p-card>
         <div class="attendance-toolbar">
           <h2 class="attendance-toolbar__title">{{ selectedPeriod()!.label }}</h2>
-          <p-button
-            label="Submit Attendance"
-            [loading]="saving()"
-            [disabled]="rosterLoading() || roster().length === 0"
-            (onClick)="submit()">
-          </p-button>
+          @if (locked()) {
+            <p-tag severity="info" value="Already submitted — read only" />
+          } @else {
+            <p-button
+              label="Submit Attendance"
+              [loading]="saving()"
+              [disabled]="rosterLoading() || roster().length === 0"
+              (onClick)="submit()">
+            </p-button>
+          }
         </div>
+
+        @if (locked()) {
+          <p-message
+            severity="info"
+            text="This period's attendance was already recorded. It's shown read-only below — changes for this date go through the Coordinator."
+            styleClass="attendance-locked-notice">
+          </p-message>
+        }
 
         @if (rosterLoading()) {
           <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
@@ -66,13 +78,20 @@
                 <td>{{ row.roll_number ?? '—' }}</td>
                 <td>{{ row.full_name }}</td>
                 <td>
-                  <p-selectButton
-                    [options]="statusOptions"
-                    [ngModel]="row.status"
-                    (ngModelChange)="setStatus(row, $event)"
-                    optionLabel="label"
-                    optionValue="value">
-                  </p-selectButton>
+                  @if (locked()) {
+                    <p-tag
+                      [severity]="row.status === 'present' ? 'success' : row.status === 'absent' ? 'danger' : 'warn'"
+                      [value]="row.status">
+                    </p-tag>
+                  } @else {
+                    <p-selectButton
+                      [options]="statusOptions"
+                      [ngModel]="row.status"
+                      (ngModelChange)="setStatus(row, $event)"
+                      optionLabel="label"
+                      optionValue="value">
+                    </p-selectButton>
+                  }
                 </td>
               </tr>
             </ng-template>

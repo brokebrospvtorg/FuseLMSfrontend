@@ -1,0 +1,81 @@
+<div class="page">
+  <h1 class="page__title">Welcome, {{ adminName }}</h1>
+
+  @if (loading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else {
+
+    <div class="dashboard-stats dashboard-stats--4">
+      <a routerLink="/admin/registry" class="dashboard-stat-link">
+        <p-card styleClass="dashboard-stat">
+          <span class="dashboard-stat__label">Total Users</span>
+          <span class="dashboard-stat__value">{{ totalUsersCount() }}</span>
+          <span class="dashboard-stat__caption">Across all 5 roles</span>
+        </p-card>
+      </a>
+
+      <p-card styleClass="dashboard-stat">
+        <span class="dashboard-stat__label">Active Classes</span>
+        <span class="dashboard-stat__value">{{ activeClassesCount() }}</span>
+        <span class="dashboard-stat__caption">Distinct subject + batch combinations</span>
+      </p-card>
+
+      <a routerLink="/admin/fees-review" class="dashboard-stat-link">
+        <p-card styleClass="dashboard-stat">
+          <span class="dashboard-stat__label">Pending Fee Proofs</span>
+          <span class="dashboard-stat__value">{{ pendingFeeProofsCount() }}</span>
+          <span class="dashboard-stat__caption">Proof uploaded, awaiting review</span>
+        </p-card>
+      </a>
+
+      <p-card styleClass="dashboard-stat">
+        <span class="dashboard-stat__label">Unresolved Complaints</span>
+        <span class="dashboard-stat__value">{{ unresolvedComplaintsCount() }}</span>
+        <span class="dashboard-stat__caption">Open or In Progress</span>
+      </p-card>
+    </div>
+
+    <div class="dashboard-columns">
+      <p-card header="Users by Role" styleClass="dashboard-columns__item">
+        <ul class="role-breakdown">
+          @for (entry of usersByRole(); track entry.role) {
+            <li class="role-breakdown__item">
+              <span class="role-breakdown__label">{{ roleLabel(entry.role) }}</span>
+              <span class="role-breakdown__count">{{ entry.count }}</span>
+            </li>
+          }
+        </ul>
+      </p-card>
+
+      <p-card header="Quick Actions" styleClass="dashboard-columns__item">
+        <ul class="quick-links">
+          <li><a routerLink="/admin/registry" [queryParams]="{ action: 'add-user' }">Add New User</a> — create a Student, Teacher, Parent, or Coordinator account</li>
+          <li><a routerLink="/admin/registry">Open Information Registry</a> — view or edit any profile</li>
+          <li><a routerLink="/admin/subject-requests">Review Subject Requests</a> — approve or reject student/parent requests</li>
+          <li><a routerLink="/admin/timetable">Manage Timetable</a> — build, edit, or delete class schedules</li>
+          <li><a routerLink="/admin/grades">Grade Overrides</a> — class averages &amp; overrides</li>
+          <li><a routerLink="/admin/mark-edit-requests">View Mark Edit Requests</a> — approve or reject teacher requests</li>
+          <li><a routerLink="/admin/fees-review">Review Fee Proofs</a> — approve or reject payment proofs</li>
+        </ul>
+      </p-card>
+    </div>
+
+    <p-card header="Recent System Activity">
+      @if (recentAuditLogs().length === 0) {
+        <p class="page__empty">No recent activity recorded yet.</p>
+      } @else {
+        <ul class="schedule-list">
+          @for (entry of recentAuditLogs(); track entry.id) {
+            <li class="schedule-list__item">
+              <span class="schedule-list__period">{{ entry.actor_name.charAt(0) }}</span>
+              <div class="schedule-list__details">
+                <span class="schedule-list__subject">{{ entry.actor_name }} — {{ actionLabel(entry.action) }}</span>
+                <span class="schedule-list__meta">{{ entry.entity_type }} · {{ entry.created_at | date: 'medium' }}</span>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </p-card>
+  }
+</div>

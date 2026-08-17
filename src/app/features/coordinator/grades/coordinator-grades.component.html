@@ -36,6 +36,30 @@
           class="w-full md:w-16rem" />
       </div>
 
+      @if (selectedSubjectId() && selectedBatchId() && !gradesLoading() && grades().length > 0) {
+        <div class="grades-tab__analytics">
+          <div class="grades-tab__average">
+            <span class="grades-tab__stat-label">Class Average</span>
+            <span class="grades-tab__stat-value">{{ classAverage() !== null ? (classAverage() + '%') : '—' }}</span>
+            <span class="grades-tab__stat-caption">Across {{ grades().length }} student(s) in this subject/batch</span>
+          </div>
+          <div class="grades-tab__distribution">
+            <span class="grades-tab__stat-label">Grade Distribution</span>
+            <ul class="grades-tab__distribution-list">
+              @for (row of gradeDistribution(); track row.letter_grade) {
+                <li>
+                  <span class="grades-tab__distribution-letter">{{ row.letter_grade }}</span>
+                  <span class="grades-tab__distribution-bar-track">
+                    <span class="grades-tab__distribution-bar" [style.width.%]="row.pct"></span>
+                  </span>
+                  <span class="grades-tab__distribution-count">{{ row.count }} ({{ row.pct }}%)</span>
+                </li>
+              }
+            </ul>
+          </div>
+        </div>
+      }
+
       @if (!selectedSubjectId() || !selectedBatchId()) {
         <p class="page__empty">Pick a subject and batch above to see computed grades.</p>
       } @else if (gradesLoading()) {
@@ -104,7 +128,7 @@
   }
 </div>
 
-<p-dialog header="Override Grade" [(visible)]="overrideDialogOpen" [modal]="true" [style]="{ width: '28rem' }">
+<p-dialog header="Override Grade" [visible]="overrideDialogOpen()" (visibleChange)="overrideDialogOpen.set($event)" [modal]="true" [style]="{ width: '28rem' }">
   @if (overridingGrade(); as grade) {
     <p class="grades-tab__override-context">
       Current: <strong>{{ grade.letter_grade ?? '—' }}</strong>

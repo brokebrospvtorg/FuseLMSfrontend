@@ -1,0 +1,28 @@
+@if (visible()) {
+  <div class="fixed inset-0 z-50 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <h2 class="text-lg font-semibold text-navy mb-1">Whose account would you like to view?</h2>
+      <p class="text-sm text-slate-500 mb-5">You have more than one child linked to your account.</p>
+
+      <div class="flex flex-col gap-2">
+        @for (child of context.children(); track child.student_id) {
+          <button
+            type="button"
+            (click)="pick(child.student_id)"
+            class="w-full flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 text-left hover:border-navy hover:bg-slate-50 transition-colors">
+            <div class="w-10 h-10 rounded-full bg-navy text-white flex items-center justify-center text-sm font-semibold shrink-0">
+              {{ initialsFor(child.full_name) }}
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-navy leading-tight">{{ child.full_name }}</p>
+              <p class="text-xs text-slate-400 leading-tight">
+                @if (child.relationship) { Your {{ child.relationship }} }
+                @if (child.roll_number) { · Roll #{{ child.roll_number }} }
+              </p>
+            </div>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

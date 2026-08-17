@@ -11,6 +11,7 @@ import { SelectButtonModule } from 'primeng/selectbutton';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
+import { TagModule } from 'primeng/tag';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { AttendanceService } from '../../../core/services/attendance.service';
@@ -33,17 +34,22 @@ interface AttendanceRow extends RosterEntry {
 }
 
 /**
- * Sub-Sprint 8.1 — Teacher marks their own students' attendance.
- * Backend: nothing new. POST /api/attendance/mark-students (per-period,
- * bulk) and GET /api/timetable/slots (auto-scoped to the teacher) were
- * both already built — this screen is the only missing piece.
+ * Sub-Sprint 3 — Teacher marks their own students' attendance.
+ * 3.1: class/period picker + per-student Present/Absent/Late/Excused grid
+ *      (built in Sub-Sprint 8.1, carried over).
+ * 3.2 (this pass): once a period+date has already been submitted, the
+ *      screen loads read-only instead of editable — same code path
+ *      whether that's "I just submitted a minute ago" or "I'm looking
+ *      at last Tuesday". Locking is driven by the backend's actual
+ *      records (GET /my-period-records), not just local UI state, so a
+ *      page refresh mid-session still shows the correct locked view.
  */
 @Component({
   selector: 'app-teacher-attendance',
   standalone: true,
   imports: [
     CommonModule, FormsModule, CardModule, TableModule, DatePickerModule,
-    SelectModule, SelectButtonModule, ButtonModule, ProgressSpinnerModule, MessageModule,
+    SelectModule, SelectButtonModule, ButtonModule, ProgressSpinnerModule, MessageModule, TagModule,
   ],
   templateUrl: './teacher-attendance.component.html',
   styleUrl: './teacher-attendance.component.scss',
@@ -93,6 +99,11 @@ export class TeacherAttendanceComponent implements OnInit {
   rosterLoading = signal(false);
   saving = signal(false);
 
+  // Sub-Sprint 3.2 — true once this period+date already has records,
+  // either from a prior submission or because it's a past date being
+  // inspected. Drives the read-only table + hides the Submit button.
+  locked = signal(false);
+
   constructor(
     private staffService: AcademicsStaffService,
     private attendanceService: AttendanceService,
@@ -134,27 +145,54 @@ export class TeacherAttendanceComponent implements OnInit {
     // period that isn't actually scheduled today.
     this.selectedSlotId.set(null);
     this.roster.set([]);
+    this.locked.set(false);
   }
 
   onPeriodSelected(period: PeriodOption | null): void {
     this.selectedSlotId.set(period?.slot.id ?? null);
     this.roster.set([]);
+    this.locked.set(false);
     if (!period) return;
 
     this.rosterLoading.set(true);
-    this.staffService.getRoster(period.slot.subject_id, period.slot.batch_id).subscribe({
-      next: (entries) => {
-        this.roster.set(entries.map((e) => ({ ...e, status: AttendanceStatus.Present })));
-        this.rosterLoading.set(false);
+    const dateIso = this.toIsoDate(this.selectedDate());
+
+    // Check for existing records first — if this period+date was already
+    // submitted, load it read-only instead of the fresh editable grid.
+    this.attendanceService.getMyPeriodRecords(period.slot.id, dateIso).subscribe({
+      next: (existingRecords) => {
+        this.staffService.getRoster(period.slot.subject_id, period.slot.batch_id).subscribe({
+          next: (entries) => {
+            if (existingRecords.length > 0) {
+              const statusByStudent = new Map(existingRecords.map((r) => [r.student_user_id, r.status]));
+              this.roster.set(
+                entries.map((e) => ({
+                  ...e,
+                  status: statusByStudent.get(e.student_id) ?? AttendanceStatus.Present,
+                })),
+              );
+              this.locked.set(true);
+            } else {
+              this.roster.set(entries.map((e) => ({ ...e, status: AttendanceStatus.Present })));
+              this.locked.set(false);
+            }
+            this.rosterLoading.set(false);
+          },
+          error: () => {
+            this.rosterLoading.set(false);
+            Swal.fire({ icon: 'error', title: 'Could not load the class list', text: 'Please try again.' });
+          },
+        });
       },
       error: () => {
         this.rosterLoading.set(false);
-        Swal.fire({ icon: 'error', title: 'Could not load the class list', text: 'Please try again.' });
+        Swal.fire({ icon: 'error', title: 'Could not check attendance status', text: 'Please try again.' });
       },
     });
   }
 
   setStatus(row: AttendanceRow, status: AttendanceStatus): void {
+    if (this.locked()) return; // read-only once submitted — belt and braces alongside the disabled control
     this.roster.update((rows) =>
       rows.map((r) => (r.student_id === row.student_id ? { ...r, status } : r)),
     );
@@ -163,7 +201,7 @@ export class TeacherAttendanceComponent implements OnInit {
   submit(): void {
     const period = this.selectedPeriod();
     const rows = this.roster();
-    if (!period || rows.length === 0) return;
+    if (!period || rows.length === 0 || this.locked()) return;
 
     this.saving.set(true);
     this.attendanceService
@@ -176,11 +214,12 @@ export class TeacherAttendanceComponent implements OnInit {
       .subscribe({
         next: () => {
           this.saving.set(false);
+          this.locked.set(true); // lock immediately — don't wait for a refetch
           Swal.fire({
             icon: 'success',
             title: 'Attendance saved',
-            text: `${rows.length} student(s) marked for this period.`,
-            timer: 2000,
+            text: `${rows.length} student(s) marked for this period. Your own attendance for this period has also been marked Present automatically.`,
+            timer: 2800,
             showConfirmButton: false,
           });
         },

@@ -23,7 +23,11 @@
           (ngModelChange)="searchTerm.set($event)"
           class="w-full md:w-20rem" />
       </div>
-      <p-button label="Add User" icon="pi pi-plus" (onClick)="openAddDialog()" />
+      <!-- Account creation is Admin-only ("only admin can add new accounts") —
+           Coordinator gets a view/edit directory, not account creation. -->
+      @if (isAdmin()) {
+        <p-button label="Add User" icon="pi pi-plus" (onClick)="openAddDialog()" />
+      }
     </div>
 
     @if (loading()) {
@@ -31,7 +35,7 @@
     } @else if (filteredUsers().length === 0) {
       <p class="page__empty">No users match the current filters.</p>
     } @else {
-      <p-table [value]="filteredUsers()" [rows]="20" [paginator]="filteredUsers().length > 20">
+      <p-table [value]="filteredUsers()" [rows]="10" [paginator]="filteredUsers().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
         <ng-template pTemplate="header">
           <tr>
             <th>Name</th>
@@ -52,13 +56,24 @@
             <td>{{ row.last_login_at ? (row.last_login_at | date: 'medium') : '—' }}</td>
             <td>{{ row.created_at | date: 'mediumDate' }}</td>
             <td class="registry__row-actions">
-              <p-button label="Edit Role" size="small" severity="secondary" (onClick)="openEditRoleDialog(row)" />
+              <!-- Role reassignment is Admin-only ("only admin can assign roles") —
+                   Coordinator can edit contact/registry details below, not roles. -->
+              @if (isAdmin()) {
+                <p-button label="Edit Role" size="small" severity="secondary" (onClick)="openEditRoleDialog(row)" />
+              }
+              <p-button label="Edit Details" size="small" severity="secondary" (onClick)="openEditDetailsDialog(row)" />
+              @if (row.role === 'student') {
+                <p-button label="Link Parent" size="small" severity="secondary" (onClick)="openLinkParentDialog(row)" />
+              }
               @if (row.status !== 'pending') {
                 <p-button
                   [label]="row.status === 'active' ? 'Suspend' : 'Reactivate'"
                   size="small"
                   [severity]="row.status === 'active' ? 'danger' : 'success'"
                   (onClick)="toggleStatus(row)" />
+              }
+              @if (isAdmin() && row.id !== currentUserId()) {
+                <p-button label="Delete" size="small" severity="danger" [outlined]="true" (onClick)="deleteUser(row)" />
               }
             </td>
           </tr>
@@ -69,7 +84,7 @@
 </div>
 
 <!-- Add User dialog -->
-<p-dialog header="Add User" [(visible)]="addDialogOpen" [modal]="true" [style]="{ width: '30rem' }">
+<p-dialog header="Add User" [visible]="addDialogOpen()" (visibleChange)="addDialogOpen.set($event)" [modal]="true" [style]="{ width: '30rem' }">
   <div class="registry__form-field">
     <label for="new-full-name">Full Name</label>
     <input id="new-full-name" pInputText [ngModel]="newFullName()" (ngModelChange)="newFullName.set($event)" class="w-full" />
@@ -82,12 +97,16 @@
     <label for="new-role">Role</label>
     <p-select
       id="new-role"
-      [options]="assignableRoleOptions"
+      [options]="assignableRoleOptions()"
       [ngModel]="newRole()"
       (ngModelChange)="newRole.set($event)"
       placeholder="Select a role"
       styleClass="w-full">
     </p-select>
+  </div>
+  <div class="registry__form-field">
+    <label for="new-phone">Phone Number</label>
+    <input id="new-phone" pInputText [ngModel]="newPhoneNumber()" (ngModelChange)="newPhoneNumber.set($event)" class="w-full" />
   </div>
 
   @if (newRole() === 'student') {
@@ -99,6 +118,53 @@
       <label for="new-admission-date">Admission Date</label>
       <p-datepicker id="new-admission-date" [ngModel]="newAdmissionDate()" (ngModelChange)="newAdmissionDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
     </div>
+    <div class="registry__form-field">
+      <label for="new-father-name">Father's Name</label>
+      <input id="new-father-name" pInputText [ngModel]="newFatherName()" (ngModelChange)="newFatherName.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-dob">Date of Birth</label>
+      <p-datepicker id="new-dob" [ngModel]="newDateOfBirth()" (ngModelChange)="newDateOfBirth.set($event)" dateFormat="dd M yy" styleClass="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-gender">Gender</label>
+      <input id="new-gender" pInputText [ngModel]="newGender()" (ngModelChange)="newGender.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-religion">Religion</label>
+      <input id="new-religion" pInputText [ngModel]="newReligion()" (ngModelChange)="newReligion.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-nationality">Nationality</label>
+      <input id="new-nationality" pInputText [ngModel]="newNationality()" (ngModelChange)="newNationality.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-cnic">CNIC #</label>
+      <input id="new-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-registration-id">Registration ID</label>
+      <input id="new-registration-id" pInputText [ngModel]="newRegistrationId()" (ngModelChange)="newRegistrationId.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-parent-link">Link to Parent (optional)</label>
+      <p-select
+        id="new-parent-link"
+        [options]="parentOptions()"
+        [ngModel]="newParentId()"
+        (ngModelChange)="newParentId.set($event)"
+        placeholder="Select an existing parent…"
+        [showClear]="true"
+        styleClass="w-full">
+      </p-select>
+    </div>
+    @if (newParentId()) {
+      <div class="registry__form-field">
+        <label for="new-relationship">Relationship</label>
+        <input id="new-relationship" pInputText placeholder="e.g. Father, Mother, Guardian"
+               [ngModel]="newRelationshipLabel()" (ngModelChange)="newRelationshipLabel.set($event)" class="w-full" />
+      </div>
+    }
   }
 
   @if (newRole() === 'teacher') {
@@ -109,6 +175,29 @@
     <div class="registry__form-field">
       <label for="new-hire-date">Hire Date</label>
       <p-datepicker id="new-hire-date" [ngModel]="newHireDate()" (ngModelChange)="newHireDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-teacher-gender">Gender</label>
+      <input id="new-teacher-gender" pInputText [ngModel]="newGender()" (ngModelChange)="newGender.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-teacher-cnic">CNIC #</label>
+      <input id="new-teacher-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-teacher-code">Teacher Code</label>
+      <input id="new-teacher-code" pInputText [ngModel]="newTeacherCode()" (ngModelChange)="newTeacherCode.set($event)" class="w-full" />
+    </div>
+  }
+
+  @if (newRole() === 'parent') {
+    <div class="registry__form-field">
+      <label for="new-parent-cnic">CNIC #</label>
+      <input id="new-parent-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-parent-registration-id">Registration ID</label>
+      <input id="new-parent-registration-id" pInputText [ngModel]="newRegistrationId()" (ngModelChange)="newRegistrationId.set($event)" class="w-full" />
     </div>
   }
 
@@ -123,14 +212,14 @@
 </p-dialog>
 
 <!-- Edit Role dialog -->
-<p-dialog header="Edit Role" [(visible)]="editRoleDialogOpen" [modal]="true" [style]="{ width: '26rem' }">
+<p-dialog header="Edit Role" [visible]="editRoleDialogOpen()" (visibleChange)="editRoleDialogOpen.set($event)" [modal]="true" [style]="{ width: '26rem' }">
   @if (editingUser(); as user) {
     <p class="registry__edit-context">{{ user.full_name }} — currently {{ roleLabel(user.role) }}</p>
     <div class="registry__form-field">
       <label for="edit-role">New Role</label>
       <p-select
         id="edit-role"
-        [options]="assignableRoleOptions"
+        [options]="assignableRoleOptions()"
         [ngModel]="editRoleValue()"
         (ngModelChange)="editRoleValue.set($event)"
         styleClass="w-full">
@@ -141,5 +230,217 @@
   <ng-template pTemplate="footer">
     <p-button label="Cancel" severity="secondary" (onClick)="editRoleDialogOpen.set(false)" />
     <p-button label="Save" [loading]="editRoleSubmitting()" (onClick)="submitEditRole()" />
+  </ng-template>
+</p-dialog>
+
+<!-- Edit Details dialog -->
+<p-dialog header="Edit Details" [visible]="editDetailsDialogOpen()" (visibleChange)="editDetailsDialogOpen.set($event)" [modal]="true" [style]="{ width: '30rem' }">
+  @if (editDetailsUser(); as user) {
+    <p class="registry__edit-context">{{ user.full_name }} — {{ roleLabel(user.role) }}</p>
+
+    <div class="registry__form-field">
+      <label for="edit-phone">Phone Number</label>
+      <input id="edit-phone" pInputText [ngModel]="editPhoneNumber()" (ngModelChange)="editPhoneNumber.set($event)" class="w-full" />
+    </div>
+
+    @if (user.role === 'student') {
+      <div class="registry__form-field">
+        <label for="edit-roll-number">Roll Number</label>
+        <input id="edit-roll-number" pInputText [ngModel]="editRollNumber()" (ngModelChange)="editRollNumber.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-admission-date">Admission Date</label>
+        <p-datepicker id="edit-admission-date" [ngModel]="editAdmissionDate()" (ngModelChange)="editAdmissionDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-father-name">Father's Name</label>
+        <input id="edit-father-name" pInputText [ngModel]="editFatherName()" (ngModelChange)="editFatherName.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-dob">Date of Birth</label>
+        <p-datepicker id="edit-dob" [ngModel]="editDateOfBirth()" (ngModelChange)="editDateOfBirth.set($event)" dateFormat="dd M yy" styleClass="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-gender">Gender</label>
+        <input id="edit-gender" pInputText [ngModel]="editGender()" (ngModelChange)="editGender.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-religion">Religion</label>
+        <input id="edit-religion" pInputText [ngModel]="editReligion()" (ngModelChange)="editReligion.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-nationality">Nationality</label>
+        <input id="edit-nationality" pInputText [ngModel]="editNationality()" (ngModelChange)="editNationality.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-cnic">CNIC #</label>
+        <input id="edit-cnic" pInputText [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-registration-id">Registration ID</label>
+        <input id="edit-registration-id" pInputText [ngModel]="editRegistrationId()" (ngModelChange)="editRegistrationId.set($event)" class="w-full" />
+      </div>
+
+      <!-- Read-only: current level + registered courses (spec module 2 —
+           "level, registered courses"). Comes from student_level_enrollments
+           / enrollments, managed via Subject Requests / Level Enrollment, not
+           editable here. -->
+      <div class="registry__readonly-section">
+        <p class="registry__readonly-label">Level &amp; Registered Courses</p>
+        @if (studentEnrollmentsLoading()) {
+          <p class="registry__readonly-empty">Loading…</p>
+        } @else if (!studentEnrollments()) {
+          <p class="registry__readonly-empty">No level enrollment on record.</p>
+        } @else {
+          <p class="registry__readonly-muted">
+            Level: <strong>{{ studentEnrollments()!.current_level_name ?? 'Not enrolled in a level yet' }}</strong>
+          </p>
+          @if (studentEnrollments()!.subjects.length === 0) {
+            <p class="registry__readonly-empty">Not registered for any subjects yet.</p>
+          } @else {
+            <ul class="registry__readonly-list">
+              @for (row of studentEnrollments()!.subjects; track row.subject_id + row.batch_id) {
+                <li>
+                  {{ row.subject_name }} <span class="registry__readonly-muted">— {{ row.batch_name }} ({{ row.status }})</span>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </div>
+
+      <!-- Read-only: linked parent(s) (spec module 2 — "Parent id and name").
+           Managed via Link Parent (row action) or at account creation, not editable here. -->
+      <div class="registry__readonly-section">
+        <p class="registry__readonly-label">Linked Parent(s)</p>
+        @if (studentParentsLoading()) {
+          <p class="registry__readonly-empty">Loading…</p>
+        } @else if (studentParents().length === 0) {
+          <p class="registry__readonly-empty">No parent linked to this account yet.</p>
+        } @else {
+          <ul class="registry__readonly-list">
+            @for (link of studentParents(); track link.id) {
+              <li>
+                {{ parentNameFor(link.parent_id) }}
+                @if (link.relationship_label) { <span class="registry__readonly-muted">({{ link.relationship_label }})</span> }
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+
+    @if (user.role === 'teacher') {
+      <div class="registry__form-field">
+        <label for="edit-designation">Designation</label>
+        <input id="edit-designation" pInputText [ngModel]="editDesignation()" (ngModelChange)="editDesignation.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-hire-date">Hire Date</label>
+        <p-datepicker id="edit-hire-date" [ngModel]="editHireDate()" (ngModelChange)="editHireDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-teacher-gender">Gender</label>
+        <input id="edit-teacher-gender" pInputText [ngModel]="editGender()" (ngModelChange)="editGender.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-teacher-cnic">CNIC #</label>
+        <input id="edit-teacher-cnic" pInputText [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-teacher-code">Teacher Code</label>
+        <input id="edit-teacher-code" pInputText [ngModel]="editTeacherCode()" (ngModelChange)="editTeacherCode.set($event)" class="w-full" />
+      </div>
+
+      <!-- Read-only: classes/subjects taught (spec module 2). Not an editable
+           profile field — comes from teacher_subject_assignments, assigned
+           via the Academic module, not here. -->
+      <div class="registry__readonly-section">
+        <p class="registry__readonly-label">Classes / Subjects Taught</p>
+        @if (teacherAssignmentsLoading()) {
+          <p class="registry__readonly-empty">Loading…</p>
+        } @else if (teacherAssignments().length === 0) {
+          <p class="registry__readonly-empty">Not assigned to any subject yet.</p>
+        } @else {
+          <ul class="registry__readonly-list">
+            @for (row of teacherAssignments(); track row.subject_id + row.batch_id) {
+              <li>{{ row.subject_name }} <span class="registry__readonly-muted">— {{ row.batch_name }}</span></li>
+            }
+          </ul>
+        }
+      </div>
+    }
+
+    @if (user.role === 'parent') {
+      <div class="registry__form-field">
+        <label for="edit-parent-cnic">CNIC #</label>
+        <input id="edit-parent-cnic" pInputText [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-parent-registration-id">Registration ID</label>
+        <input id="edit-parent-registration-id" pInputText [ngModel]="editRegistrationId()" (ngModelChange)="editRegistrationId.set($event)" class="w-full" />
+      </div>
+
+      <!-- Read-only: linked children (spec module 2 — "child ID and name").
+           Managed via the Parent-Student Link flow elsewhere, not editable here. -->
+      <div class="registry__readonly-section">
+        <p class="registry__readonly-label">Linked Children</p>
+        @if (parentChildrenLoading()) {
+          <p class="registry__readonly-empty">Loading…</p>
+        } @else if (parentChildren().length === 0) {
+          <p class="registry__readonly-empty">No children linked to this account yet.</p>
+        } @else {
+          <ul class="registry__readonly-list">
+            @for (child of parentChildren(); track child.student_id) {
+              <li>
+                {{ child.full_name }}
+                @if (child.roll_number) { <span class="registry__readonly-muted">— {{ child.roll_number }}</span> }
+                @if (child.relationship) { <span class="registry__readonly-muted">({{ child.relationship }})</span> }
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  } @else if (editDetailsLoading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="editDetailsDialogOpen.set(false)" />
+    <p-button label="Save" [loading]="editDetailsSubmitting()" [disabled]="editDetailsLoading()" (onClick)="submitEditDetails()" />
+  </ng-template>
+</p-dialog>
+
+<!-- Link Parent dialog — connects an existing Parent to an existing Student -->
+<p-dialog header="Link Parent" [visible]="linkParentDialogOpen()" (visibleChange)="linkParentDialogOpen.set($event)" [modal]="true" [style]="{ width: '26rem' }">
+  @if (linkParentStudent(); as student) {
+    <p class="registry__edit-context">Linking a parent to {{ student.full_name }}</p>
+
+    <div class="registry__form-field">
+      <label for="link-parent-select">Parent</label>
+      <p-select
+        id="link-parent-select"
+        [options]="parentOptions()"
+        [ngModel]="linkParentSelectedId()"
+        (ngModelChange)="linkParentSelectedId.set($event)"
+        placeholder="Select a parent…"
+        styleClass="w-full">
+      </p-select>
+    </div>
+    <div class="registry__form-field">
+      <label for="link-parent-relationship">Relationship</label>
+      <input id="link-parent-relationship" pInputText placeholder="e.g. Father, Mother, Guardian"
+             [ngModel]="linkParentRelationship()" (ngModelChange)="linkParentRelationship.set($event)" class="w-full" />
+    </div>
+
+    @if (parentOptions().length === 0) {
+      <p class="registry__hint">No parent accounts exist yet — create one first via Add User.</p>
+    }
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="linkParentDialogOpen.set(false)" />
+    <p-button label="Link" [loading]="linkParentSubmitting()" [disabled]="parentOptions().length === 0" (onClick)="submitLinkParent()" />
   </ng-template>
 </p-dialog>

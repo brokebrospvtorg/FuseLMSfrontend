@@ -1,0 +1,15 @@
+@if (videoId) {
+  <div class="youtube-player">
+    <iframe
+      [src]="videoId | youtubeEmbedUrl"
+      [title]="title"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen>
+    </iframe>
+  </div>
+} @else {
+  <div class="youtube-player youtube-player--empty">
+    <span>No video set yet</span>
+  </div>
+}

@@ -6,6 +6,7 @@ import { APP_CONFIG } from '../config/app-config';
 import {
   AttendanceRecord, AttendanceSummary, TeacherRosterEntry, TeacherDailyStatusEntry,
   TeacherDailyLogRequest, TeacherDailyLogResult, TeacherTimetableSlot, StudentAttendanceMarkRequest,
+  PeriodRecord, CoordinatorRosterEntry, CoordinatorStudentOverrideRequest,
 } from '../models/attendance.model';
 
 @Injectable({ providedIn: 'root' })
@@ -69,6 +70,30 @@ export class AttendanceService {
 
   markStudentAttendance(payload: StudentAttendanceMarkRequest): Observable<AttendanceRecord[]> {
     return this.http.post<AttendanceRecord[]>(`${this.baseUrl}/mark-students`, payload, {
+      withCredentials: true,
+    });
+  }
+
+  /** Sub-Sprint 3.2 — check if a period+date was already submitted, to
+   *  drive the locked/read-only view (also used to inspect past dates). */
+  getMyPeriodRecords(timetableSlotId: string, date: string): Observable<PeriodRecord[]> {
+    return this.http.get<PeriodRecord[]>(`${this.baseUrl}/my-period-records`, {
+      params: { timetable_slot_id: timetableSlotId, date },
+      withCredentials: true,
+    });
+  }
+
+  // --- Coordinator: Student Attendance override (bypasses the Teacher lock) ---
+
+  getCoordinatorRoster(timetableSlotId: string, date: string): Observable<CoordinatorRosterEntry[]> {
+    return this.http.get<CoordinatorRosterEntry[]>(`${this.baseUrl}/coordinator/roster`, {
+      params: { timetable_slot_id: timetableSlotId, date },
+      withCredentials: true,
+    });
+  }
+
+  overrideStudentAttendance(payload: CoordinatorStudentOverrideRequest): Observable<AttendanceRecord[]> {
+    return this.http.post<AttendanceRecord[]>(`${this.baseUrl}/coordinator/override-students`, payload, {
       withCredentials: true,
     });
   }

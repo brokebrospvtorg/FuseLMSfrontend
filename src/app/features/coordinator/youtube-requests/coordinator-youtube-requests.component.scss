@@ -1,0 +1,90 @@
+@use '../../../shared/styles/page';
+
+.requests__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.requests__dialog-context {
+  margin-bottom: 1rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.requests__form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}
+
+// Table-row thumbnails — a lighter-weight comparison than a live embed for
+// every row in the queue; the dialog is where the real embedded
+// current-vs-proposed player comparison (Task 6.1) lives.
+.requests__thumb-cell {
+  width: 100px;
+}
+
+.requests__thumb {
+  display: block;
+  width: 90px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border, #e2e8f0);
+}
+
+.requests__thumb--proposed {
+  border-color: var(--primary-color, #2563eb);
+}
+
+.requests__thumb-empty {
+  color: var(--text-color-secondary, #94a3b8);
+  font-size: 0.8rem;
+}
+
+// Task 6.1 — current-vs-proposed EMBEDDED video comparison inside the
+// review dialog (each column is a full <app-youtube-player>, not just text).
+.requests__compare {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  background: #f7f8fb;
+  border-radius: 10px;
+}
+
+.requests__compare-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.requests__compare-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-color-secondary, #94a3b8);
+}
+
+.requests__compare-label--proposed {
+  color: var(--primary-color, #2563eb);
+}
+
+.requests__compare-arrow {
+  flex-shrink: 0;
+  margin-top: 2rem;
+  color: var(--text-color-secondary, #94a3b8);
+}
+
+.requests__dialog-reason {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #64748b);
+}

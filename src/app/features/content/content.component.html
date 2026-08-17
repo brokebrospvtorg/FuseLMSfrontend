@@ -48,14 +48,15 @@
             @for (lecture of lectures(); track lecture.id) {
               <div class="content-tab__lecture-card">
                 <div class="content-tab__lecture-embed">
-                  <iframe
-                    [src]="embedUrl(lecture.youtube_video_id)"
-                    frameborder="0"
-                    allowfullscreen>
-                  </iframe>
+                  <app-youtube-player [videoId]="lecture.youtube_video_id" [title]="lecture.title" />
                 </div>
                 <p class="content-tab__lecture-subject">{{ lecture.subject_name }}</p>
                 <p class="content-tab__lecture-title">{{ lecture.title }}</p>
+                @if (lecture.classroom_url) {
+                  <a [href]="lecture.classroom_url" target="_blank" rel="noopener" class="content-tab__gcr-link">
+                    <button pButton type="button" icon="pi pi-external-link" label="Open Google Classroom" class="p-button-sm p-button-outlined"></button>
+                  </a>
+                }
               </div>
             }
           </div>

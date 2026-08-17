@@ -57,7 +57,20 @@
 
         @if (activeAssessment()) {
           <div class="marks-tab__entry">
-            <h3>Entering marks: {{ activeAssessment()!.name }}</h3>
+            <div class="marks-tab__entry-header">
+              <h3>Entering marks: {{ activeAssessment()!.name }}</h3>
+              @if (locked()) {
+                <p-tag severity="info" value="Marks submitted — read only" />
+              }
+            </div>
+
+            @if (locked()) {
+              <p-message
+                severity="info"
+                text="Marks for this assessment have already been saved and are locked. Use the Request Edit button next to a student's row to ask your Coordinator to approve a change."
+                styleClass="marks-tab__locked-notice">
+              </p-message>
+            }
 
             @if (rosterLoading()) {
               <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
@@ -70,6 +83,9 @@
                     <th>Roll No.</th>
                     <th>Student</th>
                     <th>Marks (/ {{ activeAssessment()!.max_marks }})</th>
+                    @if (locked()) {
+                      <th></th>
+                    }
                   </tr>
                 </ng-template>
                 <ng-template pTemplate="body" let-row>
@@ -77,31 +93,118 @@
                     <td>{{ row.roll_number ?? '—' }}</td>
                     <td>{{ row.full_name }}</td>
                     <td>
-                      <p-inputNumber
-                        [(ngModel)]="row.marks_obtained"
-                        [min]="0"
-                        [max]="activeAssessment()!.max_marks"
-                        styleClass="w-8rem" />
+                      @if (locked()) {
+                        {{ row.marks_obtained ?? '—' }}
+                      } @else {
+                        <p-inputNumber
+                          [(ngModel)]="row.marks_obtained"
+                          [min]="0"
+                          [max]="activeAssessment()!.max_marks"
+                          styleClass="w-8rem" />
+                      }
                     </td>
+                    @if (locked()) {
+                      <td>
+                        @if (row.mark_id && pendingRequestMarkIds().has(row.mark_id)) {
+                          <p-tag severity="warn" value="Edit request pending" />
+                        } @else if (row.mark_id) {
+                          <p-button
+                            label="Request Edit"
+                            size="small"
+                            severity="secondary"
+                            [text]="true"
+                            (onClick)="openEditRequestDialog(row)" />
+                        }
+                      </td>
+                    }
                   </tr>
                 </ng-template>
               </p-table>
 
-              <p-button
-                label="Save Marks"
-                icon="pi pi-save"
-                [loading]="savingMarks()"
-                (onClick)="saveMarks()"
-                styleClass="marks-tab__save-btn" />
+              @if (!locked()) {
+                <p-button
+                  label="Submit Marks"
+                  icon="pi pi-save"
+                  [loading]="savingMarks()"
+                  (onClick)="saveMarks()"
+                  styleClass="marks-tab__save-btn" />
+              }
             }
           </div>
         }
       }
     }
   </p-card>
+
+  <!-- Sub-Sprint 5.2 — Edit request status tracking -->
+  <p-card header="My Mark Edit Requests" styleClass="marks-tab__requests-card">
+    @if (editRequestsLoading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (myEditRequests().length === 0) {
+      <p class="page__empty">You haven't requested any mark edits yet.</p>
+    } @else {
+      <p-table [value]="myEditRequests()">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Assessment</th>
+            <th>Student</th>
+            <th>Current</th>
+            <th>Requested</th>
+            <th>Reason</th>
+            <th>Status</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.subject_name }} — {{ row.assessment_name }}</td>
+            <td>{{ row.student_name }}</td>
+            <td>{{ row.current_marks_obtained }}</td>
+            <td>{{ row.requested_change.marks_obtained }}</td>
+            <td>{{ row.reason ?? '—' }}</td>
+            <td>
+              <p-tag
+                [severity]="row.status === 'approved' ? 'success' : row.status === 'rejected' ? 'danger' : 'warn'"
+                [value]="row.status" />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
 </div>
 
-<p-dialog header="New Assessment" [(visible)]="createDialogOpen" [modal]="true" [style]="{ width: '28rem' }">
+<p-dialog header="Request a Mark Edit" [visible]="editRequestDialogOpen()" (visibleChange)="editRequestDialogOpen.set($event)" [modal]="true" [style]="{ width: '28rem' }">
+  @if (editRequestTarget(); as target) {
+    <p class="marks-tab__dialog-subtitle">{{ target.full_name }} — currently {{ target.marks_obtained }} / {{ activeAssessment()?.max_marks }}</p>
+  }
+  <div class="marks-tab__form-field">
+    <label for="edit-request-marks">New Marks</label>
+    <p-inputNumber
+      id="edit-request-marks"
+      [ngModel]="editRequestNewMarks()"
+      (ngModelChange)="editRequestNewMarks.set($event)"
+      [min]="0"
+      [max]="activeAssessment()?.max_marks"
+      styleClass="w-full" />
+  </div>
+  <div class="marks-tab__form-field">
+    <label for="edit-request-reason">Reason (for your Coordinator)</label>
+    <input
+      id="edit-request-reason"
+      pInputText
+      [ngModel]="editRequestReason()"
+      (ngModelChange)="editRequestReason.set($event)"
+      placeholder="e.g. Miscounted a question during grading"
+      class="w-full" />
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="editRequestDialogOpen.set(false)" />
+    <p-button label="Send Request" [loading]="submittingEditRequest()" (onClick)="submitEditRequest()" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog header="New Assessment" [visible]="createDialogOpen()" (visibleChange)="createDialogOpen.set($event)" [modal]="true" [style]="{ width: '28rem' }">
   <div class="marks-tab__form-field">
     <label for="assessment-name">Name</label>
     <input id="assessment-name" pInputText [ngModel]="newName()" (ngModelChange)="newName.set($event)" placeholder="e.g. Midterm" class="w-full" />

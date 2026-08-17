@@ -1,31 +1,35 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, effect, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import Swal from 'sweetalert2';
 
 import { ParentService } from '../../../core/services/parent.service';
-import { ParentChild, ParentChildOverview } from '../../../core/models/parent.model';
+import { ParentContextService } from '../../../core/services/parent-context.service';
+import { ChildSelectionDialogComponent } from '../child-selection-dialog/child-selection-dialog.component';
+import { ParentChildOverview } from '../../../core/models/parent.model';
 
 @Component({
   selector: 'app-parent-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ChildSelectionDialogComponent],
   templateUrl: './parent-dashboard.component.html',
   styleUrl: './parent-dashboard.component.scss',
 })
 export class ParentDashboardComponent implements OnInit {
-  children = signal<ParentChild[]>([]);
-  childrenLoading = signal(true);
-  childrenError = signal<string | null>(null);
+  // Inject services first so they are available for class property initializers
+  private parentService = inject(ParentService);
+  private context = inject(ParentContextService);
 
-  selectedStudentId = signal<string | null>(null);
+  // Delegated straight through to the shared context
+  children = this.context.children;
+  childrenLoading = this.context.loading;
+  childrenError = this.context.error;
+  selectedStudentId = this.context.selectedStudentId;
+  selectedChild = this.context.selectedChild;
+
   switcherOpen = signal(false);
 
   overview = signal<ParentChildOverview | null>(null);
   overviewLoading = signal(false);
-
-  selectedChild = computed<ParentChild | null>(
-    () => this.children().find((c) => c.student_id === this.selectedStudentId()) ?? null,
-  );
 
   attendanceColor = computed(() => {
     const pct = this.overview()?.overall_attendance_percentage;
@@ -35,22 +39,22 @@ export class ParentDashboardComponent implements OnInit {
     return 'text-red-600';
   });
 
-  constructor(private parentService: ParentService) {}
+  constructor() {
+    // Reacts to the shared selection changing — whether that happened from
+    // this page's own switcher, or because the person picked a different
+    // child on Attendance/Timetable and navigated back here.
+    effect(() => {
+      const child = this.context.selectedChild();
+      if (child) {
+        this.loadOverview(child.student_id);
+      } else {
+        this.overview.set(null);
+      }
+    });
+  }
 
   ngOnInit(): void {
-    this.parentService.getMyChildren().subscribe({
-      next: (children) => {
-        this.children.set(children);
-        this.childrenLoading.set(false);
-        if (children.length > 0) {
-          this.selectChild(children[0].student_id);
-        }
-      },
-      error: () => {
-        this.childrenError.set('Could not load your linked children right now.');
-        this.childrenLoading.set(false);
-      },
-    });
+    this.context.ensureLoaded();
   }
 
   toggleSwitcher(): void {
@@ -58,9 +62,8 @@ export class ParentDashboardComponent implements OnInit {
   }
 
   selectChild(studentId: string): void {
-    this.selectedStudentId.set(studentId);
+    this.context.selectChild(studentId);
     this.switcherOpen.set(false);
-    this.loadOverview(studentId);
   }
 
   private loadOverview(studentId: string): void {

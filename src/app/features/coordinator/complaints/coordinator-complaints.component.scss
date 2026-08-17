@@ -1,0 +1,40 @@
+@use '../../../shared/styles/page';
+
+.complaints__filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.complaints__role-tag {
+  font-size: 0.75rem;
+  color: #8b93a7;
+  text-transform: capitalize;
+}
+
+.complaints__dialog-context {
+  margin: 0 0 0.5rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.complaints__dialog-description {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem;
+  background: #f7f8fc;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #2c3554;
+}
+
+.complaints__form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}

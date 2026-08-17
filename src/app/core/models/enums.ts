@@ -79,6 +79,7 @@ export enum ComplaintStatus {
   Open = 'open',
   InProgress = 'in_progress',
   Resolved = 'resolved',
+  Closed = 'closed',
 }
 
 export enum NotificationChannel {

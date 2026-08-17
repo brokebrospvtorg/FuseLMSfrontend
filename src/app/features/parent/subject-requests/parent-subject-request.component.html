@@ -1,0 +1,80 @@
+<div class="max-w-4xl mx-auto">
+  <app-parent-child-switcher />
+
+  @if (context.children().length > 0) {
+    <p-card styleClass="mb-4">
+      <h2 class="page__title">Request a Subject</h2>
+
+      @if (availableLoading()) {
+        <div class="page__loading"><p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" /></div>
+      } @else if (!currentBatchId()) {
+        <p class="page__empty">No batch is currently active — subject requests can't be submitted right now.</p>
+      } @else if (subjectOptions().length === 0) {
+        <p class="page__empty">
+          No subjects left to request for {{ context.selectedChild()?.full_name }} in {{ currentBatchName() }} —
+          either already enrolled, already requested, or not offered at their level.
+        </p>
+      } @else {
+        <div class="request-form">
+          <p-select
+            [options]="subjectOptions()"
+            [ngModel]="selectedSubjectId()"
+            (ngModelChange)="selectedSubjectId.set($event)"
+            placeholder="Choose a subject"
+            styleClass="w-full md:w-20rem">
+          </p-select>
+
+          <textarea
+            pTextarea
+            rows="2"
+            class="w-full mt-3"
+            placeholder="Reason (optional) — shown to the Coordinator/Admin reviewing this, not stored as its own record"
+            [(ngModel)]="reason">
+          </textarea>
+
+          <p-button
+            label="Submit Request"
+            styleClass="mt-3"
+            [loading]="submitting()"
+            [disabled]="!selectedSubjectId()"
+            (onClick)="submitRequest()">
+          </p-button>
+        </div>
+      }
+    </p-card>
+
+    <p-card>
+      <h2 class="page__title">Request History</h2>
+      @if (requestsLoading()) {
+        <div class="page__loading"><p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" /></div>
+      } @else if (requests().length === 0) {
+        <p class="page__empty">No subject requests submitted yet for {{ context.selectedChild()?.full_name }}.</p>
+      } @else {
+        <p-table [value]="requests()">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Subject</th>
+              <th>Batch</th>
+              <th>Requested</th>
+              <th>Status</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr>
+              <td>{{ row.subject_name }}</td>
+              <td>{{ row.batch_name }}</td>
+              <td>{{ row.requested_at | date: 'mediumDate' }}</td>
+              <td>
+                @switch (row.status) {
+                  @case ('requested') { <p-tag severity="warn" value="Pending" /> }
+                  @case ('approved') { <p-tag severity="success" value="Approved" /> }
+                  @case ('rejected') { <p-tag severity="danger" value="Rejected" /> }
+                }
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    </p-card>
+  }
+</div>

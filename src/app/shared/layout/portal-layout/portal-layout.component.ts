@@ -14,6 +14,13 @@ export interface PortalNavItem {
   label: string;
   icon: NavIconKey;
   route: string;
+  /** Optional group header rendered above this item — items sharing the
+   *  same section are visually grouped, consecutive items with no section
+   *  (or the same section as the previous item) render with no header.
+   *  Added for the Admin sidebar (System Administration / Information
+   *  Registry / Academics / Operations); every other portal's nav array
+   *  simply doesn't set this and renders as a flat list, unchanged. */
+  section?: string;
 }
 
 @Component({

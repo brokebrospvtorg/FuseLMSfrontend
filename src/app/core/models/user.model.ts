@@ -7,6 +7,7 @@ export interface User {
   email: string;
   role: UserRole;
   status: UserStatus;
+  phone_number: string | null;
   created_by: string | null;
   last_login_at: string | null;
   created_at: string;
@@ -16,17 +17,36 @@ export interface StudentProfile {
   user_id: string;
   roll_number: string | null;
   admission_date: string | null;
+  father_name: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  religion: string | null;
+  nationality: string | null;
+  cnic: string | null;
+  registration_id: string | null;
 }
 
 export interface TeacherProfile {
   user_id: string;
   designation: string | null;
   hire_date: string | null;
+  gender: string | null;
+  cnic: string | null;
+  teacher_code: string | null;
+}
+
+export interface ParentProfile {
+  user_id: string;
+  cnic: string | null;
+  registration_id: string | null;
+  registration_date: string | null;
 }
 
 export interface MyProfile {
   user: User;
   student_profile: StudentProfile | null;
+  teacher_profile: TeacherProfile | null;
+  parent_profile: ParentProfile | null;
   class_name: string | null;
 }
 
