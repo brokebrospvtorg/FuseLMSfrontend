@@ -31,6 +31,29 @@
   }
 }
 
+// Cross-Level Subject Enrollment: puts the "Assigned Subjects" label and
+// the "Show All Levels" toggle on the same row, wrapping on narrow dialogs.
+.registry__subjects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.registry__cross-level-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-color-secondary, #64748b);
+    cursor: pointer;
+  }
+}
+
 .registry__hint {
   font-size: 0.8rem;
   color: var(--text-color-secondary, #64748b);
@@ -80,4 +103,15 @@
 .registry__readonly-muted {
   color: #8b93a7;
   font-size: 0.82rem;
+}
+
+.registry__required {
+  color: #c00000;
+}
+
+.registry__field-error {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: #c00000;
 }

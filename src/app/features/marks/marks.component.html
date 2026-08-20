@@ -17,19 +17,18 @@
                 <th>Subject</th>
                 <th>Percentage</th>
                 <th>Grade</th>
-                <th></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-row>
               <tr>
-                <td>{{ row.subject_name }}</td>
-                <td>{{ row.computed_percentage !== null ? (row.computed_percentage + '%') : '—' }}</td>
-                <td>{{ row.letter_grade ?? '—' }}</td>
                 <td>
-                  @if (row.is_overridden) {
-                    <p-tag severity="info" value="Adjusted by Coordinator" />
+                  {{ row.subject_name }}
+                  @if (levelBadge(row.level_code); as badge) {
+                    <span class="level-badge">[{{ badge }}]</span>
                   }
                 </td>
+                <td>{{ row.computed_percentage !== null ? (row.computed_percentage + '%') : '—' }}</td>
+                <td>{{ row.letter_grade ?? '—' }}</td>
               </tr>
             </ng-template>
           </p-table>
@@ -38,7 +37,7 @@
 
       <p-tabPanel header="Marks Report">
         <div class="marks-tab__select">
-          <p-select
+          <p-select appendTo="body"
             [options]="subjectOptions()"
             [ngModel]="selectedSubjectId()"
             (ngModelChange)="onSubjectSelected($event)"
@@ -50,6 +49,12 @@
         @if (marksLoading()) {
           <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
         } @else if (subjectMarks()) {
+          <h3 class="marks-tab__subject-heading">
+            {{ subjectMarks()!.subject_name }}
+            @if (levelBadge(subjectMarks()!.level_code); as badge) {
+              <span class="level-badge">[{{ badge }}]</span>
+            }
+          </h3>
           <p-table [value]="subjectMarks()!.assessments">
             <ng-template pTemplate="header">
               <tr>

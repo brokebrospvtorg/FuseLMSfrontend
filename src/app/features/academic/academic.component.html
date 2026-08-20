@@ -39,8 +39,15 @@
           <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
         } @else if (requestsError()) {
           <p-message severity="error" [text]="requestsError()!" />
+        } @else if (noBatchResolved()) {
+          <p-message severity="warn" text="You don't have a current batch yet — subject requests aren't available until you're placed in one." />
         } @else {
-          <h3 class="academic-tab__subheading">Available Subjects</h3>
+          <h3 class="academic-tab__subheading">
+            Available Subjects
+            @if (batchName()) {
+              <span class="academic-tab__subheading-hint">— {{ batchName() }}</span>
+            }
+          </h3>
           @if (availableSubjects().length === 0) {
             <p class="page__empty">No subjects available to request right now.</p>
           } @else {
@@ -48,18 +55,18 @@
               <ng-template pTemplate="header">
                 <tr>
                   <th>Subject</th>
-                  <th>Code</th>
+                  <th>Level</th>
                   <th></th>
                 </tr>
               </ng-template>
               <ng-template pTemplate="body" let-row>
                 <tr>
-                  <td>{{ row.name }}</td>
-                  <td>{{ row.code ?? '—' }}</td>
+                  <td>{{ row.subject_name }}</td>
+                  <td>{{ row.level_name }}</td>
                   <td>
                     <button pButton type="button" label="Request" class="p-button-sm"
-                            [loading]="requestingSubjectId() === row.id"
-                            (click)="requestSubject(row.id)"></button>
+                            [loading]="requestingSubjectId() === row.subject_id"
+                            (click)="requestSubject(row.subject_id)"></button>
                   </td>
                 </tr>
               </ng-template>
@@ -80,7 +87,7 @@
               </ng-template>
               <ng-template pTemplate="body" let-row>
                 <tr>
-                  <td>{{ row.subject_name ?? row.subject_id }}</td>
+                  <td>{{ subjectNameFor(row) }}</td>
                   <td><p-tag [severity]="severityFor(row.status)" [value]="row.status" /></td>
                   <td>{{ row.requested_at | date: 'mediumDate' }}</td>
                 </tr>

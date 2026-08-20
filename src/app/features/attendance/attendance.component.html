@@ -36,7 +36,7 @@
     <h2 class="attendance-log__title">Detailed Log</h2>
 
     <div class="attendance-log__filters">
-      <p-select
+      <p-select appendTo="body"
         [options]="subjectOptions()"
         [ngModel]="filterSubjectId()"
         (ngModelChange)="filterSubjectId.set($event)"

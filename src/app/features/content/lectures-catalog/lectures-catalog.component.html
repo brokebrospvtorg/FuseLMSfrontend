@@ -1,0 +1,29 @@
+<div class="page">
+  <h1 class="page__title">Lectures</h1>
+  <p class="page__subtitle">Recorded lectures for your enrolled subjects.</p>
+
+  @if (loading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else if (error()) {
+    <p-message severity="error" [text]="error()!" />
+  } @else if (lectures().length === 0) {
+    <p-card>
+      <p class="page__empty">No lectures uploaded yet for your enrolled subjects.</p>
+    </p-card>
+  } @else {
+    <div class="lecture-grid">
+      @for (lecture of lectures(); track lecture.id) {
+        <div class="lecture-card">
+          <div class="lecture-card__embed">
+            <app-youtube-player [videoId]="lecture.youtube_video_id" [title]="lecture.title" />
+          </div>
+          <p class="lecture-card__subject">{{ lecture.subject_name }}</p>
+          <p class="lecture-card__title">{{ lecture.title }}</p>
+          @if (lecture.description) {
+            <p class="lecture-card__description">{{ lecture.description }}</p>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

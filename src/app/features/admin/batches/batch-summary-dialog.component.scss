@@ -1,0 +1,117 @@
+.batch-summary__loading {
+  display: flex;
+  justify-content: center;
+  padding: 2.5rem 0;
+}
+
+.batch-summary__header {
+  margin-bottom: 1.25rem;
+}
+
+.batch-summary__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.batch-summary__badges {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.batch-summary__stats {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.batch-summary__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--surface-100, #f4f6f9);
+}
+
+.batch-summary__stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.batch-summary__stat-label {
+  font-size: 0.78rem;
+  color: var(--text-color-secondary, #667085);
+}
+
+.batch-summary__section {
+  margin-bottom: 1.5rem;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.batch-summary__section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.batch-summary__empty {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #667085);
+  margin: 0;
+}
+
+.batch-summary__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+}
+
+.batch-summary__list-primary {
+  font-weight: 600;
+}
+
+.batch-summary__list-muted {
+  color: var(--text-color-secondary, #667085);
+  margin-left: 0.25rem;
+}
+
+.batch-summary__subject-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.batch-summary__subject {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--surface-200, #e5e7eb);
+}
+
+.batch-summary__subject-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.batch-summary__subject-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.batch-summary__subject-meta {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-color-secondary, #667085);
+}

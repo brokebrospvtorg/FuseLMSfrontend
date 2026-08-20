@@ -6,7 +6,7 @@ import { APP_CONFIG } from '../config/app-config';
 import {
   AttendanceRecord, AttendanceSummary, TeacherRosterEntry, TeacherDailyStatusEntry,
   TeacherDailyLogRequest, TeacherDailyLogResult, TeacherTimetableSlot, StudentAttendanceMarkRequest,
-  PeriodRecord, CoordinatorRosterEntry, CoordinatorStudentOverrideRequest,
+  PeriodRecord, CoordinatorRosterEntry, CoordinatorStudentOverrideRequest, TeacherAttendanceLogEntry,
 } from '../models/attendance.model';
 
 @Injectable({ providedIn: 'root' })
@@ -79,6 +79,28 @@ export class AttendanceService {
   getMyPeriodRecords(timetableSlotId: string, date: string): Observable<PeriodRecord[]> {
     return this.http.get<PeriodRecord[]>(`${this.baseUrl}/my-period-records`, {
       params: { timetable_slot_id: timetableSlotId, date },
+      withCredentials: true,
+    });
+  }
+
+  /** Day-Wise UI's "View Summary" — read-only historical log of classes
+   *  this teacher has already taken, optionally filtered by subject/level/
+   *  date range. Backend caps date_to at today server-side regardless of
+   *  what's passed here. */
+  getMyAttendanceHistoryLog(
+    subjectId?: string,
+    levelId?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Observable<TeacherAttendanceLogEntry[]> {
+    let params = new HttpParams();
+    if (subjectId) params = params.set('subject_id', subjectId);
+    if (levelId) params = params.set('level_id', levelId);
+    if (dateFrom) params = params.set('date_from', dateFrom);
+    if (dateTo) params = params.set('date_to', dateTo);
+
+    return this.http.get<TeacherAttendanceLogEntry[]>(`${this.baseUrl}/my-history-log`, {
+      params,
       withCredentials: true,
     });
   }

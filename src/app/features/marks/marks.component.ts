@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
 import { TabViewModule } from 'primeng/tabview';
-import { TagModule } from 'primeng/tag';
 import { SelectModule } from 'primeng/select';
 import { FormsModule } from '@angular/forms';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -11,6 +10,7 @@ import { MessageModule } from 'primeng/message';
 
 import { MarksService } from '../../core/services/marks.service';
 import { GradeReportEntry, SubjectMarksReport } from '../../core/models/marks.model';
+import { getLevelAbbreviation } from '../../shared/utils/level-badge.util';
 
 @Component({
   selector: 'app-marks',
@@ -21,7 +21,6 @@ import { GradeReportEntry, SubjectMarksReport } from '../../core/models/marks.mo
     CardModule,
     TableModule,
     TabViewModule,
-    TagModule,
     SelectModule,
     ProgressSpinnerModule,
     MessageModule,
@@ -43,7 +42,10 @@ export class MarksComponent implements OnInit {
   // Subject options for the dropdown are derived from the grade report —
   // avoids a second round trip just to list "subjects I'm enrolled in".
   subjectOptions = computed(() =>
-    this.gradeReport().map((g) => ({ label: g.subject_name, value: g.subject_id })),
+    this.gradeReport().map((g) => ({
+      label: this.levelBadge(g.level_code) ? `${g.subject_name} [${this.levelBadge(g.level_code)}]` : g.subject_name,
+      value: g.subject_id,
+    })),
   );
 
   constructor(private marksService: MarksService) {}
@@ -59,6 +61,12 @@ export class MarksComponent implements OnInit {
         this.gradesLoading.set(false);
       },
     });
+  }
+
+  /** Short level badge ("OL" / "AS" / "A2" / "Composite") for a DB level
+   *  code, or null when there's nothing to show. */
+  levelBadge(levelCode: string | null): string | null {
+    return getLevelAbbreviation(levelCode);
   }
 
   onSubjectSelected(subjectId: string): void {

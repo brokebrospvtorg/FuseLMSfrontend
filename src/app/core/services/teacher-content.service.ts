@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
 import {
-  Lecture, CreateLectureRequest, ClassroomEditRequest,
+  Lecture, CreateLectureRequest, SubjectClassroomLink,
   SetYoutubeVideoPayload, RequestYoutubeEditPayload, YoutubeEditRequest,
 } from '../models/content.model';
 
@@ -25,24 +25,40 @@ export class TeacherContentService {
     return this.http.get<Lecture[]>(`${this.baseUrl}/lectures`, { params, withCredentials: true });
   }
 
+  /** LMS & Study Resources refactor: Title, Description, and YouTube Video
+   *  Link are all submitted together — video is parsed & locked server-side
+   *  immediately on creation. No Google Classroom field here anymore. */
   createLecture(payload: CreateLectureRequest): Observable<Lecture> {
     return this.http.post<Lecture>(`${this.baseUrl}/lectures`, payload, { withCredentials: true });
   }
 
-  /** Task 1.3 — initial set only; backend 409s if a link is already locked in. */
-  setClassroomUrl(lectureId: string, classroomUrl: string): Observable<Lecture> {
-    return this.http.post<Lecture>(
-      `${this.baseUrl}/lectures/${lectureId}/classroom-url`,
+  // --- Subject-level Google Classroom link (replaces the old per-lecture
+  //     setClassroomUrl/requestClassroomEdit pair above) ---
+
+  /** Returns null when no link has been set for this subject yet — that's
+   *  the normal "show Add Google Classroom Link" state, not an error. */
+  getSubjectClassroomLink(subjectId: string): Observable<SubjectClassroomLink | null> {
+    return this.http.get<SubjectClassroomLink | null>(
+      `${this.baseUrl}/subjects/${subjectId}/classroom-link`,
+      { withCredentials: true },
+    );
+  }
+
+  /** "Add Google Classroom Link" — initial set only; backend 409s if the
+   *  subject already has one. */
+  setSubjectClassroomLink(subjectId: string, classroomUrl: string): Observable<SubjectClassroomLink> {
+    return this.http.post<SubjectClassroomLink>(
+      `${this.baseUrl}/subjects/${subjectId}/classroom-link`,
       { classroom_url: classroomUrl },
       { withCredentials: true },
     );
   }
 
-  /** Task 1.4 — proposes a change to an already-locked link; goes to the Coordinator/Admin queue. */
-  requestClassroomEdit(lectureId: string, proposedUrl: string, reason: string): Observable<ClassroomEditRequest> {
-    return this.http.post<ClassroomEditRequest>(
-      `${this.baseUrl}/lectures/${lectureId}/request-edit`,
-      { proposed_url: proposedUrl, reason },
+  /** "Edit Google Classroom Link" — direct update, no approval step. */
+  updateSubjectClassroomLink(subjectId: string, classroomUrl: string): Observable<SubjectClassroomLink> {
+    return this.http.put<SubjectClassroomLink>(
+      `${this.baseUrl}/subjects/${subjectId}/classroom-link`,
+      { classroom_url: classroomUrl },
       { withCredentials: true },
     );
   }

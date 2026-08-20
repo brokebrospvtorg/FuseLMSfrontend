@@ -1,9 +1,10 @@
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import Swal from 'sweetalert2';
 
 import { AuthService } from '../../../core/services/auth.service';
+import { ChangePasswordDialogComponent } from '../../ui/change-password-dialog/change-password-dialog.component';
 
 export type NavIconKey =
   | 'dashboard' | 'attendance' | 'timetable'
@@ -26,12 +27,14 @@ export interface PortalNavItem {
 @Component({
   selector: 'app-portal-layout',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, ChangePasswordDialogComponent],
   templateUrl: './portal-layout.component.html',
 })
 export class PortalLayoutComponent {
   @Input() portalTitle = 'Student Portal';
   @Input() navItems: PortalNavItem[] = [];
+
+  @ViewChild(ChangePasswordDialogComponent) changePasswordDialog!: ChangePasswordDialogComponent;
 
   sidebarOpen = signal(false);
 
@@ -46,6 +49,18 @@ export class PortalLayoutComponent {
 
   get userName(): string {
     return this.auth.currentUser()?.full_name ?? 'Welcome';
+  }
+
+  /** Password Management: true right after an Admin/Coordinator sets a
+   *  temporary password for this account — drives the small "Change
+   *  Password" nudge badge in the header, cleared once the person
+   *  actually changes it via openChangePassword() below. */
+  get mustChangePassword(): boolean {
+    return this.auth.currentUser()?.must_change_password ?? false;
+  }
+
+  openChangePassword(): void {
+    this.changePasswordDialog.show();
   }
 
   confirmLogout(): void {

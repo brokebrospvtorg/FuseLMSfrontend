@@ -16,7 +16,7 @@
         </p>
       } @else {
         <div class="request-form">
-          <p-select
+          <p-select appendTo="body"
             [options]="subjectOptions()"
             [ngModel]="selectedSubjectId()"
             (ngModelChange)="selectedSubjectId.set($event)"

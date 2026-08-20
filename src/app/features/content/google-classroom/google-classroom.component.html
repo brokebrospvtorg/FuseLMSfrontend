@@ -1,0 +1,34 @@
+<div class="page">
+  <h1 class="page__title">LMS &amp; Study Resources</h1>
+  <p class="page__subtitle">Your teachers' Google Classroom links and study notes, in one place.</p>
+
+  @if (loading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else if (error()) {
+    <p-message severity="error" [text]="error()!" />
+  } @else if (links().length === 0) {
+    <p-card>
+      <p class="page__empty">
+        No Google Classroom links have been shared for your subjects yet. Check back once your
+        teacher adds one.
+      </p>
+    </p-card>
+  } @else {
+    <div class="classroom-grid">
+      @for (link of links(); track link.id) {
+        <p-card styleClass="classroom-card">
+          <p class="classroom-card__subject">{{ link.subject_name }}</p>
+          <p class="classroom-card__hint">Study notes, assignments, and announcements for this subject.</p>
+          <a [href]="link.classroom_url" target="_blank" rel="noopener">
+            <button
+              pButton
+              type="button"
+              icon="pi pi-external-link"
+              label="Open Google Classroom"
+              class="classroom-card__button"></button>
+          </a>
+        </p-card>
+      }
+    </div>
+  }
+</div>

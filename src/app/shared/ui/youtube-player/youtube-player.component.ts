@@ -13,10 +13,9 @@ import { YoutubeEmbedUrlPipe } from './youtube-embed-url.pipe';
  * Coordinator current-vs-proposed compare card in Sub-Sprint 6, Student
  * viewer). This component only ever needs a video ID and renders it.
  *
- * The 16:9 wrapper (padding-top: 56.25% trick) is lifted from the existing
- * Student lecture viewer (features/content/content.component.scss) rather
- * than invented fresh — same technique, now packaged for reuse instead of
- * living inline in one screen.
+ * The 16:9 wrapper (padding-top: 56.25% trick) is lifted from the original
+ * Student lecture viewer rather than invented fresh — same technique, now
+ * packaged for reuse instead of living inline in one screen.
  *
  * Usage: <app-youtube-player [videoId]="lecture.youtube_video_id" />
  * If videoId is null/empty, renders a plain "No video set yet" placeholder

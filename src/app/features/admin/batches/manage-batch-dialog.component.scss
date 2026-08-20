@@ -1,0 +1,52 @@
+.manage-batch__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}
+
+.manage-batch__hint {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #64748b);
+  margin: 0 0 1rem;
+}
+
+.manage-batch__hint-inline {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.manage-batch__section {
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--surface-border, #e2e8f0);
+
+  &:first-of-type {
+    border-top: none;
+    margin-top: 0.5rem;
+    padding-top: 0;
+  }
+}
+
+.manage-batch__section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+
+.manage-batch__loading {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.manage-batch__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

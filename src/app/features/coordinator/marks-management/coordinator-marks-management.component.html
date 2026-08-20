@@ -7,7 +7,7 @@
       <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
     } @else {
       <div class="marks-mgmt__filters">
-        <p-select
+        <p-select appendTo="body"
           [options]="levelOptions()"
           [ngModel]="selectedLevelId()"
           (ngModelChange)="onLevelChanged($event)"
@@ -15,14 +15,14 @@
           [showClear]="true"
           styleClass="w-full md:w-16rem">
         </p-select>
-        <p-select
+        <p-select appendTo="body"
           [options]="subjectOptions()"
           [ngModel]="selectedSubjectId()"
           (ngModelChange)="selectedSubjectId.set($event); onFiltersChanged()"
           placeholder="Subject"
           styleClass="w-full md:w-16rem">
         </p-select>
-        <p-select
+        <p-select appendTo="body"
           [options]="batchOptions()"
           [ngModel]="selectedBatchId()"
           (ngModelChange)="selectedBatchId.set($event); onFiltersChanged()"
@@ -85,6 +85,8 @@
                     <th>Roll No.</th>
                     <th>Student</th>
                     <th>Marks (/ {{ activeAssessment()!.max_marks }})</th>
+                    <th>%</th>
+                    <th>Grade</th>
                     <th></th>
                   </tr>
                 </ng-template>
@@ -98,6 +100,16 @@
                         [min]="0"
                         [max]="activeAssessment()!.max_marks"
                         styleClass="w-8rem" />
+                    </td>
+                    <td>
+                      {{ rowPercentage(row) !== null ? (rowPercentage(row) + '%') : '—' }}
+                    </td>
+                    <td>
+                      @if (rowGrade(row); as grade) {
+                        <p-tag [severity]="grade === 'U' ? 'danger' : 'success'" [value]="grade" />
+                      } @else {
+                        <span>—</span>
+                      }
                     </td>
                     <td>
                       @if (row.mark_id) {

@@ -9,9 +9,39 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
 
 import { AcademicService } from '../../core/services/academic.service';
-import { Subject, SubjectRequest, TimetableEntry } from '../../core/models/academic.model';
+import { BatchSubject, SubjectRequest, TimetableEntry } from '../../core/models/academic.model';
 import { SubjectRequestStatus } from '../../core/models/enums';
 
+/**
+ * Sprint 3 — Student "Timetable & Subject Requests" screen.
+ *
+ * This is the actual screen behind the "Could not load available subjects
+ * right now" bug — there's no separate `student-subject-request.component`
+ * in this codebase; the Subject Requests tab has always lived here
+ * alongside Timetable. Fixed in place rather than forking a duplicate
+ * component.
+ *
+ * Root cause: AcademicService.getAvailableSubjects() /
+ * getMySubjectRequests() pointed at GET /academic/subjects/available and
+ * GET /academic/subject-requests/me — neither route exists on the
+ * backend (404 -> the error you were seeing). There was also a hardcoded
+ * `CURRENT_BATCH_ID_PLACEHOLDER` standing in for the student's batch, so
+ * even a working available-subjects call would have submitted requests
+ * against a batch that doesn't exist.
+ *
+ * Fixed to:
+ *  - Resolve the real current batch via AcademicService.getCurrentBatch()
+ *    (GET /academic/batches, is_current = true) — the same "current
+ *    batch" concept the backend itself uses for this student-batch
+ *    relationship (dashboard_summary, parent.py's available-subjects).
+ *  - Load ONLY explicitly-offered subjects via
+ *    GET /academic/batches/{batch_id}/offered-subjects — never the raw
+ *    subject catalog — so nothing appears here Admin hasn't turned on
+ *    for this batch.
+ *  - Hide subjects the student already has a requested/approved request
+ *    for, client-side, against GET /academic/subject-requests (which
+ *    already scopes to the caller when role = student).
+ */
 @Component({
   selector: 'app-academic',
   standalone: true,
@@ -61,16 +91,46 @@ export class AcademicComponent implements OnInit {
   }
 
   // --- Subject Requests tab ---
-  availableSubjects = signal<Subject[]>([]);
+  /** Everything explicitly offered for the resolved batch — the raw fetch
+   *  result before the "already requested" client-side filter below. */
+  private offeredSubjects = signal<BatchSubject[]>([]);
   myRequests = signal<SubjectRequest[]>([]);
   requestsLoading = signal(true);
   requestsError = signal<string | null>(null);
   requestingSubjectId = signal<string | null>(null);
 
-  // Requires knowing the current batch — in a real build this would come
-  // from GET /api/academic/batches/current; hardcoded here as a placeholder
-  // until that endpoint exists.
-  private currentBatchId = 'CURRENT_BATCH_ID_PLACEHOLDER';
+  /** No offered-subjects response for the resolved batch distinguishes
+   *  "nothing offered yet" from "couldn't resolve a current batch at
+   *  all" — the empty-state copy in the template differs for each. */
+  batchId = signal<string | null>(null);
+  batchName = signal<string | null>(null);
+  noBatchResolved = signal(false);
+
+  /** Subjects still requestable: offered for the batch, minus anything
+   *  the student already has a pending or approved request for. Requested
+   *  subjects should disappear from the picker immediately, not just
+   *  after a refetch — an approved/requested one re-showing here would
+   *  let a student fire off a duplicate request. */
+  availableSubjects = computed(() => {
+    const alreadyActioned = new Set(
+      this.myRequests()
+        .filter((r) => r.status === SubjectRequestStatus.Requested || r.status === SubjectRequestStatus.Approved)
+        .map((r) => r.subject_id),
+    );
+    return this.offeredSubjects().filter((s) => !alreadyActioned.has(s.subject_id));
+  });
+
+  /** subject_id -> subject_name, used to display "My Requests" rows
+   *  without a subject_name field on SubjectRequestOut server-side. */
+  private subjectNameLookup = computed(() => {
+    const map = new Map<string, string>();
+    for (const s of this.offeredSubjects()) map.set(s.subject_id, s.subject_name);
+    return map;
+  });
+
+  subjectNameFor(request: SubjectRequest): string {
+    return request.subject_name ?? this.subjectNameLookup().get(request.subject_id) ?? request.subject_id;
+  }
 
   constructor(private academicService: AcademicService) {}
 
@@ -91,16 +151,39 @@ export class AcademicComponent implements OnInit {
 
   loadSubjectRequestsData(): void {
     this.requestsLoading.set(true);
-    this.academicService.getAvailableSubjects().subscribe({
-      next: (subjects) => {
-        this.availableSubjects.set(subjects);
-        this.academicService.getMySubjectRequests().subscribe({
-          next: (requests) => {
-            this.myRequests.set(requests);
-            this.requestsLoading.set(false);
+    this.requestsError.set(null);
+
+    this.academicService.getCurrentBatch().subscribe({
+      next: (batch) => {
+        if (!batch) {
+          this.noBatchResolved.set(true);
+          this.offeredSubjects.set([]);
+          this.batchId.set(null);
+          this.batchName.set(null);
+          this.requestsLoading.set(false);
+          return;
+        }
+
+        this.noBatchResolved.set(false);
+        this.batchId.set(batch.id);
+        this.batchName.set(batch.name);
+
+        this.academicService.getOfferedSubjects(batch.id).subscribe({
+          next: (subjects) => {
+            this.offeredSubjects.set(subjects);
+            this.academicService.getMySubjectRequests().subscribe({
+              next: (requests) => {
+                this.myRequests.set(requests);
+                this.requestsLoading.set(false);
+              },
+              error: () => {
+                this.requestsError.set('Could not load your subject requests right now.');
+                this.requestsLoading.set(false);
+              },
+            });
           },
           error: () => {
-            this.requestsError.set('Could not load your subject requests right now.');
+            this.requestsError.set('Could not load available subjects right now.');
             this.requestsLoading.set(false);
           },
         });
@@ -113,9 +196,12 @@ export class AcademicComponent implements OnInit {
   }
 
   requestSubject(subjectId: string): void {
+    const batchId = this.batchId();
+    if (!batchId) return;
+
     this.requestingSubjectId.set(subjectId);
     this.academicService
-      .submitSubjectRequest({ subject_id: subjectId, batch_id: this.currentBatchId })
+      .submitSubjectRequest({ subject_id: subjectId, batch_id: batchId })
       .subscribe({
         next: () => {
           this.requestingSubjectId.set(null);

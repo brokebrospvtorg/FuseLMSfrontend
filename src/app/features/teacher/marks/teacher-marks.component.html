@@ -4,18 +4,21 @@
   <p-card>
     @if (pickerLoading()) {
       <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
-    } @else if (assignmentOptions().length === 0) {
+    } @else if (allowedPairs().length === 0) {
       <p class="page__empty">You don't have any subject assignments yet. Ask your Coordinator to assign you a subject/batch.</p>
     } @else {
+      <!-- Batch -> Board -> Level -> Subject cascade, scoped to this
+           teacher's own assignments. No Period stage here — Marks entry
+           is keyed by assessment, not by a day's time slot. -->
       <div class="marks-tab__select">
-        <p-select
-          [options]="assignmentOptions()"
-          optionLabel="label"
-          [ngModel]="selectedCombination()"
-          (ngModelChange)="onCombinationSelected($event)"
-          placeholder="Select a subject / batch"
-          styleClass="w-full md:w-25rem">
-        </p-select>
+        <app-teacher-cascading-filter
+          [batches]="batches()"
+          [subjects]="subjects()"
+          [levels]="levels()"
+          [allowedPairs]="allowedPairs()"
+          [periodsEnabled]="false"
+          (subjectChange)="onSubjectContextChanged($event)">
+        </app-teacher-cascading-filter>
       </div>
 
       @if (selectedSubjectId() && selectedBatchId()) {
@@ -83,13 +86,16 @@
                     <th>Roll No.</th>
                     <th>Student</th>
                     <th>Marks (/ {{ activeAssessment()!.max_marks }})</th>
+                    <th>%</th>
+                    <th>Grade</th>
+                    <th>Override</th>
                     @if (locked()) {
                       <th></th>
                     }
                   </tr>
                 </ng-template>
                 <ng-template pTemplate="body" let-row>
-                  <tr>
+                  <tr [class.marks-tab__row--overridden]="row.is_overridden">
                     <td>{{ row.roll_number ?? '—' }}</td>
                     <td>{{ row.full_name }}</td>
                     <td>
@@ -101,6 +107,43 @@
                           [min]="0"
                           [max]="activeAssessment()!.max_marks"
                           styleClass="w-8rem" />
+                      }
+                    </td>
+                    <td>
+                      <!-- Requirement: instant grading preview — recalculated on every
+                           keystroke via ngModel/ngModelChange above triggering change
+                           detection. '—' rather than NaN/0% when nothing's entered yet
+                           or max_marks is 0/missing (see grading.util.ts). -->
+                      {{ rowPercentage(row) !== null ? (rowPercentage(row) + '%') : '—' }}
+                    </td>
+                    <td>
+                      @if (rowGrade(row); as grade) {
+                        <p-tag [severity]="grade === 'U' ? 'danger' : 'success'" [value]="grade" />
+                      } @else {
+                        <span class="marks-tab__no-override">—</span>
+                      }
+                    </td>
+                    <td>
+                      <!-- Requirement 1: "Overridden by Coordinator" indicator, plus the
+                           original (pre-override) value the Teacher entered, so both
+                           figures stay visible side by side instead of the original
+                           being silently lost when the Coordinator's correction lands. -->
+                      @if (row.is_overridden) {
+                        <div class="marks-tab__override-cell">
+                          <p-tag
+                            severity="warn"
+                            icon="pi pi-pencil"
+                            value="Overridden by Coordinator"
+                            [pTooltip]="row.override_reason ?? 'No reason recorded'"
+                            tooltipPosition="top" />
+                          @if (row.original_marks !== null) {
+                            <span class="marks-tab__original-value">
+                              Originally entered: {{ row.original_marks }} / {{ activeAssessment()!.max_marks }}
+                            </span>
+                          }
+                        </div>
+                      } @else {
+                        <span class="marks-tab__no-override">—</span>
                       }
                     </td>
                     @if (locked()) {
@@ -132,6 +175,52 @@
             }
           </div>
         }
+
+        <!-- Requirement 2: Final Grade Display — the computed percentage/letter
+             grade per student for this subject+batch, kept independent of
+             whichever single assessment is open above, and refreshed after
+             every action here (or on demand) that could change it. -->
+        <div class="marks-tab__grades">
+          <div class="marks-tab__grades-header">
+            <h3>Final Computed Grades</h3>
+            <p-button
+              label="Refresh"
+              icon="pi pi-refresh"
+              size="small"
+              severity="secondary"
+              [text]="true"
+              [loading]="gradesLoading()"
+              (onClick)="refreshGrades()" />
+          </div>
+          <p class="marks-tab__grades-caption">
+            Auto-recalculated from every published assessment, including any Coordinator mark overrides.
+          </p>
+
+          @if (gradesLoading()) {
+            <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+          } @else if (grades().length === 0) {
+            <p class="page__empty">No grades computed yet — publish an assessment with marks to see one here.</p>
+          } @else {
+            <p-table [value]="grades()">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Student</th>
+                  <th>Computed %</th>
+                  <th>Grade</th>
+                  <th>Last Updated</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.student_name }}</td>
+                  <td>{{ row.computed_percentage !== null ? (row.computed_percentage + '%') : '—' }}</td>
+                  <td>{{ row.letter_grade ?? '—' }}</td>
+                  <td>{{ row.last_computed_at ? (row.last_computed_at | date: 'medium') : '—' }}</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        </div>
       }
     }
   </p-card>

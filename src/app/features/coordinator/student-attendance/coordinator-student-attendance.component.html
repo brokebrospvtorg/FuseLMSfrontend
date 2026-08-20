@@ -8,7 +8,7 @@
     <div class="attendance-editor__filters">
       <div class="attendance-editor__field">
         <label>Batch</label>
-        <p-select
+        <p-select appendTo="body"
         [options]="batchOptions()"
           [ngModel]="selectedBatchId()"
           (ngModelChange)="selectedBatchId.set($event)"
@@ -16,7 +16,7 @@
       </div>
       <div class="attendance-editor__field">
         <label>Class / Period</label>
-        <p-select
+        <p-select appendTo="body"
           [options]="slotOptions()"
           [ngModel]="selectedSlotId()"
           (ngModelChange)="selectedSlotId.set($event); onSlotOrDateChange()"

@@ -26,11 +26,11 @@
             <ul class="timetable-grid__periods">
               @for (entry of scheduleByDay()[day]; track entry.id) {
                 <li class="timetable-grid__period">
-                  <span class="timetable-grid__period-badge">P{{ entry.period_number }}</span>
+                  <span class="timetable-grid__period-badge">{{ formatTime(entry.start_time) }}</span>
                   <div class="timetable-grid__period-details">
                     <span class="timetable-grid__subject">{{ entry.subject_name }}</span>
                     <span class="timetable-grid__meta">{{ entry.batch_name }}</span>
-                    <span class="timetable-grid__meta">{{ entry.start_time }} – {{ entry.end_time }}</span>
+                    <span class="timetable-grid__meta">{{ formatTime(entry.start_time) }} – {{ formatTime(entry.end_time) }}</span>
                   </div>
                 </li>
               }

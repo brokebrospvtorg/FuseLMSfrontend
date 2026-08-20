@@ -1,4 +1,4 @@
-import { AssessmentStatus } from './enums';
+import { AssessmentStatus, Board } from './enums';
 
 /** Mirrors app/schemas/marks.py (staff-facing shapes, not the student "me" read-only ones) */
 
@@ -45,8 +45,19 @@ export interface MarkFull {
   marks_obtained: number;
   uploaded_by: string;
   uploaded_at: string;
+  // Mark Override refactor (schema_update_18): audit trail for a
+  // Coordinator/Admin correction via PATCH /marks/{mark_id}/mark-override.
+  // False/absent for a mark that's only ever gone through the normal
+  // teacher upload/upsert path.
+  is_overridden: boolean;
+  overridden_by: string | null;
 }
 
+/** Mirrors GradeOut post schema_update_18 — Grade is now a purely computed
+ *  rollup, no override metadata lives here anymore (a Grade can no longer
+ *  be overridden directly). To see whether an individual assessment mark
+ *  behind this percentage was corrected, check MarkFull.is_overridden for
+ *  that assessment instead. */
 export interface GradeFull {
   id: string;
   student_id: string;
@@ -54,14 +65,15 @@ export interface GradeFull {
   batch_id: string;
   computed_percentage: number | null;
   letter_grade: string | null;
-  is_overridden: boolean;
-  overridden_by: string | null;
-  override_reason: string | null;
   last_computed_at: string | null;
 }
 
-export interface GradeOverridePayload {
-  letter_grade: string;
+/** Mirrors MarkOverrideRequest in app/schemas/marks.py — body for PATCH
+ *  /api/academics/marks/{mark_id}/mark-override. Replaces the removed
+ *  GradeOverridePayload/PATCH .../grades/{id}/override: corrects one
+ *  student's score on one assessment, not a subject-level letter grade. */
+export interface MarkOverridePayload {
+  marks_obtained: number;
   override_reason: string;
 }
 
@@ -119,4 +131,12 @@ export interface TeacherAssignment {
   batch_id: string;
   assigned_by: string;
   assigned_at: string;
+  // Over-Inclusive Cascading Dropdowns fix: the active batch_subjects
+  // board this assignment is actually usable under, resolved server-side
+  // — see TeacherSubjectAssignmentOut.board's docstring in
+  // app/schemas/academic.py. GET /academic/teacher-assignments fans one
+  // assignment out into one row per active board, so the same
+  // subject_id+batch_id pair can appear more than once here, each with a
+  // different board — that's expected, not a duplicate.
+  board: Board;
 }

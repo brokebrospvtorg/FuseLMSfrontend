@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
-import { HelpingMaterial, Lecture } from '../models/content.model';
+import { HelpingMaterial, Lecture, SubjectClassroomLink } from '../models/content.model';
 
 @Injectable({ providedIn: 'root' })
 export class ContentService {
@@ -19,5 +19,11 @@ export class ContentService {
 
   getMyLectures(): Observable<Lecture[]> {
     return this.http.get<Lecture[]>(`${this.baseUrl}/lectures/me`, { withCredentials: true });
+  }
+
+  /** LMS & Study Resources: one Google Classroom card per enrolled subject
+   *  that has a link set. Powers the Student "Open Google Classroom" screen. */
+  getMyClassroomLinks(): Observable<SubjectClassroomLink[]> {
+    return this.http.get<SubjectClassroomLink[]>(`${this.baseUrl}/classroom-links/me`, { withCredentials: true });
   }
 }

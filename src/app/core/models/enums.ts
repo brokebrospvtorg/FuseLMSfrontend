@@ -87,3 +87,32 @@ export enum NotificationChannel {
   InApp = 'in_app',
   Both = 'both',
 }
+
+/**
+ * Subject & Class Management (Admin/Coordinator only). Mirrors the
+ * `class_level` Postgres enum (schema_update_10_class_subjects.sql) and
+ * app/schemas/subject.py's ClassLevelEnum — strictly these 4 values.
+ */
+export enum ClassLevel {
+  OLevel = 'O Level',
+  ASLevel = 'AS Level',
+  A2Level = 'A2 Level',
+  ALevelCombined = 'A Level (Combined)',
+}
+
+/**
+ * Exam Board — schema_update_11. Mirrors the `board` Postgres enum and
+ * app/schemas/common.py's BoardEnum — keep all three in sync by hand,
+ * same convention as every other enum here. Used by Student registration/
+ * edit (single, required), Teacher registration/edit (one or more), and
+ * Batch creation/edit (single).
+ */
+export enum Board {
+  BritishCouncil = 'British Council',
+  Edexcel = 'Edexcel',
+  LRN = 'LRN',
+  // schema_update_16: catalog Subjects only (POST /api/academic/subjects)
+  // — deliberately not added to Student/Teacher/Batch board dropdowns
+  // (see BOARD_OPTIONS in board-options.util.ts, which is unchanged).
+  All = 'All',
+}

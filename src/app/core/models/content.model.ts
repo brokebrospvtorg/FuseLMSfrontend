@@ -28,19 +28,40 @@ export interface Lecture {
   youtube_video_id_locked: boolean;
   uploaded_by: string;
   uploaded_at: string;
+  // LEGACY as of the LMS & Study Resources refactor — the Google Classroom
+  // link is now a single per-Subject setting (see SubjectClassroomLink),
+  // not per-lecture. These three fields are kept only because the backend
+  // still returns them (existing Coordinator "Classroom Requests" queue
+  // depends on the underlying data); current Student/Teacher screens don't
+  // read them anymore.
   classroom_url: string | null;
   classroom_url_locked: boolean;
-  has_pending_edit_request: boolean; // classroom-url request pending
+  has_pending_edit_request: boolean; // classroom-url request pending (legacy)
   has_pending_youtube_edit_request: boolean; // youtube-video request pending — separate flag, separate queue
 }
 
 export interface CreateLectureRequest {
+  // LMS & Study Resources refactor: Upload Lecture is a single step again —
+  // Title, Description, and YouTube Video Link are all submitted together
+  // (mirrors LectureCreate in schemas/content.py). classroom_url is
+  // deliberately NOT here — Google Classroom is now a single per-Subject
+  // setting, see SubjectClassroomLink below.
   subject_id: string;
   title: string;
   description?: string | null;
-  // youtube_video_id deliberately NOT here — LectureCreate on the backend
-  // no longer accepts it (Lectures Sub-Sprint 2). A lecture is created
-  // empty; the video is set via a separate call afterward.
+  youtube_url: string;
+}
+
+/** Mirrors SubjectClassroomLinkOut in schemas/content.py — the single
+ *  per-Subject Google Classroom link (LMS & Study Resources refactor). */
+export interface SubjectClassroomLink {
+  id: string;
+  subject_id: string;
+  subject_name: string | null;
+  classroom_url: string;
+  set_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Mirrors SetYoutubeVideoRequest / RequestYoutubeEditRequest in schemas/content.py */

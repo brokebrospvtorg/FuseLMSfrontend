@@ -59,7 +59,7 @@
                 class="p-button-sm p-button-text" (click)="showHistory.set(!showHistory())">
         </button>
         @if (showHistory()) {
-          <p-select
+          <p-select appendTo="body"
             [options]="historyFilterOptions"
             [ngModel]="historyFilter()"
             (ngModelChange)="historyFilter.set($event)"

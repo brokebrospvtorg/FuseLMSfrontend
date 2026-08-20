@@ -17,6 +17,7 @@ import { MessageModule } from 'primeng/message';
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { Subject, Batch, Level } from '../../../core/models/academic.model';
 import { AssessmentFull, RosterEntry, MarkUpsertPayload } from '../../../core/models/academics-staff.model';
+import { calculatePercentage, calculateGrade } from '../../../shared/utils/grading.util';
 
 interface MarksEntryRow extends RosterEntry {
   marks_obtained: number | null;
@@ -281,6 +282,19 @@ export class CoordinatorMarksManagementComponent implements OnInit {
       },
       error: () => this.rosterLoading.set(false),
     });
+  }
+
+  // -------------------------------------------------------------------
+  // Instant grading preview — same live, client-side calculation as the
+  // Teacher's marks-entry screen (see teacher-marks.component.ts). Coordinator
+  // marks are never locked, so this stays useful even after a save.
+  // -------------------------------------------------------------------
+  rowPercentage(row: MarksEntryRow): number | null {
+    return calculatePercentage(row.marks_obtained, this.activeAssessment()?.max_marks ?? null);
+  }
+
+  rowGrade(row: MarksEntryRow): string | null {
+    return calculateGrade(this.rowPercentage(row));
   }
 
   saveMarks(): void {

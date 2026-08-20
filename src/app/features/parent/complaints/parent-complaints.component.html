@@ -24,7 +24,7 @@
       <div class="flex flex-col gap-4">
         <div class="max-w-xs">
           <label class="text-sm font-medium text-slate-600 mb-1 block">Child</label>
-          <p-select
+          <p-select appendTo="body"
             [options]="children()"
             optionLabel="full_name"
             [ngModel]="formChild()"

@@ -26,9 +26,14 @@
         </div>
         <div class="text-left">
           <p class="text-sm font-semibold text-navy leading-tight">{{ selectedChild()?.full_name }}</p>
-          @if (selectedChild()?.relationship) {
-            <p class="text-xs text-slate-400 leading-tight">Your {{ selectedChild()?.relationship }}</p>
-          }
+          <!-- `relationship` is the PARENT's relation to the child (e.g.
+               "father"), not the child's relation to the parent — showing
+               "Your {{ relationship }}" inverted that meaning ("Your
+               father") when the card is describing the parent's own son
+               or daughter. There's no gender/relationship-to-parent field
+               on ParentChild to correctly render "Son"/"Daughter" here, so
+               this stays a fixed, always-correct label. -->
+          <p class="text-xs text-slate-400 leading-tight">Your Child</p>
         </div>
         @if (children().length > 1) {
           <svg class="w-4 h-4 text-slate-400 ml-2" viewBox="0 0 20 20" fill="currentColor">

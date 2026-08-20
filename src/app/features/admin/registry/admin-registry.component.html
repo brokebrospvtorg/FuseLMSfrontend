@@ -8,7 +8,7 @@
 
     <div class="registry__toolbar">
       <div class="registry__filters">
-        <p-select
+        <p-select appendTo="body"
           [options]="roleFilterOptions"
           [ngModel]="roleFilter()"
           (ngModelChange)="roleFilter.set($event); onRoleFilterChanged()"
@@ -72,6 +72,9 @@
                   [severity]="row.status === 'active' ? 'danger' : 'success'"
                   (onClick)="toggleStatus(row)" />
               }
+              @if (canResetPassword(row)) {
+                <p-button label="Reset Password" size="small" severity="secondary" [outlined]="true" (onClick)="openResetPasswordDialog(row)" />
+              }
               @if (isAdmin() && row.id !== currentUserId()) {
                 <p-button label="Delete" size="small" severity="danger" [outlined]="true" (onClick)="deleteUser(row)" />
               }
@@ -95,7 +98,7 @@
   </div>
   <div class="registry__form-field">
     <label for="new-role">Role</label>
-    <p-select
+    <p-select appendTo="body"
       id="new-role"
       [options]="assignableRoleOptions()"
       [ngModel]="newRole()"
@@ -147,8 +150,21 @@
       <input id="new-registration-id" pInputText [ngModel]="newRegistrationId()" (ngModelChange)="newRegistrationId.set($event)" class="w-full" />
     </div>
     <div class="registry__form-field">
+      <label for="new-board">Board <span class="registry__required">*</span></label>
+      <p-select appendTo="body"
+        id="new-board"
+        [options]="boardOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="newBoard()"
+        (ngModelChange)="newBoard.set($event)"
+        placeholder="Select the exam board"
+        styleClass="w-full">
+      </p-select>
+    </div>
+    <div class="registry__form-field">
       <label for="new-parent-link">Link to Parent (optional)</label>
-      <p-select
+      <p-select appendTo="body"
         id="new-parent-link"
         [options]="parentOptions()"
         [ngModel]="newParentId()"
@@ -188,6 +204,20 @@
       <label for="new-teacher-code">Teacher Code</label>
       <input id="new-teacher-code" pInputText [ngModel]="newTeacherCode()" (ngModelChange)="newTeacherCode.set($event)" class="w-full" />
     </div>
+    <div class="registry__form-field">
+      <label for="new-teacher-boards">Boards Taught <span class="registry__required">*</span></label>
+      <p-multiSelect appendTo="body"
+        id="new-teacher-boards"
+        [options]="boardOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="newBoards()"
+        (ngModelChange)="newBoards.set($event)"
+        placeholder="Select the board(s) this teacher is qualified to teach"
+        display="chip"
+        styleClass="w-full">
+      </p-multiSelect>
+    </div>
   }
 
   @if (newRole() === 'parent') {
@@ -201,8 +231,40 @@
     </div>
   }
 
+  <div class="registry__form-field">
+    <div class="registry__subjects-header">
+      <label for="new-set-password">Set an initial password now</label>
+      <div class="registry__cross-level-toggle">
+        <p-toggleswitch
+          inputId="new-set-password"
+          [ngModel]="newSetInitialPassword()"
+          (ngModelChange)="newSetInitialPassword.set($event)">
+        </p-toggleswitch>
+      </div>
+    </div>
+  </div>
+  @if (newSetInitialPassword()) {
+    <div class="registry__form-field">
+      <label for="new-initial-password">Initial Password</label>
+      <input id="new-initial-password" pInputText type="password" [ngModel]="newInitialPassword()" (ngModelChange)="newInitialPassword.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="new-initial-password-confirm">Confirm Password</label>
+      <input id="new-initial-password-confirm" pInputText type="password" [ngModel]="newInitialPasswordConfirm()" (ngModelChange)="newInitialPasswordConfirm.set($event)" class="w-full" />
+      @if (newInitialPassword() && newInitialPassword().length < 8) {
+        <small class="registry__field-error">Must be at least 8 characters.</small>
+      } @else if (newInitialPasswordConfirm() && newInitialPassword() !== newInitialPasswordConfirm()) {
+        <small class="registry__field-error">Passwords don't match.</small>
+      }
+    </div>
+  }
+
   <p class="registry__hint">
-    The account is created as "pending" with an activation link — for now that link is console-logged on the backend, not actually emailed.
+    @if (newSetInitialPassword()) {
+      The account is created "active" with the password above — they'll be prompted to change it the first time they log in.
+    } @else {
+      The account is created as "pending" with an activation link — for now that link is console-logged on the backend, not actually emailed.
+    }
   </p>
 
   <ng-template pTemplate="footer">
@@ -217,7 +279,7 @@
     <p class="registry__edit-context">{{ user.full_name }} — currently {{ roleLabel(user.role) }}</p>
     <div class="registry__form-field">
       <label for="edit-role">New Role</label>
-      <p-select
+      <p-select appendTo="body"
         id="edit-role"
         [options]="assignableRoleOptions()"
         [ngModel]="editRoleValue()"
@@ -280,32 +342,70 @@
         <label for="edit-registration-id">Registration ID</label>
         <input id="edit-registration-id" pInputText [ngModel]="editRegistrationId()" (ngModelChange)="editRegistrationId.set($event)" class="w-full" />
       </div>
+      <div class="registry__form-field">
+        <label for="edit-board">Board <span class="registry__required">*</span></label>
+        <p-select appendTo="body"
+          id="edit-board"
+          [options]="boardOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="editBoard()"
+          (ngModelChange)="editBoard.set($event)"
+          placeholder="Select the exam board"
+          styleClass="w-full">
+        </p-select>
+      </div>
 
-      <!-- Read-only: current level + registered courses (spec module 2 —
-           "level, registered courses"). Comes from student_level_enrollments
-           / enrollments, managed via Subject Requests / Level Enrollment, not
-           editable here. -->
-      <div class="registry__readonly-section">
-        <p class="registry__readonly-label">Level &amp; Registered Courses</p>
+      <!-- Editable: academic level + subject assignment. Level maps to
+           student_level_enrollments (a level change completes the old active
+           row and opens a new one); subjects map to enrollments for the
+           current batch. Cross-Level Subject Enrollment: by default the
+           subject pool is scoped to the level picked below, but the "Show
+           All Levels" toggle expands it to every subject across every
+           level (each one tagged, e.g. "Further Maths [A-Level]") so a
+           student can be enrolled in a subject outside their primary
+           track — the backend accepts any subject_id regardless of level. -->
+      <div class="registry__form-field">
+        <label for="edit-level">Academic Level</label>
         @if (studentEnrollmentsLoading()) {
           <p class="registry__readonly-empty">Loading…</p>
-        } @else if (!studentEnrollments()) {
-          <p class="registry__readonly-empty">No level enrollment on record.</p>
         } @else {
-          <p class="registry__readonly-muted">
-            Level: <strong>{{ studentEnrollments()!.current_level_name ?? 'Not enrolled in a level yet' }}</strong>
-          </p>
-          @if (studentEnrollments()!.subjects.length === 0) {
-            <p class="registry__readonly-empty">Not registered for any subjects yet.</p>
-          } @else {
-            <ul class="registry__readonly-list">
-              @for (row of studentEnrollments()!.subjects; track row.subject_id + row.batch_id) {
-                <li>
-                  {{ row.subject_name }} <span class="registry__readonly-muted">— {{ row.batch_name }} ({{ row.status }})</span>
-                </li>
-              }
-            </ul>
-          }
+          <p-select appendTo="body"
+            id="edit-level"
+            [options]="levelOptions()"
+            [ngModel]="editLevelId()"
+            (ngModelChange)="onEditLevelChange($event)"
+            placeholder="Select academic level"
+            [showClear]="true"
+            styleClass="w-full">
+          </p-select>
+        }
+      </div>
+      <div class="registry__form-field">
+        <div class="registry__subjects-header">
+          <label for="edit-subjects">Assigned Subjects</label>
+          <div class="registry__cross-level-toggle">
+            <p-toggleswitch
+              inputId="cross-level-toggle"
+              [ngModel]="crossLevelMode()"
+              (ngModelChange)="onCrossLevelToggle($event)">
+            </p-toggleswitch>
+            <label for="cross-level-toggle">Show All Levels / Allow Cross-Level Subjects</label>
+          </div>
+        </div>
+        <p-multiSelect appendTo="body"
+          id="edit-subjects"
+          [options]="subjectOptions()"
+          [ngModel]="editSubjectIds()"
+          (ngModelChange)="editSubjectIds.set($event)"
+          [disabled]="(!editLevelId() && !crossLevelMode()) || levelSubjectsLoading() || allSubjectsLoading()"
+          [placeholder]="crossLevelMode() ? 'Select subjects (any level)' : (editLevelId() ? 'Select subjects' : 'Select a level first')"
+          display="chip"
+          [filter]="true"
+          styleClass="w-full">
+        </p-multiSelect>
+        @if (!crossLevelMode() && editLevelId() && !levelSubjectsLoading() && subjectOptions().length === 0) {
+          <p class="registry__readonly-empty">No subjects defined for this level yet.</p>
         }
       </div>
 
@@ -350,6 +450,20 @@
       <div class="registry__form-field">
         <label for="edit-teacher-code">Teacher Code</label>
         <input id="edit-teacher-code" pInputText [ngModel]="editTeacherCode()" (ngModelChange)="editTeacherCode.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="edit-teacher-boards">Boards Taught <span class="registry__required">*</span></label>
+        <p-multiSelect appendTo="body"
+          id="edit-teacher-boards"
+          [options]="boardOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="editBoards()"
+          (ngModelChange)="editBoards.set($event)"
+          placeholder="Select the board(s) this teacher is qualified to teach"
+          display="chip"
+          styleClass="w-full">
+        </p-multiSelect>
       </div>
 
       <!-- Read-only: classes/subjects taught (spec module 2). Not an editable
@@ -419,7 +533,7 @@
 
     <div class="registry__form-field">
       <label for="link-parent-select">Parent</label>
-      <p-select
+      <p-select appendTo="body"
         id="link-parent-select"
         [options]="parentOptions()"
         [ngModel]="linkParentSelectedId()"
@@ -442,5 +556,43 @@
   <ng-template pTemplate="footer">
     <p-button label="Cancel" severity="secondary" (onClick)="linkParentDialogOpen.set(false)" />
     <p-button label="Link" [loading]="linkParentSubmitting()" [disabled]="parentOptions().length === 0" (onClick)="submitLinkParent()" />
+  </ng-template>
+</p-dialog>
+
+<!-- Reset Password dialog — Admin/Coordinator sets a new temporary
+     password for someone else (POST /api/users/{user_id}/reset-password).
+     Unlike self-service Change Password, no "current password" field is
+     needed: the caller's own admin/coordinator session is the trust
+     anchor. The target is always flagged must_change_password afterward,
+     so this is meant as a short-lived temporary password, not a
+     permanent one — the confirmation text below says as much. -->
+<p-dialog header="Reset Password" [visible]="resetPasswordDialogOpen()" (visibleChange)="resetPasswordDialogOpen.set($event)" [modal]="true" [style]="{ width: '26rem' }">
+  @if (resetPasswordUser(); as target) {
+    <p class="registry__edit-context">Setting a new temporary password for {{ target.full_name }}</p>
+
+    <div class="registry__form-field">
+      <label for="reset-password-new">New Password</label>
+      <input id="reset-password-new" pInputText type="password"
+             [ngModel]="resetPasswordValue()" (ngModelChange)="resetPasswordValue.set($event)" class="w-full" />
+    </div>
+    <div class="registry__form-field">
+      <label for="reset-password-confirm">Confirm Password</label>
+      <input id="reset-password-confirm" pInputText type="password"
+             [ngModel]="resetPasswordConfirmValue()" (ngModelChange)="resetPasswordConfirmValue.set($event)" class="w-full" />
+      @if (resetPasswordValue() && resetPasswordValue().length < 8) {
+        <small class="registry__field-error">Must be at least 8 characters.</small>
+      } @else if (resetPasswordConfirmValue() && resetPasswordValue() !== resetPasswordConfirmValue()) {
+        <small class="registry__field-error">Passwords don't match.</small>
+      }
+    </div>
+
+    <p class="registry__hint">
+      {{ target.full_name }} will be prompted to choose their own password the next time they log in.
+    </p>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="resetPasswordDialogOpen.set(false)" />
+    <p-button label="Reset Password" severity="danger" [loading]="resetPasswordSubmitting()" (onClick)="submitResetPassword()" />
   </ng-template>
 </p-dialog>

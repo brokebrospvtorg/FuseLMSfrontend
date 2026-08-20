@@ -1,4 +1,4 @@
-import { AttendanceStatus } from './enums';
+import { AttendanceStatus, Board } from './enums';
 
 /** Mirrors app/models/attendance.py */
 
@@ -14,6 +14,9 @@ export interface AttendanceRecord {
 export interface AttendanceSummary {
   subject_id: string;
   subject_name: string;
+  // DB level code (e.g. "AS-LEVEL") for the level badge — see
+  // shared/utils/level-badge.util.ts::getLevelAbbreviation(). Null if unset.
+  level_code: string | null;
   present_count: number;
   absent_count: number;
   late_count: number;
@@ -58,9 +61,10 @@ export interface TeacherDailyLogResult {
 
 // --- Teacher marking their own students' attendance (Sub-Sprint 8.1) ---
 
-/** Mirrors TimetableSlotOut — the teacher's own periods, unresolved names
- *  (subject/batch names are looked up client-side against AcademicsStaffService,
- *  same pattern as the Marks screen's class picker). */
+/** Mirrors TimetableSlotOut/TimetableSlotDetailOut — the teacher's own
+ *  periods, unresolved names (subject/batch names are looked up
+ *  client-side against AcademicsStaffService, same pattern as the Marks
+ *  screen's class picker). */
 export interface TeacherTimetableSlot {
   id: string;
   subject_id: string;
@@ -70,6 +74,14 @@ export interface TeacherTimetableSlot {
   period_number: number;
   start_time: string;
   end_time: string;
+  // Over-Inclusive Cascading Dropdowns fix: the active batch_subjects
+  // board this slot's subject+batch is actually offered under, resolved
+  // server-side — see TimetableSlotDetailOut.board's docstring in
+  // app/schemas/attendance.py. GET /timetable/slots (Teacher-scoped) and
+  // GET /timetable/my-teaching-schedule fan one slot out into one row per
+  // active board, so the same period can appear more than once here, each
+  // with a different board — that's expected, not a duplicate.
+  board: Board;
 }
 
 export interface StudentAttendanceMarkItem {
@@ -89,6 +101,23 @@ export interface PeriodRecord {
   student_user_id: string;
   status: AttendanceStatus;
   marked_at: string;
+}
+
+/** GET /api/attendance/my-history-log — Day-Wise UI's "View Summary" modal.
+ *  One row per period+date the teacher has already taken (today or
+ *  earlier), with the student attendance breakdown for that class. */
+export interface TeacherAttendanceLogEntry {
+  date: string;
+  timetable_slot_id: string;
+  period_number: number;
+  subject_id: string;
+  subject_name: string;
+  level_code: string | null;
+  present_count: number;
+  absent_count: number;
+  late_count: number;
+  excused_count: number;
+  total_students: number;
 }
 
 // --- Coordinator: Student Attendance override (Coordinator Portal Sub-Sprint 3) ---

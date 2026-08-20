@@ -1,0 +1,88 @@
+<div class="cascading-filter">
+  <div class="cascading-filter__field">
+    <label>{{ batchLabel }}</label>
+    <p-select appendTo="body"
+      [options]="batchOptions()"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Select a batch"
+      [ngModel]="selectedBatchId()"
+      (ngModelChange)="onBatchChange($event)"
+      styleClass="w-full">
+    </p-select>
+  </div>
+
+  <div class="cascading-filter__field">
+    <label>{{ boardLabel }}</label>
+    <p-select appendTo="body"
+      [options]="boards.options()"
+      optionLabel="label"
+      optionValue="value"
+      [placeholder]="boards.disabled() ? 'Select a batch first' : 'Select a board'"
+      [disabled]="boards.disabled()"
+      [ngModel]="selectedBoard()"
+      (ngModelChange)="onBoardChange($event)"
+      styleClass="w-full">
+    </p-select>
+    @if (boards.loading()) {
+      <p-progressSpinner styleClass="cascading-filter__spinner" strokeWidth="6" />
+    }
+  </div>
+
+  <div class="cascading-filter__field">
+    <label>{{ levelLabel }}</label>
+    <p-select appendTo="body"
+      [options]="levelsSel.options()"
+      optionLabel="label"
+      optionValue="value"
+      [placeholder]="levelsSel.disabled() ? 'Select a board first' : 'Select a level'"
+      [disabled]="levelsSel.disabled()"
+      [ngModel]="selectedLevelId()"
+      (ngModelChange)="onLevelChange($event)"
+      styleClass="w-full">
+    </p-select>
+    @if (levelsSel.loading()) {
+      <p-progressSpinner styleClass="cascading-filter__spinner" strokeWidth="6" />
+    }
+  </div>
+
+  <div class="cascading-filter__field">
+    <label>{{ subjectLabel }}</label>
+    <p-select appendTo="body"
+      [options]="subjectsSel.options()"
+      optionLabel="label"
+      optionValue="value"
+      [placeholder]="subjectsSel.disabled() ? 'Select a level first' : 'Select a subject'"
+      [disabled]="subjectsSel.disabled()"
+      [ngModel]="selectedSubjectId()"
+      (ngModelChange)="onSubjectChange($event)"
+      styleClass="w-full">
+    </p-select>
+    @if (subjectsSel.loading()) {
+      <p-progressSpinner styleClass="cascading-filter__spinner" strokeWidth="6" />
+    }
+  </div>
+
+  @if (periodsEnabled) {
+    <div class="cascading-filter__field cascading-filter__field--grow">
+      <label>{{ periodLabel }}</label>
+      @if (!periods.disabled() && !periods.loading() && periods.options().length === 0) {
+        <p class="cascading-filter__empty">No {{ periodLabel.toLowerCase() }}s available for this subject.</p>
+      } @else {
+        <p-select appendTo="body"
+          [options]="periods.options()"
+          optionLabel="label"
+          optionValue="value"
+          [placeholder]="periods.disabled() ? 'Select a subject first' : periodPlaceholder"
+          [disabled]="periods.disabled()"
+          [ngModel]="selectedPeriodValue()"
+          (ngModelChange)="onPeriodChange($event)"
+          styleClass="w-full">
+        </p-select>
+      }
+      @if (periods.loading()) {
+        <p-progressSpinner styleClass="cascading-filter__spinner" strokeWidth="6" />
+      }
+    </div>
+  }
+</div>

@@ -28,6 +28,12 @@
   label { font-size: 0.85rem; font-weight: 600; }
 }
 
+.fee-structures__inline-spinner {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-color-secondary, #94a3b8);
+}
+
 .fee-structures__edit-context {
   font-size: 0.85rem;
   color: var(--text-color-secondary, #64748b);

@@ -1,8 +1,8 @@
 <div class="p-6 flex flex-col gap-5">
   <div class="lectures__header">
     <div>
-      <h1 class="text-xl font-bold text-navy">Lectures</h1>
-      <p class="text-sm text-slate-500">Upload lectures and manage each one's Google Classroom link.</p>
+      <h1 class="text-xl font-bold text-navy">Lectures &amp; Notes</h1>
+      <p class="text-sm text-slate-500">Upload lectures and manage this subject's Google Classroom link.</p>
     </div>
     @if (selectedSubjectId()) {
       <p-button label="Upload Lecture" icon="pi pi-plus" (onClick)="openUploadDialog()" />
@@ -15,7 +15,7 @@
       @if (pickerLoading()) {
         <p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" />
       } @else {
-        <p-select
+        <p-select appendTo="body"
           [options]="subjectOptions()"
           [ngModel]="selectedSubjectId()"
           (ngModelChange)="onSubjectChange($event)"
@@ -24,6 +24,47 @@
       }
     </div>
   </p-card>
+
+  @if (selectedSubjectId()) {
+    <!-- Single Configuration: Google Classroom Link -->
+    <p-card>
+      <div class="classroom-link">
+        <div class="classroom-link__label">
+          <i class="pi pi-google"></i>
+          <span>Google Classroom Link</span>
+        </div>
+
+        @if (classroomLinkLoading()) {
+          <p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" />
+        } @else if (editingClassroomLink()) {
+          <div class="classroom-link__editor">
+            <input
+              pInputText
+              type="text"
+              placeholder="https://classroom.google.com/..."
+              [ngModel]="classroomLinkInput()"
+              (ngModelChange)="classroomLinkInput.set($event)"
+              class="w-full" />
+            <div class="classroom-link__actions">
+              <p-button label="Save" size="small" [loading]="savingClassroomLink()" (onClick)="saveClassroomLink()" />
+              <p-button label="Cancel" size="small" severity="secondary" (onClick)="cancelEditingClassroomLink()" />
+            </div>
+          </div>
+        } @else {
+          @if (classroomLink()) {
+            <div class="classroom-link__readonly">
+              <a [href]="classroomLink()?.classroom_url" target="_blank" rel="noopener" class="classroom-link__url">
+                {{ classroomLink()?.classroom_url }}
+              </a>
+              <p-button label="Edit Google Classroom Link" size="small" severity="secondary" (onClick)="startEditingClassroomLink()" />
+            </div>
+          } @else {
+            <p-button label="Add Google Classroom Link" size="small" (onClick)="startEditingClassroomLink()" />
+          }
+        }
+      </div>
+    </p-card>
+  }
 
   @if (!selectedSubjectId()) {
     <p class="text-slate-400 italic py-4">Pick a subject to see and manage its lectures.</p>
@@ -41,39 +82,14 @@
         <ng-template pTemplate="header">
           <tr>
             <th>Title</th>
-            <th style="min-width: 20rem">YouTube Video</th>
-            <th style="min-width: 22rem">Google Classroom Link</th>
+            <th style="min-width: 24rem">YouTube Video</th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-row>
           <tr>
             <td>{{ row.title }}</td>
             <td>
-              <!-- Sub-Sprint 5, Task 5.1: no video yet -->
-              @if (!row.youtube_video_id_locked) {
-                @if (addingVideoFor() === row.id) {
-                  <div class="lectures__inline-video">
-                    <input
-                      pInputText
-                      type="text"
-                      placeholder="Paste a YouTube link or video ID"
-                      [ngModel]="newVideoUrl()"
-                      (ngModelChange)="newVideoUrl.set($event)"
-                      class="w-full" />
-                    @if (newVideoPreviewId()) {
-                      <app-youtube-player [videoId]="newVideoPreviewId()" title="Preview" />
-                    }
-                    <div class="lectures__inline-video-actions">
-                      <p-button label="Save" size="small" [loading]="savingVideo()" (onClick)="saveVideo(row)" />
-                      <p-button label="Cancel" size="small" severity="secondary" (onClick)="cancelAddingVideo()" />
-                    </div>
-                  </div>
-                } @else {
-                  <p-button label="Add YouTube Video" size="small" (onClick)="startAddingVideo(row)" />
-                }
-              }
-              <!-- Video set — locked, read-only preview -->
-              @else {
+              @if (row.youtube_video_id_locked) {
                 <div class="lectures__locked-video">
                   <app-youtube-player [videoId]="row.youtube_video_id" [title]="row.title" />
                   @if (row.has_pending_youtube_edit_request) {
@@ -82,38 +98,8 @@
                     <p-button label="Request Video Change" size="small" severity="secondary" (onClick)="openRequestVideoEditDialog(row)" />
                   }
                 </div>
-              }
-            </td>
-            <td>
-              <!-- Task 3.1: no link yet -->
-              @if (!row.classroom_url_locked) {
-                @if (addingLinkFor() === row.id) {
-                  <div class="lectures__inline-link">
-                    <input
-                      pInputText
-                      type="text"
-                      placeholder="https://classroom.google.com/..."
-                      [ngModel]="newLinkValue()"
-                      (ngModelChange)="newLinkValue.set($event)"
-                      class="w-full" />
-                    <p-button label="Save" size="small" [loading]="savingLink()" (onClick)="saveLink(row)" />
-                    <p-button label="Cancel" size="small" severity="secondary" (onClick)="cancelAddingLink()" />
-                  </div>
-                } @else {
-                  <p-button label="Add Classroom Link" size="small" (onClick)="startAddingLink(row)" />
-                }
-              }
-              <!-- Task 3.1: link set — locked, read-only -->
-              @else {
-                <div class="lectures__locked-link">
-                  <input pInputText type="text" [ngModel]="row.classroom_url" [disabled]="true" class="w-full" />
-                  <!-- Task 3.3: pending badge replaces the Request button -->
-                  @if (row.has_pending_edit_request) {
-                    <p-tag severity="warn" value="Edit request pending approval" />
-                  } @else {
-                    <p-button label="Request Link Change" size="small" severity="secondary" (onClick)="openRequestEditDialog(row)" />
-                  }
-                </div>
+              } @else {
+                <p class="text-slate-400 italic">No video set for this lecture.</p>
               }
             </td>
           </tr>
@@ -124,7 +110,7 @@
 </div>
 
 <!-- Upload Lecture dialog -->
-<p-dialog header="Upload Lecture" [(visible)]="uploadDialogOpen" [modal]="true" [style]="{ width: '28rem' }">
+<p-dialog header="Upload Lecture" [(visible)]="uploadDialogOpen" [modal]="true" [style]="{ width: '30rem' }">
   <div class="lectures__form-field">
     <label>Title</label>
     <input pInputText type="text" [ngModel]="newTitle()" (ngModelChange)="newTitle.set($event)" class="w-full" />
@@ -133,6 +119,22 @@
     <label>Description</label>
     <textarea pTextarea rows="3" [ngModel]="newDescription()" (ngModelChange)="newDescription.set($event)" class="w-full"></textarea>
   </div>
+  <div class="lectures__form-field">
+    <label>YouTube Video Link</label>
+    <input
+      pInputText
+      type="text"
+      placeholder="Paste a YouTube link or video ID"
+      [ngModel]="newVideoUrl()"
+      (ngModelChange)="newVideoUrl.set($event)"
+      class="w-full" />
+    @if (newVideoUrl() && !newVideoPreviewId()) {
+      <p class="lectures__hint lectures__hint--warn">Doesn't look like a recognized YouTube link or ID yet.</p>
+    }
+    @if (newVideoPreviewId()) {
+      <app-youtube-player [videoId]="newVideoPreviewId()" title="Preview" />
+    }
+  </div>
 
   <ng-template pTemplate="footer">
     <p-button label="Cancel" severity="secondary" (onClick)="uploadDialogOpen.set(false)" />
@@ -140,31 +142,7 @@
   </ng-template>
 </p-dialog>
 
-<!-- Task 3.2: Request Edit dialog -->
-<p-dialog header="Request Link Change" [(visible)]="requestEditDialogOpen" [modal]="true" [style]="{ width: '28rem' }">
-  @if (requestEditLecture(); as lecture) {
-    <p class="lectures__edit-context">
-      Current link for "{{ lecture.title }}":
-      <span class="lectures__edit-context-url">{{ lecture.classroom_url }}</span>
-    </p>
-    <div class="lectures__form-field">
-      <label>Proposed Link</label>
-      <input pInputText type="text" placeholder="https://classroom.google.com/..." [ngModel]="proposedUrl()" (ngModelChange)="proposedUrl.set($event)" class="w-full" />
-    </div>
-    <div class="lectures__form-field">
-      <label>Reason</label>
-      <textarea pTextarea rows="3" placeholder="Why does this link need to change?" [ngModel]="editReason()" (ngModelChange)="editReason.set($event)" class="w-full"></textarea>
-    </div>
-    <p class="lectures__hint">This goes to a Coordinator/Admin for approval — the link won't change until then.</p>
-  }
-
-  <ng-template pTemplate="footer">
-    <p-button label="Cancel" severity="secondary" (onClick)="requestEditDialogOpen.set(false)" />
-    <p-button label="Submit Request" [loading]="submittingRequest()" (onClick)="submitRequestEdit()" />
-  </ng-template>
-</p-dialog>
-
-<!-- Sub-Sprint 5, Task 5.2: Request Video Change dialog -->
+<!-- Request Video Change dialog -->
 <p-dialog header="Request Video Change" [(visible)]="requestVideoEditDialogOpen" [modal]="true" [style]="{ width: '30rem' }">
   @if (requestVideoEditLecture(); as lecture) {
     <p class="lectures__edit-context">Current video for "{{ lecture.title }}":</p>

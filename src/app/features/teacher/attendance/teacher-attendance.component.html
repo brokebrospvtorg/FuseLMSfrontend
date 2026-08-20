@@ -1,5 +1,14 @@
 <div class="page">
-  <h1 class="page__title">Mark Attendance</h1>
+  <div class="page__header">
+    <h1 class="page__title">Mark Attendance</h1>
+    <p-button
+      label="View Summary"
+      icon="pi pi-history"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="openSummary()">
+    </p-button>
+  </div>
 
   @if (pickerLoading()) {
     <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
@@ -10,30 +19,29 @@
       <div class="attendance-toolbar">
         <div class="attendance-toolbar__field">
           <label>Date</label>
-          <p-datepicker
-            [ngModel]="selectedDate()"
-            (ngModelChange)="selectedDate.set($event); onDateChanged()"
-            dateFormat="dd M yy"
-            [showIcon]="true">
-          </p-datepicker>
-        </div>
-
-        <div class="attendance-toolbar__field attendance-toolbar__field--grow">
-          <label>Period</label>
-          @if (periodOptions().length === 0) {
-            <p class="page__empty">No periods scheduled for this day.</p>
-          } @else {
-            <p-select
-              [options]="periodOptions()"
-              optionLabel="label"
-              placeholder="Select a period"
-              [ngModel]="selectedPeriod()"
-              (ngModelChange)="onPeriodSelected($event)"
-              styleClass="w-full">
-            </p-select>
-          }
+          <!-- Day-Wise UI: fixed to today, no calendar/date navigation on
+               this screen. Attendance can only be marked or edited for the
+               current date — past dates are read-only via View Summary. -->
+          <div class="attendance-toolbar__today">
+            {{ today | date: 'EEEE, d MMM y' }}
+          </div>
         </div>
       </div>
+
+      <!-- Batch -> Board -> Level -> Subject -> Period cascade. Every
+           stage is restricted to this teacher's own teaching slots; the
+           Period stage is further restricted to today's weekday (see
+           loadPeriodsForToday). -->
+      <app-teacher-cascading-filter
+        [batches]="batches()"
+        [subjects]="subjects()"
+        [levels]="levels()"
+        [allowedPairs]="allowedPairs()"
+        periodLabel="Period"
+        periodPlaceholder="Select today's period"
+        [loadPeriods]="loadPeriodsForToday"
+        (selectionChange)="onSelectionChange($event)">
+      </app-teacher-cascading-filter>
     </p-card>
 
     @if (selectedPeriod()) {
@@ -55,7 +63,7 @@
         @if (locked()) {
           <p-message
             severity="info"
-            text="This period's attendance was already recorded. It's shown read-only below — changes for this date go through the Coordinator."
+            text="This period's attendance was already recorded today. It's shown read-only below — changes go through the Coordinator."
             styleClass="attendance-locked-notice">
           </p-message>
         }
@@ -101,3 +109,62 @@
     }
   }
 </div>
+
+<!-- Sub-Sprint 3.3 — View Summary: read-only historical log of classes
+     already taken (today or earlier). Nothing in here is editable; it's
+     a pure lookup, same as the marking screen being locked to today. -->
+<p-dialog
+  header="Attendance Summary"
+  [visible]="summaryVisible()"
+  (visibleChange)="summaryVisible.set($event)"
+  [modal]="true"
+  [style]="{ width: '46rem' }"
+  [dismissableMask]="true">
+
+  <div class="summary-toolbar">
+    <label>Subject</label>
+    <p-select appendTo="body"
+      [options]="subjects()"
+      optionLabel="name"
+      optionValue="id"
+      placeholder="All subjects"
+      [showClear]="true"
+      [ngModel]="summarySubjectId()"
+      (ngModelChange)="onSummarySubjectChanged($event)"
+      styleClass="w-full">
+    </p-select>
+  </div>
+
+  @if (summaryLoading()) {
+    <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+  } @else if (summaryError()) {
+    <p-message severity="error" [text]="summaryError()!" />
+  } @else if (summaryEntries().length === 0) {
+    <p class="page__empty">No past classes found for this filter yet.</p>
+  } @else {
+    <p-table [value]="summaryEntries()" [scrollable]="true" scrollHeight="24rem">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Date</th>
+          <th>Period</th>
+          <th>Subject</th>
+          <th>Present</th>
+          <th>Absent</th>
+          <th>Late</th>
+          <th>Excused</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr>
+          <td>{{ row.date | date: 'd MMM y' }}</td>
+          <td>{{ row.period_number }}</td>
+          <td>{{ row.subject_name }}@if (row.level_code) { <span class="summary-level">({{ row.level_code }})</span> }</td>
+          <td><p-tag severity="success" [value]="row.present_count.toString()" /></td>
+          <td><p-tag severity="danger" [value]="row.absent_count.toString()" /></td>
+          <td><p-tag severity="warn" [value]="row.late_count.toString()" /></td>
+          <td><p-tag severity="info" [value]="row.excused_count.toString()" /></td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+</p-dialog>

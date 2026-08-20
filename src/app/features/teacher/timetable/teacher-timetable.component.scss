@@ -60,13 +60,15 @@
 
 .timetable-grid__period-badge {
   flex-shrink: 0;
-  width: 1.9rem;
+  min-width: 3.4rem;
   height: 1.9rem;
+  padding: 0 0.4rem;
   border-radius: 6px;
   background: #eef1f8;
   color: #101d3c;
   font-weight: 700;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: center;

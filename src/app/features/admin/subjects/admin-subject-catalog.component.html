@@ -1,0 +1,49 @@
+<div class="subject-catalog">
+  <div class="subject-catalog__header">
+    <h3 class="subject-catalog__title">Subject Catalog</h3>
+    <p-button label="Add Subject" icon="pi pi-plus" size="small" (onClick)="openAddSubject()" />
+  </div>
+
+  @if (loading()) {
+    <div class="subject-catalog__loading">
+      <p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" />
+    </div>
+  } @else if (error()) {
+    <p-message severity="error" [text]="error()!" />
+  } @else if (subjects().length === 0) {
+    <p class="subject-catalog__empty">No subjects in the catalog yet — add the first one above.</p>
+  } @else {
+    <p-table [value]="subjects()">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Name</th>
+          <th>Code</th>
+          <th>Board</th>
+          <th>Levels</th>
+          <th>Status</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-subject>
+        <tr>
+          <td>{{ subject.name }}</td>
+          <td>{{ subject.code }}</td>
+          <td>{{ subject.board }}</td>
+          <td>
+            @for (level of subject.levels; track level.id) {
+              <p-tag severity="secondary" [value]="level.name" styleClass="subject-catalog__level-tag" />
+            }
+          </td>
+          <td>
+            <p-tag [severity]="subject.is_active ? 'success' : 'danger'"
+              [value]="subject.is_active ? 'Active' : 'Inactive'" />
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+</div>
+
+<app-add-subject-dialog
+  [visible]="dialogVisible()"
+  (closed)="onDialogClosed()"
+  (saved)="onSubjectSaved()" />

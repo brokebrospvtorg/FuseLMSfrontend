@@ -21,9 +21,12 @@
       </div>
       <div class="text-left">
         <p class="text-sm font-semibold text-navy leading-tight">{{ context.selectedChild()?.full_name }}</p>
-        @if (context.selectedChild()?.relationship) {
-          <p class="text-xs text-slate-400 leading-tight">Your {{ context.selectedChild()?.relationship }}</p>
-        }
+        <!-- `relationship` is the PARENT's relation to the child (e.g.
+             "father"), not the reverse — "Your {{ relationship }}" was
+             inverting it into "Your father". Fixed label until a
+             gender/child-relation field exists to render "Son"/"Daughter"
+             correctly. -->
+        <p class="text-xs text-slate-400 leading-tight">Your Child</p>
       </div>
       @if (context.children().length > 1) {
         <svg class="w-4 h-4 text-slate-400 ml-2" viewBox="0 0 20 20" fill="currentColor">

@@ -3,7 +3,7 @@
 
   <p-card>
     <div class="complaints__filters">
-      <p-select
+      <p-select appendTo="body"
         [options]="filterOptions"
         [ngModel]="selectedFilter()"
         (ngModelChange)="selectedFilter.set($event)"
@@ -68,7 +68,7 @@
 
   <div class="complaints__form-field">
     <label for="new-status">Status</label>
-    <p-select
+    <p-select appendTo="body"
       inputId="new-status"
       [options]="statusOptions"
       [ngModel]="newStatus()"

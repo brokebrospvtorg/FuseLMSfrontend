@@ -1,0 +1,233 @@
+<div class="p-6 flex flex-col gap-5">
+  <div class="batches__header">
+    <div>
+      <h1 class="text-xl font-bold text-navy">Batches</h1>
+      <p class="text-sm text-slate-500">
+        Standard exam sessions — May/June and Oct/Nov, current year through 4 years ahead.
+        A batch is automatically retired once the next batch's session begins.
+        Click a batch to see its summary.
+      </p>
+    </div>
+    <p-button
+      label="Run batch expiry now"
+      icon="pi pi-refresh"
+      severity="secondary"
+      [loading]="runningExpiry()"
+      (onClick)="runExpiryNow()" />
+  </div>
+
+  <p-card>
+    <div class="batches__create">
+      <div class="batches__create-field">
+        <label>Create next standard batch</label>
+        <p-select appendTo="body"
+          [options]="creatableOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="selectedTemplateKey()"
+          (ngModelChange)="selectedTemplateKey.set($event)"
+          placeholder="Select a batch to create"
+          [disabled]="creatableOptions().length === 0"
+          styleClass="w-full md:w-20rem" />
+      </div>
+      <div class="batches__create-field">
+        <label>Board</label>
+        <p-select appendTo="body"
+          [options]="boardOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="selectedBoard()"
+          (ngModelChange)="selectedBoard.set($event)"
+          placeholder="Select a board"
+          styleClass="w-full md:w-14rem" />
+      </div>
+      <p-button
+        label="Create"
+        icon="pi pi-plus"
+        [disabled]="!selectedTemplateKey() || !selectedBoard()"
+        [loading]="creating()"
+        (onClick)="createSelectedBatch()" />
+    </div>
+    @if (creatableOptions().length === 0 && !loading()) {
+      <p class="text-sm text-slate-500 mt-2">Every batch in the standard window already exists.</p>
+    }
+  </p-card>
+
+  @if (loading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (batches().length === 0) {
+    <p class="text-slate-500 py-4">No batches yet — create one above.</p>
+  } @else {
+    <div class="batches__tabs">
+      <button
+        type="button"
+        class="batches__tab"
+        [class.batches__tab--active]="selectedBoardTab() === 'all'"
+        (click)="selectedBoardTab.set('all')">
+        All Boards
+      </button>
+      @for (option of boardOptions; track option.value) {
+        <button
+          type="button"
+          class="batches__tab"
+          [class.batches__tab--active]="selectedBoardTab() === option.value"
+          (click)="selectedBoardTab.set(option.value)">
+          {{ option.label }}
+        </button>
+      }
+    </div>
+
+    @if (selectedBoardTab() !== 'all') {
+      <p class="text-sm text-slate-500 -mt-2">
+        Every batch can host {{ boardLabel(selectedBoardTab()) }} subjects — batches already showing
+        an "Active" tag below have at least one {{ boardLabel(selectedBoardTab()) }} subject offered;
+        open "Manage" on any other batch to start offering {{ boardLabel(selectedBoardTab()) }} there too.
+      </p>
+    }
+    <p-card>
+      @if (filteredBatches().length === 0) {
+        <p class="text-slate-500 py-4">No batches yet — create one above.</p>
+      } @else {
+        <p-table [value]="filteredBatches()" [rows]="10" [paginator]="filteredBatches().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
+          <ng-template pTemplate="header">
+            <tr>
+            <th>Batch</th>
+            <th>Students</th>
+            <th>Board{{ selectedBoardTab() === 'all' ? '' : 's' }}</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Status</th>
+            <th>Active Status</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr class="batches__row" (click)="openBatchSummary(row)" tabindex="0"
+              (keydown.enter)="openBatchSummary(row)" role="button"
+              [attr.aria-label]="'View summary for ' + row.name">
+            <td>{{ row.name }}</td>
+            <td>
+              <!-- Visual proof of WHY this row sorted where it did — the
+                   backend's tier 1 ("active students") is exactly
+                   active_students_count > 0, so this badge is the same
+                   number driving the row's position, not a separate stat. -->
+              <p-tag
+                [severity]="row.active_students_count > 0 ? 'success' : 'secondary'"
+                [value]="row.active_students_count + (row.active_students_count === 1 ? ' Student' : ' Students')" />
+            </td>
+            <td>
+              @if (selectedBoardTab() === 'all') {
+                @if (row.active_boards.length === 0) {
+                  <p-tag severity="secondary" value="No offerings yet" />
+                } @else {
+                  @for (b of row.active_boards; track b) {
+                    <p-tag severity="info" [value]="boardLabel(b)" />
+                  }
+                }
+              } @else if (isActiveForBoard(row, selectedBoardTab())) {
+                <p-tag severity="success" [value]="boardLabel(selectedBoardTab()) + ' — Active'" />
+              } @else {
+                <p-tag severity="secondary" [value]="'No ' + boardLabel(selectedBoardTab()) + ' offerings yet'" />
+              }
+            </td>
+            <td>{{ row.start_date | date: 'mediumDate' }}</td>
+            <td>{{ row.end_date | date: 'mediumDate' }}</td>
+            <td>
+              @if (row.is_current) {
+                <p-tag severity="success" value="Current" />
+              } @else {
+                <p-tag severity="secondary" value="Not current" />
+              }
+            </td>
+            <td (click)="$event.stopPropagation()">
+              <p-toggleswitch
+                [(ngModel)]="row.is_active"
+                [disabled]="togglingActiveId() === row.id"
+                [attr.aria-label]="'Toggle active status for ' + row.name"
+                (onChange)="toggleActive(row)" />
+            </td>
+            <td>
+              <div class="batches__row-actions" (click)="$event.stopPropagation()">
+                @if (!row.is_current) {
+                  <p-button
+                    label="Set current"
+                    size="small"
+                    severity="secondary"
+                    [loading]="settingCurrentId() === row.id"
+                    (onClick)="setCurrent(row)" />
+                }
+                <p-button
+                  label="Edit"
+                  icon="pi pi-pencil"
+                  size="small"
+                  severity="secondary"
+                  [outlined]="true"
+                  (onClick)="openEditBatch(row)" />
+                <p-button
+                  label="Manage"
+                  icon="pi pi-cog"
+                  size="small"
+                  severity="secondary"
+                  [outlined]="true"
+                  (onClick)="openManageBatch(row)" />
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+      }
+    </p-card>
+  }
+</div>
+
+<app-batch-summary-dialog
+  [visible]="summaryDialogOpen()"
+  [loading]="summaryLoading()"
+  [error]="summaryError()"
+  [summary]="summaryData()"
+  (closed)="closeBatchSummary()" />
+
+<app-manage-batch-dialog
+  [visible]="manageDialogOpen()"
+  [batch]="manageBatch()"
+  [defaultBoard]="manageBatchDefaultBoard()"
+  (closed)="closeManageBatch()"
+  (saved)="onManageBatchSaved()" />
+
+<p-dialog
+  header="Edit Default Board"
+  [visible]="editDialogOpen()"
+  [modal]="true"
+  [style]="{ width: '26rem' }"
+  (onHide)="closeEditBatch()">
+  @if (editBatch(); as batch) {
+    <div class="edit-board">
+      <p class="edit-board__batch-name">{{ batch.name }}</p>
+      <p class="text-sm text-slate-500">
+        This is just the board captured when the batch was created — it doesn't limit which boards'
+        subjects can be offered on this batch. Use "Manage" to offer subjects under any board.
+      </p>
+      <label for="edit-board-select">Board</label>
+      <p-select
+        inputId="edit-board-select"
+        appendTo="body"
+        [options]="boardOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="editBoardSelection()"
+        (ngModelChange)="editBoardSelection.set($event)"
+        placeholder="Select a board"
+        styleClass="w-full" />
+      <div class="edit-board__actions">
+        <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeEditBatch()" />
+        <p-button
+          label="Save"
+          [disabled]="!editBoardSelection()"
+          [loading]="savingBoardEdit()"
+          (onClick)="saveBoardEdit()" />
+      </div>
+    </div>
+  }
+</p-dialog>

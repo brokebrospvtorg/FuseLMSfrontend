@@ -1,1 +1,30 @@
 /* You can add global styles to this file, and also import other style files */
+
+// ---------------------------------------------------------------------------
+// PrimeNG overlay stacking (Select / MultiSelect dropdown panels)
+//
+// Root cause of "dropdown closes/clips when scrolling inside a dialog":
+// without appendTo="body" (now added to every p-select/p-multiSelect), the
+// overlay panel renders as a child of the trigger element, inheriting the
+// dialog's clipping/scroll context. appendTo="body" moves it to a direct
+// child of <body> instead, which is the real fix — this CSS is a stacking
+// safety net on top of that, not a substitute for it.
+//
+// NOTE: this project has no Angular Material/CDK anywhere (confirmed —
+// zero usage), so .cdk-overlay-container doesn't apply and was never
+// going to match anything here. PrimeNG's own overlay-panel class is
+// .p-overlay, which is what's targeted below instead.
+//
+// Also intentionally NOT using !important or a single global z-index
+// override: PrimeNG's internal zIndexService already auto-increments
+// each overlay's z-index relative to whatever's currently open (so a
+// dropdown opened from inside a p-dialog correctly renders above it).
+// A blanket forced z-index can fight that service and cause a dropdown
+// to render BEHIND a dialog opened after it. min-width/position below
+// are the parts that actually need to be global; z-index just needs a
+// high baseline, not a forced override.
+.p-overlay {
+  position: fixed;
+  z-index: 9999;
+}
+

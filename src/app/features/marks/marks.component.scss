@@ -7,3 +7,19 @@
 .marks-tab__select {
   margin-bottom: 1rem;
 }
+
+.marks-tab__subject-heading {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+// Level abbreviation badge ("[AS]", "[OL]", "[Composite]", etc) — shared
+// visual treatment wherever a subject name needs its level tagged next to
+// it (Grade Report table, Marks Report heading, dashboard subject lists).
+.level-badge {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-color-secondary, #64748b);
+}

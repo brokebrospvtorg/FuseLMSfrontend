@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { map } from 'rxjs';
 import Swal from 'sweetalert2';
 
 import { CardModule } from 'primeng/card';
@@ -17,6 +18,7 @@ import { RegistryService } from '../../../core/services/registry.service';
 import { FeeStructure } from '../../../core/models/fees.model';
 import { Subject } from '../../../core/models/academic.model';
 import { RegistryUser } from '../../../core/models/registry.model';
+import { CascadingSelect } from '../../../shared/utils/cascading-select';
 
 interface DropdownOption {
   label: string;
@@ -42,7 +44,6 @@ export class AdminFeeStructuresComponent implements OnInit {
   structures = signal<FeeStructure[]>([]);
   loading = signal(true);
   subjects = signal<Subject[]>([]);
-  students = signal<RegistryUser[]>([]);
 
   subjectFilter = signal<string | null>(null);
 
@@ -55,16 +56,47 @@ export class AdminFeeStructuresComponent implements OnInit {
   formAmount = signal<number | null>(null);
   submitting = signal(false);
 
+  // Full student directory, kept around only to resolve a student_id ->
+  // full_name for options the cascade below returns (which come from the
+  // enrollments endpoint and don't carry a name).
+  private allStudents = signal<RegistryUser[]>([]);
+
+  // Cascading: the Student dropdown in the dialog only shows students
+  // actually enrolled in whichever Subject is currently picked in the
+  // dialog's own Subject field (formSubjectId) — previously this listed
+  // every student in the system regardless of subject, so you could set a
+  // subject-specific fee for a student who isn't even taking that subject.
+  readonly cascadingStudents = new CascadingSelect<string, RegistryUser>((subjectId) => {
+    const byId = new Map(this.allStudents().map((s) => [s.id, s]));
+    return this.academicsStaffService.getEnrollmentsBySubject(subjectId).pipe(
+      map((enrollments) => {
+        const seen = new Set<string>();
+        const result: RegistryUser[] = [];
+        for (const e of enrollments) {
+          if (seen.has(e.student_id)) continue;
+          const student = byId.get(e.student_id);
+          if (student) {
+            seen.add(e.student_id);
+            result.push(student);
+          }
+        }
+        return result.sort((a, b) => a.full_name.localeCompare(b.full_name));
+      }),
+    );
+  });
+
   // Computed signal for main filter dropdown
   subjectFilterOptions = computed<DropdownOption[]>(() => [
     { label: 'All subjects', value: null },
     ...this.subjects().map((s) => ({ label: s.name, value: s.id })),
   ]);
 
-  // Computed signal for student dropdown in create dialog
+  // Computed signal for the dialog's student dropdown — "All students
+  // (default)" is always available (a subject-wide default fee doesn't
+  // need one particular student), the rest come from the cascade above.
   studentSelectOptions = computed<StudentOption[]>(() => [
     { full_name: 'All students (default)', id: null },
-    ...this.students().map((s) => ({ full_name: s.full_name, id: s.id })),
+    ...this.cascadingStudents.options().map((s) => ({ full_name: s.full_name, id: s.id })),
   ]);
 
   constructor(
@@ -76,7 +108,7 @@ export class AdminFeeStructuresComponent implements OnInit {
   ngOnInit(): void {
     this.loadStructures();
     this.academicsStaffService.getSubjects().subscribe({ next: (s) => this.subjects.set(s) });
-    this.registryService.getUsers('student').subscribe({ next: (s) => this.students.set(s) });
+    this.registryService.getUsers('student').subscribe({ next: (s) => this.allStudents.set(s) });
   }
 
   loadStructures(): void {
@@ -93,10 +125,15 @@ export class AdminFeeStructuresComponent implements OnInit {
   openCreateDialog(): void {
     this.dialogMode.set('create');
     this.editingId.set(null);
-    this.formSubjectId.set(this.subjectFilter());
     this.formStudentId.set(null);
     this.formAmount.set(null);
     this.dialogOpen.set(true);
+
+    // Prefill the dialog's subject from whichever the list is currently
+    // filtered to, and cascade the student list to match.
+    const prefillSubjectId = this.subjectFilter();
+    this.formSubjectId.set(prefillSubjectId);
+    this.cascadingStudents.loadFor(prefillSubjectId);
   }
 
   openEditDialog(fs: FeeStructure): void {
@@ -106,6 +143,18 @@ export class AdminFeeStructuresComponent implements OnInit {
     this.formStudentId.set(fs.student_id);
     this.formAmount.set(fs.amount);
     this.dialogOpen.set(true);
+    // Note: the Student picker isn't shown in edit mode at all (subject
+    // and scope are locked, only the amount is editable — see the
+    // template), so there's nothing to cascade-load here.
+  }
+
+  onFormSubjectChanged(subjectId: string | null): void {
+    this.formSubjectId.set(subjectId);
+    // The child's own selection always resets on a parent change — a
+    // student who was valid for the old subject may not be enrolled in
+    // the new one.
+    this.formStudentId.set(null);
+    this.cascadingStudents.loadFor(subjectId);
   }
 
   submit(): void {

@@ -1,107 +1,136 @@
 <div class="page">
-  <h1 class="page__title">Grade Overrides</h1>
+  <h1 class="page__title">Mark Override</h1>
+  <p class="page__subtitle">
+    Correct an individual student's score on a published assessment. The student's overall grade for the
+    subject is recalculated automatically — this does not set a letter grade directly.
+  </p>
 
   <p-card>
-    @if (pickerLoading()) {
+    @if (batchesLoading()) {
       <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
     } @else {
-      <div class="grades-tab__filters">
-        <p-select
-          [options]="levelOptions()"
-          [ngModel]="selectedLevelId()"
-          (ngModelChange)="onLevelChanged($event)"
-          placeholder="Class / Level"
-          [showClear]="true"
-          styleClass="w-full md:w-16rem">
-        </p-select>
-        <p-select
-          [options]="subjectOptions()"
-          [ngModel]="selectedSubjectId()"
-          (ngModelChange)="selectedSubjectId.set($event); onFiltersChanged()"
-          placeholder="Subject"
-          styleClass="w-full md:w-16rem">
-        </p-select>
-        <p-select
+      <!-- Cascading Selection Flow: Batch -> Level -> Subject -> Assessment -->
+      <div class="mark-override__filters">
+        <p-select appendTo="body"
           [options]="batchOptions()"
           [ngModel]="selectedBatchId()"
-          (ngModelChange)="selectedBatchId.set($event); onFiltersChanged()"
-          placeholder="Batch"
+          (ngModelChange)="onBatchChange($event)"
+          placeholder="1. Select Batch"
+          [showClear]="true"
+          styleClass="w-full md:w-15rem">
+        </p-select>
+
+        <p-select appendTo="body"
+          [options]="levelOptions()"
+          [ngModel]="selectedLevelId()"
+          (ngModelChange)="onLevelChange($event)"
+          placeholder="2. Select Level"
+          [showClear]="true"
+          [disabled]="!selectedBatchId()"
+          [loading]="offeredSubjectsLoading()"
+          styleClass="w-full md:w-15rem">
+        </p-select>
+
+        <p-select appendTo="body"
+          [options]="subjectOptions()"
+          [ngModel]="selectedSubjectId()"
+          (ngModelChange)="onSubjectChange($event)"
+          placeholder="3. Select Subject"
+          [showClear]="true"
+          [disabled]="!selectedLevelId()"
+          styleClass="w-full md:w-15rem">
+        </p-select>
+
+        <p-select appendTo="body"
+          [options]="assessmentOptions()"
+          [ngModel]="selectedAssessmentId()"
+          (ngModelChange)="onAssessmentChange($event)"
+          placeholder="4. Select Assessment / Test"
+          [showClear]="true"
+          [disabled]="!selectedSubjectId()"
+          [loading]="assessmentsLoading()"
           styleClass="w-full md:w-16rem">
         </p-select>
-        <input
-          pInputText
-          [ngModel]="studentSearch()"
-          (ngModelChange)="studentSearch.set($event)"
-          placeholder="Search student..."
-          class="w-full md:w-16rem" />
       </div>
 
-      @if (selectedSubjectId() && selectedBatchId() && !gradesLoading() && grades().length > 0) {
-        <div class="grades-tab__analytics">
-          <div class="grades-tab__average">
-            <span class="grades-tab__stat-label">Class Average</span>
-            <span class="grades-tab__stat-value">{{ classAverage() !== null ? (classAverage() + '%') : '—' }}</span>
-            <span class="grades-tab__stat-caption">Across {{ grades().length }} student(s) in this subject/batch</span>
-          </div>
-          <div class="grades-tab__distribution">
-            <span class="grades-tab__stat-label">Grade Distribution</span>
-            <ul class="grades-tab__distribution-list">
-              @for (row of gradeDistribution(); track row.letter_grade) {
-                <li>
-                  <span class="grades-tab__distribution-letter">{{ row.letter_grade }}</span>
-                  <span class="grades-tab__distribution-bar-track">
-                    <span class="grades-tab__distribution-bar" [style.width.%]="row.pct"></span>
-                  </span>
-                  <span class="grades-tab__distribution-count">{{ row.count }} ({{ row.pct }}%)</span>
-                </li>
-              }
-            </ul>
-          </div>
-        </div>
+      @if (selectedSubjectId() && !selectedAssessmentId() && !assessmentsLoading() && assessments().length === 0) {
+        <p class="page__empty">No assessments exist yet for this subject and batch.</p>
       }
 
-      @if (!selectedSubjectId() || !selectedBatchId()) {
-        <p class="page__empty">Pick a subject and batch above to see computed grades.</p>
-      } @else if (gradesLoading()) {
-        <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
-      } @else if (visibleGrades().length === 0) {
-        <p class="page__empty">No grades computed yet — the subject's assessments may not be published.</p>
-      } @else {
-        <p-table [value]="visibleGrades()">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Student</th>
-              <th>Computed %</th>
-              <th>Grade</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-row>
-            <tr>
-              <td>{{ row.student_name }}</td>
-              <td>{{ row.computed_percentage !== null ? (row.computed_percentage + '%') : '—' }}</td>
-              <td>{{ row.letter_grade ?? '—' }}</td>
-              <td>
-                @if (row.is_overridden) {
-                  <p-tag severity="info" value="Overridden" />
-                } @else {
-                  <p-tag severity="secondary" value="Auto-computed" />
-                }
-              </td>
-              <td>
-                <p-button label="Override" size="small" severity="secondary" (onClick)="openOverrideDialog(row)" />
-              </td>
-            </tr>
-          </ng-template>
-        </p-table>
+      <!-- Assessment Marks Table -->
+      @if (selectedAssessmentId()) {
+        <div class="mark-override__entry">
+          <div class="mark-override__entry-header">
+            <h3>{{ activeAssessment()?.name }} — enrolled students</h3>
+            <input
+              pInputText
+              [ngModel]="studentSearch()"
+              (ngModelChange)="studentSearch.set($event)"
+              placeholder="Search student..."
+              class="mark-override__search" />
+          </div>
+
+          @if (rosterLoading()) {
+            <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+          } @else if (roster().length === 0) {
+            <p class="page__empty">No students are enrolled in this subject/batch yet.</p>
+          } @else if (visibleRoster().length === 0) {
+            <p class="page__empty">No student matches "{{ studentSearch() }}".</p>
+          } @else {
+            <p-table [value]="visibleRoster()" dataKey="student_id">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Roll No.</th>
+                  <th>Student</th>
+                  <th>Current Marks</th>
+                  <th>Override</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.roll_number ?? '—' }}</td>
+                  <td>{{ row.full_name }}</td>
+                  <td>{{ row.marks_obtained ?? '—' }} / {{ activeAssessment()?.max_marks }}</td>
+                  <td>
+                    @if (row.mark_id) {
+                      <p-inputNumber
+                        [(ngModel)]="row.draftMarks"
+                        [min]="0"
+                        [max]="activeAssessment()?.max_marks ?? undefined"
+                        styleClass="w-7rem" />
+                    } @else {
+                      <span class="mark-override__no-mark" pTooltip="No mark recorded yet — enter one first from Marks & Assessments." tooltipPosition="top">
+                        No mark recorded
+                      </span>
+                    }
+                  </td>
+                  <td>
+                    @if (row.is_overridden) {
+                      <p-tag severity="warn" icon="pi pi-pencil" value="Overridden by Coordinator" />
+                    } @else {
+                      <p-tag severity="secondary" value="Original" />
+                    }
+                  </td>
+                  <td class="mark-override__row-actions">
+                    @if (isDirty(row)) {
+                      <p-button label="Save" size="small" icon="pi pi-check" (onClick)="openOverrideDialog(row)" />
+                      <p-button label="Discard" size="small" severity="secondary" [text]="true" (onClick)="resetDraft(row)" />
+                    }
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        </div>
       }
     }
   </p-card>
 
   @if (selectedSubjectId() && selectedBatchId()) {
     <p-card styleClass="mt-4">
-      <h2 class="grades-tab__audit-title">Override History</h2>
+      <h2 class="mark-override__audit-title">Recent Overrides</h2>
       @if (auditLoading()) {
         <div class="page__loading"><p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" /></div>
       } @else if (auditHistory().length === 0) {
@@ -111,14 +140,14 @@
           <ng-template pTemplate="header">
             <tr>
               <th>When</th>
-              <th>New Grade</th>
+              <th>New Marks</th>
               <th>Reason</th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-entry>
             <tr>
               <td>{{ entry.created_at | date: 'medium' }}</td>
-              <td>{{ entry.new_value?.letter_grade ?? '—' }}</td>
+              <td>{{ entry.new_value?.marks_obtained ?? '—' }}</td>
               <td>{{ entry.new_value?.reason ?? '—' }}</td>
             </tr>
           </ng-template>
@@ -128,27 +157,17 @@
   }
 </div>
 
-<p-dialog header="Override Grade" [visible]="overrideDialogOpen()" (visibleChange)="overrideDialogOpen.set($event)" [modal]="true" [style]="{ width: '28rem' }">
-  @if (overridingGrade(); as grade) {
-    <p class="grades-tab__override-context">
-      Current: <strong>{{ grade.letter_grade ?? '—' }}</strong>
-      ({{ grade.computed_percentage !== null ? (grade.computed_percentage + '%') : 'no computed %' }})
+<p-dialog header="Confirm Mark Override" [visible]="overrideDialogOpen()" (visibleChange)="overrideDialogOpen.set($event)" [modal]="true" [style]="{ width: '28rem' }">
+  @if (overridingRow(); as row) {
+    <p class="mark-override__dialog-context">
+      <strong>{{ row.full_name }}</strong>:
+      {{ row.marks_obtained ?? '—' }} <i class="pi pi-arrow-right"></i> <strong>{{ row.draftMarks }}</strong>
+      / {{ activeAssessment()?.max_marks }}
     </p>
   }
 
-  <div class="grades-tab__form-field">
-    <label for="override-grade">New Letter Grade</label>
-    <input
-      id="override-grade"
-      pInputText
-      [ngModel]="overrideLetterGrade()"
-      (ngModelChange)="overrideLetterGrade.set($event)"
-      placeholder="e.g. A"
-      class="w-full" />
-  </div>
-
-  <div class="grades-tab__form-field">
-    <label for="override-reason">Reason (required — this is logged to the audit log and the Teacher is notified)</label>
+  <div class="mark-override__form-field">
+    <label for="override-reason">Reason (required — logged to the audit log; the teacher and student are notified)</label>
     <textarea
       id="override-reason"
       pTextarea

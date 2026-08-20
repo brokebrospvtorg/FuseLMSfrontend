@@ -10,7 +10,7 @@
   <p-card>
     <div class="fee-structures__filter">
       <label>Subject</label>
-      <p-select
+      <p-select appendTo="body"
         [options]="subjectFilterOptions()"
         optionLabel="label"
         optionValue="value"
@@ -62,22 +62,30 @@
   @if (dialogMode() === 'create') {
     <div class="fee-structures__form-field">
       <label>Subject</label>
-      <p-select 
-        [options]="subjects()" 
-        optionLabel="name" 
-        optionValue="id" 
-        [ngModel]="formSubjectId()" 
-        (ngModelChange)="formSubjectId.set($event)" 
+      <p-select appendTo="body"
+        [options]="subjects()"
+        optionLabel="name"
+        optionValue="id"
+        [ngModel]="formSubjectId()"
+        (ngModelChange)="onFormSubjectChanged($event)"
+        placeholder="Select a subject"
         styleClass="w-full" />
     </div>
     <div class="fee-structures__form-field">
-      <label>Applies to</label>
-      <p-select
+      <label>
+        Applies to
+        @if (cascadingStudents.loading()) {
+          <i class="pi pi-spin pi-spinner fee-structures__inline-spinner"></i>
+        }
+      </label>
+      <p-select appendTo="body"
         [options]="studentSelectOptions()"
         optionLabel="full_name"
         optionValue="id"
         [ngModel]="formStudentId()"
         (ngModelChange)="formStudentId.set($event)"
+        [disabled]="cascadingStudents.disabled() || cascadingStudents.loading()"
+        [placeholder]="cascadingStudents.disabled() ? 'Select a subject first' : 'Select a student'"
         styleClass="w-full" />
     </div>
   } @else {

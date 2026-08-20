@@ -1,0 +1,140 @@
+<p-dialog
+  [header]="batch ? ('Manage: ' + batch.name) : 'Manage Batch'"
+  [visible]="visible"
+  (visibleChange)="onVisibleChange($event)"
+  [modal]="true"
+  [style]="{ width: '34rem' }"
+  [contentStyle]="{ maxHeight: '80vh', overflowY: 'auto' }"
+  styleClass="manage-batch-dialog">
+
+  @if (batch) {
+    <div class="manage-batch__field">
+      <label for="manage-batch-board">Board</label>
+      <p-select appendTo="body"
+        id="manage-batch-board"
+        [options]="boardOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="selectedBoard()"
+        (ngModelChange)="onBoardChange($event)"
+        placeholder="Select a board"
+        styleClass="w-full" />
+      <span class="manage-batch__hint-inline">
+        This batch isn't limited to one board — pick which board you're offering subjects or
+        assigning a teacher under. "Currently Offered" below always shows all boards.
+      </span>
+    </div>
+
+    <div class="manage-batch__field">
+      <label for="manage-batch-level">Academic Level</label>
+      <p-select appendTo="body"
+        id="manage-batch-level"
+        [options]="levels()"
+        optionLabel="name"
+        optionValue="id"
+        [ngModel]="selectedLevelId()"
+        (ngModelChange)="onLevelChange($event)"
+        placeholder="Select a level"
+        [loading]="loadingLevels()"
+        styleClass="w-full" />
+    </div>
+
+    @if (!selectedBoard() || !selectedLevelId()) {
+      <p class="manage-batch__hint">Pick a board and a level to offer subjects or assign a teacher.</p>
+    } @else {
+      <!-- --- Offer Subjects --- -->
+      <div class="manage-batch__section">
+        <h3 class="manage-batch__section-title">Offer Subjects ({{ selectedBoard() }})</h3>
+        <div class="manage-batch__field">
+          <label for="manage-batch-subjects">Subject(s)</label>
+          <p-multiSelect appendTo="body"
+            id="manage-batch-subjects"
+            [options]="catalogSubjects()"
+            optionLabel="name"
+            optionValue="id"
+            [ngModel]="selectedSubjectIdsToOffer()"
+            (ngModelChange)="selectedSubjectIdsToOffer.set($event)"
+            placeholder="Select subject(s) to offer"
+            display="chip"
+            [loading]="loadingCatalogSubjects()"
+            styleClass="w-full">
+          </p-multiSelect>
+          <span class="manage-batch__hint-inline">
+            Checked subjects will be offered; unchecking one already offered withdraws it.
+          </span>
+        </div>
+        <p-button
+          label="Save Offered Subjects"
+          icon="pi pi-check"
+          size="small"
+          [loading]="savingOffered()"
+          [disabled]="loadingCatalogSubjects()"
+          (onClick)="saveOfferedSubjects()" />
+      </div>
+
+      <!-- --- Assign Teacher --- -->
+      <div class="manage-batch__section">
+        <h3 class="manage-batch__section-title">Assign Teacher to Subject ({{ selectedBoard() }})</h3>
+
+        @if (!loadingOffered() && offeredSubjectsForLevel().length === 0) {
+          <p class="manage-batch__hint">
+            No subjects are offered for this level under {{ selectedBoard() }} yet — offer at least
+            one above before assigning a teacher.
+          </p>
+        } @else {
+          <div class="manage-batch__field">
+            <label for="manage-batch-assign-subject">Subject</label>
+            <p-select appendTo="body"
+              id="manage-batch-assign-subject"
+              [options]="offeredSubjectsForLevel()"
+              optionLabel="subject_name"
+              optionValue="subject_id"
+              [ngModel]="selectedAssignSubjectId()"
+              (ngModelChange)="selectedAssignSubjectId.set($event)"
+              placeholder="Select an offered subject"
+              [loading]="loadingOffered()"
+              styleClass="w-full" />
+          </div>
+          <div class="manage-batch__field">
+            <label for="manage-batch-teacher">Teacher</label>
+            <p-select appendTo="body"
+              id="manage-batch-teacher"
+              [options]="teachers()"
+              optionLabel="full_name"
+              optionValue="id"
+              [ngModel]="selectedTeacherId()"
+              (ngModelChange)="selectedTeacherId.set($event)"
+              placeholder="Select a teacher"
+              [loading]="loadingTeachers()"
+              styleClass="w-full" />
+          </div>
+          <p-button
+            label="Assign Teacher to Subject"
+            icon="pi pi-user-plus"
+            size="small"
+            [loading]="assigningTeacher()"
+            [disabled]="!selectedAssignSubjectId() || !selectedTeacherId()"
+            (onClick)="assignTeacher()" />
+        }
+      </div>
+    }
+
+    <!-- --- Currently offered, all levels --- -->
+    <div class="manage-batch__section">
+      <h3 class="manage-batch__section-title">Currently Offered (this batch)</h3>
+      @if (loadingOffered()) {
+        <div class="manage-batch__loading">
+          <p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" />
+        </div>
+      } @else if (offeredSubjects().length === 0) {
+        <p class="manage-batch__hint">No subjects offered yet.</p>
+      } @else {
+        <div class="manage-batch__chips">
+          @for (subject of offeredSubjects(); track subject.subject_id + ':' + subject.board) {
+            <p-tag severity="secondary" [value]="subject.subject_name + ' (' + subject.level_name + ' — ' + subject.board + ')'" />
+          }
+        </div>
+      }
+    </div>
+  }
+</p-dialog>

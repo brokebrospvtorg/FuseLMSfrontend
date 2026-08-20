@@ -10,7 +10,7 @@
   <p-card>
     <div class="timetable-builder__filter">
       <label>Batch</label>
-      <p-select
+      <p-select appendTo="body"
         [options]="batchOptions()"
         [ngModel]="batchFilter()"
         (ngModelChange)="batchFilter.set($event)"
@@ -61,24 +61,24 @@
   @if (dialogMode() === 'create') {
     <div class="timetable-builder__form-field">
       <label>Level</label>
-      <p-select [options]="levels()" optionLabel="name" optionValue="id" [ngModel]="formLevelId()" (ngModelChange)="formLevelId.set($event)" styleClass="w-full" />
+      <p-select appendTo="body" [options]="levels()" optionLabel="name" optionValue="id" [ngModel]="formLevelId()" (ngModelChange)="formLevelId.set($event)" styleClass="w-full" />
     </div>
   }
   <div class="timetable-builder__form-field">
     <label>Subject</label>
-    <p-select [options]="subjects()" optionLabel="name" optionValue="id" [ngModel]="formSubjectId()" (ngModelChange)="formSubjectId.set($event)" styleClass="w-full" />
+    <p-select appendTo="body" [options]="subjects()" optionLabel="name" optionValue="id" [ngModel]="formSubjectId()" (ngModelChange)="formSubjectId.set($event)" styleClass="w-full" />
   </div>
   <div class="timetable-builder__form-field">
     <label>Teacher</label>
-    <p-select [options]="teachers()" optionLabel="full_name" optionValue="id" [ngModel]="formTeacherId()" (ngModelChange)="formTeacherId.set($event)" styleClass="w-full" />
+    <p-select appendTo="body" [options]="teachers()" optionLabel="full_name" optionValue="id" [ngModel]="formTeacherId()" (ngModelChange)="formTeacherId.set($event)" styleClass="w-full" />
   </div>
   <div class="timetable-builder__form-field">
     <label>Batch</label>
-    <p-select [options]="batches()" optionLabel="name" optionValue="id" [ngModel]="formBatchId()" (ngModelChange)="formBatchId.set($event)" styleClass="w-full" />
+    <p-select appendTo="body" [options]="batches()" optionLabel="name" optionValue="id" [ngModel]="formBatchId()" (ngModelChange)="formBatchId.set($event)" styleClass="w-full" />
   </div>
   <div class="timetable-builder__form-field">
     <label>Day</label>
-    <p-select [options]="dayOptions" [ngModel]="formDay()" (ngModelChange)="formDay.set($event)" styleClass="w-full" />
+    <p-select appendTo="body" [options]="dayOptions" [ngModel]="formDay()" (ngModelChange)="formDay.set($event)" styleClass="w-full" />
   </div>
   <div class="timetable-builder__form-field">
     <label>Period Number</label>

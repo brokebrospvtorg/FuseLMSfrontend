@@ -1,0 +1,80 @@
+<p-dialog
+  header="Add Subject"
+  [visible]="visible"
+  (visibleChange)="onVisibleChange($event)"
+  [modal]="true"
+  [style]="{ width: '28rem' }"
+  [contentStyle]="{ maxHeight: '80vh', overflowY: 'auto' }"
+  styleClass="add-subject-dialog">
+
+  <div class="add-subject__field">
+    <label for="add-subject-name">Subject Name</label>
+    <input pInputText
+      id="add-subject-name"
+      type="text"
+      [ngModel]="name()"
+      (ngModelChange)="name.set($event)"
+      placeholder="e.g. Physics"
+      class="w-full" />
+  </div>
+
+  <div class="add-subject__field">
+    <label for="add-subject-code">Subject Code</label>
+    <input pInputText
+      id="add-subject-code"
+      type="text"
+      [ngModel]="code()"
+      (ngModelChange)="code.set($event)"
+      placeholder="e.g. PHY-9702"
+      class="w-full" />
+    <span class="add-subject__hint-inline">
+      Must be unique — checked against the existing catalog (case-insensitive).
+    </span>
+  </div>
+
+  <div class="add-subject__field">
+    <label for="add-subject-board">Board</label>
+    <p-select appendTo="body"
+      id="add-subject-board"
+      [options]="boardOptions"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="board()"
+      (ngModelChange)="board.set($event)"
+      placeholder="Select a board"
+      styleClass="w-full" />
+  </div>
+
+  <div class="add-subject__field">
+    <label>Offered Levels</label>
+    @if (loadingLevels()) {
+      <p class="add-subject__hint">Loading levels…</p>
+    } @else if (levels().length === 0) {
+      <p-message severity="warn" text="No active levels found — check the academic levels catalog." />
+    } @else {
+      <div class="add-subject__checkbox-list">
+        @for (level of levels(); track level.id) {
+          <div class="add-subject__checkbox-row">
+            <p-checkbox
+              [inputId]="'add-subject-level-' + level.id"
+              [binary]="true"
+              [ngModel]="isLevelSelected(level.id)"
+              (ngModelChange)="toggleLevel(level.id, $event)" />
+            <label [for]="'add-subject-level-' + level.id">{{ level.name }}</label>
+          </div>
+        }
+      </div>
+    }
+    <span class="add-subject__hint-inline">Select every level this subject can be offered at.</span>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="cancel()" />
+    <p-button
+      label="Add Subject"
+      icon="pi pi-plus"
+      [loading]="saving()"
+      [disabled]="!canSubmit()"
+      (onClick)="submit()" />
+  </ng-template>
+</p-dialog>

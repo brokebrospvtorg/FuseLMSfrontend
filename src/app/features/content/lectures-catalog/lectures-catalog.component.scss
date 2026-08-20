@@ -1,0 +1,47 @@
+@use '../../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.page__subtitle {
+  margin: -0.5rem 0 1.25rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.lecture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.lecture-card {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eef0f5;
+}
+
+.lecture-card__embed {
+  // Aspect-ratio sizing lives inside app-youtube-player itself.
+}
+
+.lecture-card__subject {
+  margin: 0.75rem 0.75rem 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b93a7;
+}
+
+.lecture-card__title {
+  margin: 0.25rem 0.75rem 0;
+  font-weight: 600;
+  color: #101d3c;
+}
+
+.lecture-card__description {
+  margin: 0.25rem 0.75rem 0.75rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}

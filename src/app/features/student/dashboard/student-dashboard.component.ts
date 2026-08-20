@@ -7,6 +7,7 @@ import { UserService } from '../../../core/services/user.service';
 import { DashboardSummary, TimetableEntry } from '../../../core/models/academic.model';
 import { AttendanceSummary } from '../../../core/models/attendance.model';
 import { MyProfile } from '../../../core/models/user.model';
+import { getLevelAbbreviation } from '../../../shared/utils/level-badge.util';
 
 @Component({
   selector: 'app-student-dashboard',
@@ -61,6 +62,12 @@ export class StudentDashboardComponent implements OnInit {
     if (pct >= 85) return 'text-emerald-600';
     if (pct >= 75) return 'text-amber-600';
     return 'text-rose-600';
+  }
+
+  /** Short level badge ("OL" / "AS" / "A2" / "Composite") for a DB level
+   *  code, or null when there's nothing to show. */
+  levelBadge(levelCode: string | null): string | null {
+    return getLevelAbbreviation(levelCode);
   }
 
   formatDate(value: string | null | undefined): string {

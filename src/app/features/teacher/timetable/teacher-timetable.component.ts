@@ -55,7 +55,7 @@ export class TeacherTimetableComponent implements OnInit {
       }
     }
     for (const day of WEEK_DAYS) {
-      grouped[day].sort((a, b) => a.period_number - b.period_number);
+      grouped[day].sort((a, b) => this.toMinutes(a.start_time) - this.toMinutes(b.start_time));
     }
     return grouped;
   });
@@ -71,5 +71,19 @@ export class TeacherTimetableComponent implements OnInit {
         this.error.set('Could not load your timetable right now.');
       },
     });
+  }
+
+  /** "HH:MM:SS" / "HH:MM" -> minutes since midnight, for start_time ASC sorting. */
+  private toMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  }
+
+  /** "HH:MM:SS" -> "8:00 AM", for the period badge — no more static P1/P2/P3 labels. */
+  formatTime(time: string): string {
+    const [h, m] = time.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
   }
 }

@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
-import { LoginRequest, CurrentUser } from '../models/auth.model';
+import { LoginRequest, CurrentUser, ChangePasswordRequest } from '../models/auth.model';
 
 const SESSION_STORAGE_KEY = 'fuse_current_user';
 
@@ -78,6 +78,20 @@ export class AuthService {
     this._currentUser.set(null);
     this.hasVerifiedSession = false;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+
+  /** Self-service change for a LOGGED-IN user who knows their current
+   *  password — POST /api/auth/change-password. On success, updates the
+   *  in-memory/cached CurrentUser's must_change_password to false locally
+   *  rather than re-fetching /me, since the backend response here is just
+   *  {detail: string}, not a full UserOut. */
+  changePassword(payload: ChangePasswordRequest): Observable<{ detail: string }> {
+    return this.http
+      .post<{ detail: string }>(`${this.baseUrl}/change-password`, payload, { withCredentials: true })
+      .pipe(tap(() => {
+        const user = this._currentUser();
+        if (user) this.setUser({ ...user, must_change_password: false });
+      }));
   }
 
   private setUser(user: CurrentUser): void {

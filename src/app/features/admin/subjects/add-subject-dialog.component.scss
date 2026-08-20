@@ -1,0 +1,43 @@
+.add-subject__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}
+
+.add-subject__hint {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #64748b);
+  margin: 0;
+}
+
+.add-subject__hint-inline {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.add-subject__checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: 6px;
+}
+
+.add-subject__checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    font-size: 0.9rem;
+    font-weight: 400;
+    cursor: pointer;
+  }
+}

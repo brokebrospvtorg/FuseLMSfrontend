@@ -1,0 +1,34 @@
+@use '../../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.page__subtitle {
+  margin: -0.5rem 0 1.25rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.classroom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.classroom-card__subject {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  color: #101d3c;
+  font-size: 1.05rem;
+}
+
+.classroom-card__hint {
+  margin: 0 0 1rem;
+  color: #8b93a7;
+  font-size: 0.85rem;
+}
+
+.classroom-card__button {
+  width: 100%;
+}

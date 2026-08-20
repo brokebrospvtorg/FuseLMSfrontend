@@ -8,206 +8,312 @@ import { TableModule } from 'primeng/table';
 import { SelectModule } from 'primeng/select';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { TextareaModule } from 'primeng/textarea';
 import { TagModule } from 'primeng/tag';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { InputTextModule } from 'primeng/inputtext';
+import { TooltipModule } from 'primeng/tooltip';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
-import { Subject, Batch, Level } from '../../../core/models/academic.model';
-import { GradeFull, AuditLogEntry } from '../../../core/models/academics-staff.model';
+import { Batch, BatchSubject } from '../../../core/models/academic.model';
+import { AssessmentFull, AuditLogEntry } from '../../../core/models/academics-staff.model';
 
-/** GradeFull plus a display name joined in client-side from the roster (GradeOut has no name field). */
-interface GradeRow extends GradeFull {
-  student_name: string;
+/** One roster row joined with its current Mark (if any) for the selected
+ *  assessment. `draftMarks` is the value bound to the inline editor;
+ *  `marks_obtained` stays untouched until a save actually succeeds, so a
+ *  half-typed edit can always be discarded via resetDraft(). */
+interface MarkOverrideRow {
+  student_id: string;
+  full_name: string;
+  roll_number: string | null;
+  mark_id: string | null;
+  marks_obtained: number | null;
+  draftMarks: number | null;
+  is_overridden: boolean;
+  overridden_by: string | null;
 }
 
+/**
+ * Coordinator "Mark Override" — corrects one student's score on one
+ * already-recorded assessment Mark (schema_update_18's Mark Override
+ * refactor). Replaces the old subject-level Grade override screen:
+ * Grade is now a purely computed rollup (see GradeFull) and can never be
+ * set directly, so overriding happens one Mark at a time here instead;
+ * the backend recomputes the student's pooled percentage/letter grade
+ * automatically after every override.
+ *
+ * Cascading selection flow, each stage narrowing the next and clearing
+ * everything downstream on change:
+ *   Batch -> Level (offered in that batch) -> Subject (offered at that
+ *   level, in that batch) -> Assessment/Test (created for that subject
+ *   + batch) -> marks table for the selected assessment's roster.
+ */
 @Component({
-  selector: 'app-coordinator-grades',
+  selector: 'app-coordinator-mark-override',
   standalone: true,
   imports: [
     CommonModule, FormsModule, CardModule, TableModule, SelectModule, ButtonModule,
-    DialogModule, TextareaModule, TagModule, ProgressSpinnerModule, InputTextModule,
+    DialogModule, InputTextModule, InputNumberModule, TextareaModule, TagModule,
+    ProgressSpinnerModule, TooltipModule,
   ],
   templateUrl: './coordinator-grades.component.html',
   styleUrl: './coordinator-grades.component.scss',
 })
-export class CoordinatorGradesComponent implements OnInit {
-  levels = signal<Level[]>([]);
-  subjects = signal<Subject[]>([]);
+export class CoordinatorMarkOverrideComponent implements OnInit {
+  // --- Stage 1: Batch ---
   batches = signal<Batch[]>([]);
-  pickerLoading = signal(true);
-
-  selectedLevelId = signal<string | null>(null);
-  selectedSubjectId = signal<string | null>(null);
+  batchesLoading = signal(true);
   selectedBatchId = signal<string | null>(null);
-
-  levelOptions = computed(() => this.levels().map((l) => ({ label: l.name, value: l.id })));
-  // Requirement: filter by Class (Level), Subject, Batch. Subject list narrows
-  // to the selected Level; picking a Level clears a Subject that no longer fits.
-  subjectOptions = computed(() => {
-    const levelId = this.selectedLevelId();
-    const pool = levelId ? this.subjects().filter((s) => s.level_id === levelId) : this.subjects();
-    return pool.map((s) => ({ label: s.name, value: s.id }));
-  });
   batchOptions = computed(() => this.batches().map((b) => ({ label: b.name, value: b.id })));
 
-  grades = signal<GradeRow[]>([]);
-  gradesLoading = signal(false);
+  // --- Stage 2 & 3 source data: everything offered in the selected batch,
+  // one row per (level, subject) pair — same shape the Admin "offered
+  // subjects" pickers already use, so Level + Subject both derive from a
+  // single request instead of two separate endpoints. ---
+  offeredSubjects = signal<BatchSubject[]>([]);
+  offeredSubjectsLoading = signal(false);
 
-  // Requirement: filter by Student too, within the pulled-up roster —
-  // lighter-weight than a separate picker since the roster's already small
-  // once Subject+Batch narrow it down.
-  studentSearch = signal('');
-  visibleGrades = computed(() => {
-    const term = this.studentSearch().trim().toLowerCase();
-    if (!term) return this.grades();
-    return this.grades().filter((g) => g.student_name.toLowerCase().includes(term));
-  });
-
-  // --- Class average & grade distribution (Sub-Sprint 2 requirement) ---
-  // Derived entirely from the already-loaded `grades` signal — no extra
-  // backend call needed. Deliberately reads from `grades()` (the full
-  // subject+batch set), not `visibleGrades()`, so the student-search box
-  // narrows the table without skewing the class-wide analytics.
-  classAverage = computed(() => {
-    const withPercentage = this.grades().filter((g) => g.computed_percentage !== null);
-    if (withPercentage.length === 0) return null;
-    const sum = withPercentage.reduce((acc, g) => acc + Number(g.computed_percentage), 0);
-    return Math.round((sum / withPercentage.length) * 10) / 10;
-  });
-
-  gradeDistribution = computed(() => {
-    const counts = new Map<string, number>();
-    for (const g of this.grades()) {
-      const key = g.letter_grade ?? 'Not yet graded';
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+  selectedLevelId = signal<string | null>(null);
+  levelOptions = computed(() => {
+    const seen = new Map<string, string>();
+    for (const s of this.offeredSubjects()) {
+      if (!seen.has(s.level_id)) seen.set(s.level_id, s.level_name);
     }
-    const total = this.grades().length || 1;
-    return Array.from(counts.entries())
-      .map(([letter_grade, count]) => ({ letter_grade, count, pct: Math.round((count / total) * 100) }))
-      .sort((a, b) => b.count - a.count);
+    return Array.from(seen.entries()).map(([value, label]) => ({ label, value }));
   });
 
-  // --- Audit trail (Sub-Sprint 6.3 requirement: history of past overrides) ---
-  auditHistory = signal<AuditLogEntry[]>([]);
-  auditLoading = signal(false);
+  selectedSubjectId = signal<string | null>(null);
+  subjectOptions = computed(() => {
+    const levelId = this.selectedLevelId();
+    if (!levelId) return [];
+    return this.offeredSubjects()
+      .filter((s) => s.level_id === levelId)
+      .map((s) => ({ label: s.subject_name, value: s.subject_id }));
+  });
 
-  // --- Override dialog ---
+  // --- Stage 4: Assessment / Test, filtered by Subject (+ the Batch
+  // already selected in stage 1) ---
+  assessments = signal<AssessmentFull[]>([]);
+  assessmentsLoading = signal(false);
+  selectedAssessmentId = signal<string | null>(null);
+  assessmentOptions = computed(() =>
+    this.assessments().map((a) => ({ label: `${a.name} (/ ${a.max_marks})`, value: a.id })),
+  );
+  activeAssessment = computed(
+    () => this.assessments().find((a) => a.id === this.selectedAssessmentId()) ?? null,
+  );
+
+  // --- Marks table for the selected assessment ---
+  roster = signal<MarkOverrideRow[]>([]);
+  rosterLoading = signal(false);
+  studentSearch = signal('');
+  visibleRoster = computed(() => {
+    const term = this.studentSearch().trim().toLowerCase();
+    if (!term) return this.roster();
+    return this.roster().filter(
+      (r) => r.full_name.toLowerCase().includes(term) || (r.roll_number ?? '').toLowerCase().includes(term),
+    );
+  });
+
+  // --- Override dialog (reason is mandatory — enforced by the backend too) ---
   overrideDialogOpen = signal(false);
-  overridingGrade = signal<GradeRow | null>(null);
-  overrideLetterGrade = signal('');
+  overridingRow = signal<MarkOverrideRow | null>(null);
   overrideReason = signal('');
   submittingOverride = signal(false);
-  // Disabled (not just validated-on-click) per spec: "disabled if left blank".
-  canSubmitOverride = computed(() => !!this.overrideLetterGrade().trim() && !!this.overrideReason().trim());
+  canSubmitOverride = computed(() => !!this.overrideReason().trim());
+
+  // --- Recent override history, scoped to the selected Subject + Batch ---
+  auditHistory = signal<AuditLogEntry[]>([]);
+  auditLoading = signal(false);
 
   constructor(private staffService: AcademicsStaffService) {}
 
   ngOnInit(): void {
-    this.staffService.getLevels().subscribe((levels) => {
-      this.levels.set(levels);
-      this.staffService.getSubjects().subscribe((s) => {
-        this.subjects.set(s);
-        this.staffService.getBatches().subscribe((b) => {
-          this.batches.set(b);
-          this.pickerLoading.set(false);
-        });
-      });
-    });
-  }
-
-  onLevelChanged(levelId: string | null): void {
-    this.selectedLevelId.set(levelId);
-    // Clear a subject selection that's no longer valid for this level.
-    const stillValid = this.subjects().some(
-      (s) => s.id === this.selectedSubjectId() && (!levelId || s.level_id === levelId),
-    );
-    if (!stillValid) {
-      this.selectedSubjectId.set(null);
-      this.grades.set([]);
-      this.auditHistory.set([]);
-    }
-  }
-
-  onFiltersChanged(): void {
-    const subjectId = this.selectedSubjectId();
-    const batchId = this.selectedBatchId();
-    if (!subjectId || !batchId) {
-      this.grades.set([]);
-      this.auditHistory.set([]);
-      return;
-    }
-    this.gradesLoading.set(true);
-    this.staffService.getGrades(subjectId, batchId).subscribe({
-      next: (grades) => {
-        // Join in display names from the roster — GradeOut only has student_id.
-        this.staffService.getRoster(subjectId, batchId).subscribe({
-          next: (roster) => {
-            const namesByStudent = new Map(roster.map((r) => [r.student_id, r.full_name]));
-            this.grades.set(
-              grades.map((g) => ({ ...g, student_name: namesByStudent.get(g.student_id) ?? g.student_id })),
-            );
-            this.gradesLoading.set(false);
-          },
-          error: () => {
-            this.grades.set(grades.map((g) => ({ ...g, student_name: g.student_id })));
-            this.gradesLoading.set(false);
-          },
-        });
+    this.batchesLoading.set(true);
+    this.staffService.getBatches().subscribe({
+      next: (batches) => {
+        this.batches.set(batches);
+        this.batchesLoading.set(false);
       },
-      error: () => this.gradesLoading.set(false),
+      error: () => this.batchesLoading.set(false),
     });
+  }
 
+  // --- Cascade handlers: each stage resets every stage downstream of it ---
+
+  onBatchChange(batchId: string | null): void {
+    this.selectedBatchId.set(batchId);
+    this.selectedLevelId.set(null);
+    this.offeredSubjects.set([]);
+    this.resetSubjectAndBelow();
+
+    if (!batchId) return;
+    this.offeredSubjectsLoading.set(true);
+    this.staffService.getOfferedSubjects(batchId).subscribe({
+      next: (offered) => {
+        this.offeredSubjects.set(offered);
+        this.offeredSubjectsLoading.set(false);
+      },
+      error: () => this.offeredSubjectsLoading.set(false),
+    });
+  }
+
+  onLevelChange(levelId: string | null): void {
+    this.selectedLevelId.set(levelId);
+    this.resetSubjectAndBelow();
+  }
+
+  onSubjectChange(subjectId: string | null): void {
+    this.selectedSubjectId.set(subjectId);
+    this.resetAssessmentAndBelow();
+
+    const batchId = this.selectedBatchId();
+    if (!subjectId || !batchId) return;
+
+    this.assessmentsLoading.set(true);
+    this.staffService.getAssessments(subjectId, batchId).subscribe({
+      next: (data) => {
+        this.assessments.set(data);
+        this.assessmentsLoading.set(false);
+      },
+      error: () => this.assessmentsLoading.set(false),
+    });
     this.loadAuditHistory(subjectId, batchId);
   }
 
-  private loadAuditHistory(subjectId: string, batchId: string): void {
-    this.auditLoading.set(true);
-    this.staffService.getGradeAuditHistory(subjectId, batchId).subscribe({
-      next: (entries) => {
-        this.auditHistory.set(entries);
-        this.auditLoading.set(false);
+  onAssessmentChange(assessmentId: string | null): void {
+    this.selectedAssessmentId.set(assessmentId);
+    this.roster.set([]);
+    this.studentSearch.set('');
+
+    const subjectId = this.selectedSubjectId();
+    const batchId = this.selectedBatchId();
+    if (!assessmentId || !subjectId || !batchId) return;
+
+    this.loadRosterAndMarks(assessmentId, subjectId, batchId);
+  }
+
+  private resetSubjectAndBelow(): void {
+    this.selectedSubjectId.set(null);
+    this.resetAssessmentAndBelow();
+  }
+
+  private resetAssessmentAndBelow(): void {
+    this.assessments.set([]);
+    this.selectedAssessmentId.set(null);
+    this.roster.set([]);
+    this.studentSearch.set('');
+    this.auditHistory.set([]);
+  }
+
+  // --- Marks table ---
+
+  private loadRosterAndMarks(assessmentId: string, subjectId: string, batchId: string): void {
+    this.rosterLoading.set(true);
+    this.staffService.getRoster(subjectId, batchId).subscribe({
+      next: (roster) => {
+        this.staffService.getMarks(assessmentId).subscribe({
+          next: (marks) => {
+            const marksByStudent = new Map(marks.map((m) => [m.student_id, m]));
+            this.roster.set(
+              roster.map((r) => {
+                const mark = marksByStudent.get(r.student_id);
+                return {
+                  student_id: r.student_id,
+                  full_name: r.full_name,
+                  roll_number: r.roll_number,
+                  mark_id: mark?.id ?? null,
+                  marks_obtained: mark?.marks_obtained ?? null,
+                  draftMarks: mark?.marks_obtained ?? null,
+                  is_overridden: mark?.is_overridden ?? false,
+                  overridden_by: mark?.overridden_by ?? null,
+                };
+              }),
+            );
+            this.rosterLoading.set(false);
+          },
+          error: () => this.rosterLoading.set(false),
+        });
       },
-      error: () => this.auditLoading.set(false),
+      error: () => this.rosterLoading.set(false),
     });
   }
 
-  openOverrideDialog(grade: GradeRow): void {
-    this.overridingGrade.set(grade);
-    this.overrideLetterGrade.set(grade.letter_grade ?? '');
+  /** A row is eligible to save once its draft differs from the last saved
+   *  value — and only if a Mark already exists (mark-override corrects an
+   *  existing Mark; it can't create one — that's the Teacher's upload/
+   *  upsert path, or the Coordinator's separate Marks & Assessments screen). */
+  isDirty(row: MarkOverrideRow): boolean {
+    return row.mark_id !== null && row.draftMarks !== null && row.draftMarks !== row.marks_obtained;
+  }
+
+  resetDraft(row: MarkOverrideRow): void {
+    row.draftMarks = row.marks_obtained;
+  }
+
+  openOverrideDialog(row: MarkOverrideRow): void {
+    if (!this.isDirty(row)) return;
+    this.overridingRow.set(row);
     this.overrideReason.set('');
     this.overrideDialogOpen.set(true);
   }
 
   submitOverride(): void {
-    const grade = this.overridingGrade();
-    const letterGrade = this.overrideLetterGrade().trim();
+    const row = this.overridingRow();
     const reason = this.overrideReason().trim();
+    const assessment = this.activeAssessment();
 
-    if (!grade || !letterGrade || !reason) {
-      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Enter both the new grade and a reason.' });
+    if (!row || !row.mark_id || row.draftMarks === null || !reason) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Enter a reason before confirming.' });
+      return;
+    }
+    if (assessment && row.draftMarks > assessment.max_marks) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Out of range',
+        text: `Marks cannot exceed ${assessment.max_marks} for this assessment.`,
+      });
       return;
     }
 
     this.submittingOverride.set(true);
-    this.staffService.overrideGrade(grade.id, { letter_grade: letterGrade, override_reason: reason }).subscribe({
-      next: () => {
+    this.staffService.markOverride(row.mark_id, { marks_obtained: row.draftMarks, override_reason: reason }).subscribe({
+      next: (updated) => {
         this.submittingOverride.set(false);
         this.overrideDialogOpen.set(false);
+        row.marks_obtained = updated.marks_obtained;
+        row.draftMarks = updated.marks_obtained;
+        row.is_overridden = updated.is_overridden;
+        row.overridden_by = updated.overridden_by;
+
         Swal.fire({
           icon: 'success',
-          title: 'Grade overridden',
-          text: 'The change was logged to the audit log and the original teacher was notified.',
+          title: 'Mark overridden',
+          text: 'The change was logged and the original teacher and student were notified.',
           timer: 2200,
           showConfirmButton: false,
         });
-        this.onFiltersChanged(); // refreshes both grades and audit history
+
+        const subjectId = this.selectedSubjectId();
+        const batchId = this.selectedBatchId();
+        if (subjectId && batchId) this.loadAuditHistory(subjectId, batchId);
       },
       error: (err) => {
         this.submittingOverride.set(false);
-        Swal.fire({ icon: 'error', title: 'Could not override grade', text: err?.error?.detail ?? 'Please try again.' });
+        Swal.fire({ icon: 'error', title: 'Could not override mark', text: err?.error?.detail ?? 'Please try again.' });
       },
+    });
+  }
+
+  private loadAuditHistory(subjectId: string, batchId: string): void {
+    this.auditLoading.set(true);
+    this.staffService.getMarkAuditHistory(subjectId, batchId).subscribe({
+      next: (entries) => {
+        this.auditHistory.set(entries);
+        this.auditLoading.set(false);
+      },
+      error: () => this.auditLoading.set(false),
     });
   }
 }

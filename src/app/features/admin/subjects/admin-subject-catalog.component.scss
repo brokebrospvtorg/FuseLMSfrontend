@@ -1,0 +1,27 @@
+.subject-catalog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.subject-catalog__title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subject-catalog__loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.subject-catalog__empty {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.subject-catalog__level-tag {
+  margin-right: 0.35rem;
+}

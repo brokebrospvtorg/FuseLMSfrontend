@@ -16,7 +16,10 @@
             <div>
               <p class="text-sm font-semibold text-navy leading-tight">{{ child.full_name }}</p>
               <p class="text-xs text-slate-400 leading-tight">
-                @if (child.relationship) { Your {{ child.relationship }} }
+                <!-- `relationship` is the PARENT's relation to the child
+                     (e.g. "father"), not the reverse — "Your {{
+                     relationship }}" was inverting it into "Your father". -->
+                Your Child
                 @if (child.roll_number) { · Roll #{{ child.roll_number }} }
               </p>
             </div>

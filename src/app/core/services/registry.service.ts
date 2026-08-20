@@ -7,6 +7,7 @@ import {
   RegistryUser, RegistryUserDetail, CreateUserRequest, UpdateUserRequest,
   TeacherAssignmentRegistryEntry, ParentChildRegistryEntry,
   ParentStudentLink, CreateParentLinkRequest, StudentEnrollmentRegistryEntry,
+  AdminResetPasswordRequest,
 } from '../models/registry.model';
 
 /**
@@ -85,5 +86,18 @@ export class RegistryService {
    *  hides this action for Coordinator, but the real enforcement is server-side. */
   deleteUser(userId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiBaseUrl}/users/${userId}`, { withCredentials: true });
+  }
+
+  /** Admin/Coordinator sets a new temporary password for someone else —
+   *  POST /api/users/{user_id}/reset-password. The backend additionally
+   *  enforces: can't target your own account (use self-service Change
+   *  Password instead), and a Coordinator can't reset an Admin's or
+   *  another Coordinator's password (Admin-only for those targets) — the
+   *  component's canResetPassword() mirrors both rules so the button is
+   *  hidden rather than offering an action that would just 403. */
+  resetPassword(userId: string, payload: AdminResetPasswordRequest): Observable<{ detail: string }> {
+    return this.http.post<{ detail: string }>(
+      `${this.apiBaseUrl}/users/${userId}/reset-password`, payload, { withCredentials: true },
+    );
   }
 }

@@ -14,33 +14,47 @@
   label { font-size: 0.85rem; font-weight: 600; }
 }
 
-.lectures__inline-link,
-.lectures__locked-link {
+// Single Configuration: subject-level Google Classroom link card (Add once
+// / direct Edit afterward — no per-lecture inline link UI anymore).
+.classroom-link__label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--text-color, #1e293b);
+  margin-bottom: 0.75rem;
+}
+
+.classroom-link__editor {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.lectures__locked-link input {
-  flex: 1;
-  min-width: 12rem;
-  opacity: 0.75;
+.classroom-link__actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
-// Video cells stack vertically (player needs real width, unlike the
-// single-line classroom link) rather than reusing the link layout above.
-.lectures__inline-video,
+.classroom-link__readonly {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.classroom-link__url {
+  word-break: break-all;
+  color: var(--primary-color, #2563eb);
+}
+
+// Video cell stacks vertically (player needs real width).
 .lectures__locked-video {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   max-width: 18rem;
-}
-
-.lectures__inline-video-actions {
-  display: flex;
-  gap: 0.5rem;
 }
 
 .lectures__form-field {
@@ -68,4 +82,8 @@
 .lectures__hint {
   font-size: 0.8rem;
   color: var(--text-color-secondary, #64748b);
+}
+
+.lectures__hint--warn {
+  color: #b45309;
 }

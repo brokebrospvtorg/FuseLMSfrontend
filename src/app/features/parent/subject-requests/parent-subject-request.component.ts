@@ -59,7 +59,7 @@ export class ParentSubjectRequestComponent implements OnInit {
   requestsLoading = signal(false);
 
   subjectOptions = computed(() =>
-    this.availableSubjects().map((s) => ({ label: s.code ? `${s.name} (${s.code})` : s.name, value: s.id })),
+    this.availableSubjects().map((s) => ({ label: s.name, value: s.id })),
   );
 
   selectedSubjectId = signal<string | null>(null);

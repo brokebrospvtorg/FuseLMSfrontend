@@ -18,13 +18,20 @@ export interface MarkEntry {
 export interface SubjectMarksReport {
   subject_id: string;
   subject_name: string;
+  // DB level code (e.g. "AS-LEVEL") — feed into getLevelAbbreviation()
+  // (shared/utils/level-badge.util.ts) for the "[AS]" badge. Null if the
+  // subject's level was soft-deleted.
+  level_code: string | null;
   assessments: MarkEntry[];
 }
 
 export interface GradeReportEntry {
   subject_id: string;
   subject_name: string;
+  level_code: string | null;
   computed_percentage: number | null;
   letter_grade: string | null;
-  is_overridden: boolean;
+  // NOTE: no `is_overridden` field — the student portal's grade report
+  // never receives override metadata (see app/schemas/student_grades.py).
+  // Only Coordinator/Admin-facing GradeOut carries that.
 }

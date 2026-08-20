@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
 import { SelectModule } from 'primeng/select';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
@@ -14,14 +15,19 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { TagModule } from 'primeng/tag';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 
 import { RegistryService } from '../../../core/services/registry.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { AcademicService } from '../../../core/services/academic.service';
 import {
   RegistryUser, RegistryUserDetail, AssignableRole,
   TeacherAssignmentRegistryEntry, ParentChildRegistryEntry, ParentStudentLink,
   StudentEnrollmentRegistryEntry,
 } from '../../../core/models/registry.model';
+import { Level, Subject } from '../../../core/models/academic.model';
+import { Board } from '../../../core/models/enums';
+import { BOARD_OPTIONS } from '../batches/admin-batches.component';
 
 const ROLE_FILTER_OPTIONS = [
   { label: 'All roles', value: null },
@@ -54,8 +60,9 @@ const COORDINATOR_ASSIGNABLE_ROLE_OPTIONS = ASSIGNABLE_ROLE_OPTIONS.filter((o) =
   selector: 'app-admin-registry',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, CardModule, TableModule, SelectModule, ButtonModule,
+    CommonModule, FormsModule, CardModule, TableModule, SelectModule, MultiSelectModule, ButtonModule,
     DialogModule, InputTextModule, DatePickerModule, TagModule, MessageModule, ProgressSpinnerModule,
+    ToggleSwitchModule,
   ],
   templateUrl: './admin-registry.component.html',
   styleUrl: './admin-registry.component.scss',
@@ -104,6 +111,19 @@ export class AdminRegistryComponent implements OnInit {
   newDesignation = signal('');
   newHireDate = signal<Date | null>(null);
   newTeacherCode = signal('');
+  // schema_update_11: required Board fields — single-select for a Student
+  // (the board they're registered under), multi-select for a Teacher (the
+  // board(s) they're qualified to teach, at least one).
+  newBoard = signal<Board | null>(null);
+  newBoards = signal<Board[]>([]);
+  boardOptions = BOARD_OPTIONS;
+  // Password Management: Admin/Coordinator can optionally set the account's
+  // initial password directly instead of the default email-activation-token
+  // path. Off by default so unmodified behaviour (pending + activation
+  // email) stays the default for every existing Add User submission.
+  newSetInitialPassword = signal(false);
+  newInitialPassword = signal('');
+  newInitialPasswordConfirm = signal('');
 
   // --- Edit Role dialog ---
   editRoleDialogOpen = signal(false);
@@ -130,11 +150,50 @@ export class AdminRegistryComponent implements OnInit {
   studentParents = signal<ParentStudentLink[]>([]);
   studentParentsLoading = signal(false);
 
-  // Student's current level + registered courses, read-only (spec module 2:
-  // "level, registered courses"). Same "separate fetch, not a profile-table
-  // column" reasoning as teacherAssignments/parentChildren above.
+  // Student's current level + registered courses. The summary line stays
+  // read-only (spec module 2: "level, registered courses"), fetched the same
+  // "separate call, not a profile-table column" way as
+  // teacherAssignments/parentChildren above — but the level itself and the
+  // subject list ARE now editable via editLevelId/editSubjectIds below.
   studentEnrollments = signal<StudentEnrollmentRegistryEntry | null>(null);
   studentEnrollmentsLoading = signal(false);
+
+  // --- Edit Details: academic level + subject assignment (Student only) ---
+  academicLevels = signal<Level[]>([]);
+  levelOptions = computed(() =>
+    this.academicLevels().map((l) => ({ label: l.name, value: l.id })),
+  );
+  // Subjects scoped to whichever level is currently picked in the dialog —
+  // the default-mode pool (requirement: "By default, the Subject
+  // Multi-Select highlights/filters subjects matching the chosen Primary
+  // Level").
+  levelSubjects = signal<Subject[]>([]);
+  levelSubjectsLoading = signal(false);
+
+  // Cross-Level Subject Enrollment: "Show All Levels" toggle. Off by
+  // default (matches the requirement above); flipping it on swaps the
+  // multi-select's option pool from levelSubjects (this level only) to
+  // every subject across every level, each one tagged with its own level
+  // so a cross-level pick is unambiguous — "Mathematics [A-Level]" next
+  // to "Physics [O-Level]" in the same list.
+  crossLevelMode = signal(false);
+  allSubjects = signal<Subject[]>([]);
+  allSubjectsLoading = signal(false);
+  private allSubjectsLoaded = false;
+
+  subjectOptions = computed(() => {
+    if (this.crossLevelMode()) {
+      const levelNameById = new Map(this.academicLevels().map((l) => [l.id, l.name]));
+      return this.allSubjects().map((s) => {
+        const levelTag = levelNameById.get(s.level_id) ?? 'Unknown Level';
+        return { label: `${s.name} [${levelTag}]`, value: s.id };
+      });
+    }
+    return this.levelSubjects().map((s) => ({ label: s.name, value: s.id }));
+  });
+
+  editLevelId = signal<string | null>(null);
+  editSubjectIds = signal<string[]>([]);
 
   // Parent options for the "link to parent" picker, shared by the Add User
   // dialog (Student role) and the standalone Link Parent dialog.
@@ -168,16 +227,20 @@ export class AdminRegistryComponent implements OnInit {
   editDesignation = signal('');
   editHireDate = signal<Date | null>(null);
   editTeacherCode = signal('');
+  editBoard = signal<Board | null>(null);
+  editBoards = signal<Board[]>([]);
 
   constructor(
     private registryService: RegistryService,
     private authService: AuthService,
+    private academicService: AcademicService,
     private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.loadUsers();
     this.loadParentOptions();
+    this.loadAcademicLevels();
 
     // Admin Dashboard's "Add New User" Quick Action deep-links here with
     // ?action=add-user so the dialog opens immediately instead of making
@@ -203,6 +266,79 @@ export class AdminRegistryComponent implements OnInit {
 
   parentNameFor(parentId: string): string {
     return this.allParents().find((p) => p.id === parentId)?.full_name ?? 'Unknown parent';
+  }
+
+  /** Populates the Edit Details level picker for Students. Loaded once at
+   *  startup, same as loadParentOptions — the list of levels is small and
+   *  effectively static, so there's no need to refetch per dialog open. */
+  loadAcademicLevels(): void {
+    this.academicService.getLevels().subscribe({
+      next: (levels) => this.academicLevels.set(levels),
+    });
+  }
+
+  /** Refetches the subject list scoped to `levelId` — the multi-select's
+   *  options are always exactly this list, so a subject can never be picked
+   *  unless it belongs to the currently-selected level. */
+  loadLevelSubjects(levelId: string | null): void {
+    if (!levelId) {
+      this.levelSubjects.set([]);
+      return;
+    }
+    this.levelSubjectsLoading.set(true);
+    this.academicService.getSubjects(levelId).subscribe({
+      next: (subjects) => {
+        this.levelSubjects.set(subjects);
+        this.levelSubjectsLoading.set(false);
+      },
+      error: () => this.levelSubjectsLoading.set(false),
+    });
+  }
+
+  /** Fired when the Admin changes the level dropdown inside Edit Details.
+   *  In default (non-cross-level) mode, changing the level invalidates the
+   *  previous subject selection (a subject valid for O-Level isn't valid
+   *  for A-Level), so the selection is cleared and the subject options are
+   *  reloaded for the new level. In cross-level mode the subject pool is
+   *  already "every subject, every level" and doesn't depend on which
+   *  level is picked here, so the selection is left alone — only the
+   *  background levelSubjects list is refreshed, ready for if the Admin
+   *  later switches cross-level back off. */
+  onEditLevelChange(levelId: string | null): void {
+    this.editLevelId.set(levelId);
+    if (!this.crossLevelMode()) {
+      this.editSubjectIds.set([]);
+    }
+    this.loadLevelSubjects(levelId);
+  }
+
+  /** Refetches every subject across every level, once, then caches it —
+   *  the full list is small and effectively static (same reasoning as
+   *  loadAcademicLevels), so there's no need to refetch on every toggle
+   *  flip within the same session. */
+  private loadAllSubjects(): void {
+    if (this.allSubjectsLoaded) return;
+    this.allSubjectsLoading.set(true);
+    this.academicService.getSubjects().subscribe({
+      next: (subjects) => {
+        this.allSubjects.set(subjects);
+        this.allSubjectsLoaded = true;
+        this.allSubjectsLoading.set(false);
+      },
+      error: () => this.allSubjectsLoading.set(false),
+    });
+  }
+
+  /** "Show All Levels / Allow Cross-Level Subjects" toggle. Turning it on
+   *  loads the full subject list (if not already cached) so the
+   *  multi-select can offer every level-tagged subject. Turning it back
+   *  off doesn't discard a cross-level pick that's already selected —
+   *  those stay selected and saved as-is (the backend accepts any
+   *  subject_id regardless of level, per PATCH /users/{user_id}); it just
+   *  narrows what NEW picks are offered back down to the current level. */
+  onCrossLevelToggle(enabled: boolean): void {
+    this.crossLevelMode.set(enabled);
+    if (enabled) this.loadAllSubjects();
   }
 
   onRoleFilterChanged(): void {
@@ -255,8 +391,13 @@ export class AdminRegistryComponent implements OnInit {
     this.newDesignation.set('');
     this.newHireDate.set(null);
     this.newTeacherCode.set('');
+    this.newBoard.set(null);
+    this.newBoards.set([]);
     this.newParentId.set(null);
     this.newRelationshipLabel.set('');
+    this.newSetInitialPassword.set(false);
+    this.newInitialPassword.set('');
+    this.newInitialPasswordConfirm.set('');
     this.addDialogOpen.set(true);
   }
 
@@ -268,6 +409,34 @@ export class AdminRegistryComponent implements OnInit {
     if (!fullName || !email || !role) {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Full name, email, and role are all required.' });
       return;
+    }
+    // schema_update_11: Board is required on the Student form (single) and
+    // the Teacher form (at least one) — matches the backend's
+    // UserCreate._require_board_for_role validator exactly, so a bad
+    // submission is caught here instead of round-tripping to a 422.
+    if (role === 'student' && !this.newBoard()) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Board is required for a Student.' });
+      return;
+    }
+    if (role === 'teacher' && this.newBoards().length === 0) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Board a Teacher is qualified to teach.' });
+      return;
+    }
+    // Password Management: only validated/sent when the toggle is on —
+    // matches UserCreate.initial_password being Optional server-side, so
+    // leaving the toggle off reproduces today's pending+activation-email
+    // behaviour exactly.
+    let initialPassword: string | null = null;
+    if (this.newSetInitialPassword()) {
+      initialPassword = this.newInitialPassword();
+      if (initialPassword.length < 8) {
+        Swal.fire({ icon: 'warning', title: 'Password too short', text: 'Initial password must be at least 8 characters.' });
+        return;
+      }
+      if (initialPassword !== this.newInitialPasswordConfirm()) {
+        Swal.fire({ icon: 'warning', title: "Passwords don't match", text: 'Initial password and confirmation must match.' });
+        return;
+      }
     }
 
     this.addSubmitting.set(true);
@@ -286,11 +455,14 @@ export class AdminRegistryComponent implements OnInit {
         nationality: role === 'student' ? this.newNationality() || null : null,
         cnic: role === 'student' || role === 'teacher' || role === 'parent' ? this.newCnic() || null : null,
         registration_id: role === 'student' || role === 'parent' ? this.newRegistrationId() || null : null,
+        board: role === 'student' ? this.newBoard() : null,
         designation: role === 'teacher' ? this.newDesignation() || null : null,
         hire_date: role === 'teacher' && this.newHireDate() ? this.toIsoDate(this.newHireDate()!) : null,
         teacher_code: role === 'teacher' ? this.newTeacherCode() || null : null,
+        boards: role === 'teacher' ? this.newBoards() : null,
         parent_id: role === 'student' ? this.newParentId() || null : null,
         relationship_label: role === 'student' ? this.newRelationshipLabel() || null : null,
+        initial_password: initialPassword,
       })
       .subscribe({
         next: () => {
@@ -299,7 +471,9 @@ export class AdminRegistryComponent implements OnInit {
           Swal.fire({
             icon: 'success',
             title: 'Account created',
-            text: `${fullName} has been added as ${this.roleLabel(role)} — an activation email has been sent (console-logged for now).`,
+            text: initialPassword
+              ? `${fullName} has been added as ${this.roleLabel(role)} with the temporary password you set — they'll be prompted to change it on first login.`
+              : `${fullName} has been added as ${this.roleLabel(role)} — an activation email has been sent (console-logged for now).`,
             confirmButtonColor: '#101d3c',
           });
           this.loadUsers();
@@ -393,6 +567,12 @@ export class AdminRegistryComponent implements OnInit {
     this.parentChildren.set([]);
     this.studentParents.set([]);
     this.studentEnrollments.set(null);
+    this.editLevelId.set(null);
+    this.editSubjectIds.set([]);
+    this.levelSubjects.set([]);
+    this.crossLevelMode.set(false);
+    this.editBoard.set(null);
+    this.editBoards.set([]);
 
     if (user.role === 'teacher') {
       this.teacherAssignmentsLoading.set(true);
@@ -427,6 +607,25 @@ export class AdminRegistryComponent implements OnInit {
         next: (data) => {
           this.studentEnrollments.set(data);
           this.studentEnrollmentsLoading.set(false);
+          // Prefill the editable level + subject fields from the same
+          // data — deliberately NOT going through onEditLevelChange here,
+          // since that clears the selection (correct when the Admin
+          // switches levels, wrong when we're just loading current state).
+          this.editLevelId.set(data.current_level_id);
+          const activeSubjects = data.subjects.filter((s) => s.status === 'active');
+          this.editSubjectIds.set(activeSubjects.map((s) => s.subject_id));
+          this.loadLevelSubjects(data.current_level_id);
+
+          // Auto-enable cross-level mode if this student already has one —
+          // otherwise the multi-select's default (level-scoped) pool
+          // wouldn't include it, and the existing pick would look like it
+          // silently vanished the moment this dialog opened.
+          const hasCrossLevelSubject = activeSubjects.some(
+            (s) => s.level_id && s.level_id !== data.current_level_id,
+          );
+          if (hasCrossLevelSubject) {
+            this.onCrossLevelToggle(true);
+          }
         },
         error: () => this.studentEnrollmentsLoading.set(false),
       });
@@ -448,12 +647,27 @@ export class AdminRegistryComponent implements OnInit {
         this.editDesignation.set(detail.teacher_profile?.designation ?? '');
         this.editHireDate.set(this.fromIsoDate(detail.teacher_profile?.hire_date));
         this.editTeacherCode.set(detail.teacher_profile?.teacher_code ?? '');
+        this.editBoard.set(detail.student_profile?.board ?? null);
+        // teacher_profile can legitimately come back null (e.g. a teacher
+        // record whose profile row is missing server-side — now logged
+        // there rather than silently dropped) — default to an empty list
+        // either way so the Boards multi-select just starts unset instead
+        // of failing to render.
+        this.editBoards.set(detail.teacher_profile?.boards ?? []);
         this.editDetailsLoading.set(false);
       },
-      error: () => {
+      error: (err) => {
         this.editDetailsLoading.set(false);
         this.editDetailsDialogOpen.set(false);
-        Swal.fire({ icon: 'error', title: 'Could not load details', text: 'Please try again.' });
+        // Surface the backend's actual detail message (now specific —
+        // "profile data is inconsistent", "User not found", etc. — see
+        // GET /api/users/{id}) instead of a hardcoded generic string, same
+        // pattern as every other error handler in this component.
+        Swal.fire({
+          icon: 'error',
+          title: 'Could not load details',
+          text: err?.error?.detail ?? 'Please try again.',
+        });
       },
     });
   }
@@ -461,6 +675,18 @@ export class AdminRegistryComponent implements OnInit {
   submitEditDetails(): void {
     const user = this.editDetailsUser();
     if (!user) return;
+
+    // schema_update_11: same required-Board rule as Add User — a Student
+    // edit always resends the (required) board, a Teacher edit always
+    // resends at least one board.
+    if (user.role === 'student' && !this.editBoard()) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Board is required for a Student.' });
+      return;
+    }
+    if (user.role === 'teacher' && this.editBoards().length === 0) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Board a Teacher is qualified to teach.' });
+      return;
+    }
 
     this.editDetailsSubmitting.set(true);
     this.registryService
@@ -475,9 +701,19 @@ export class AdminRegistryComponent implements OnInit {
         nationality: user.role === 'student' ? this.editNationality() || null : undefined,
         cnic: this.editCnic() || null,
         registration_id: user.role === 'student' || user.role === 'parent' ? this.editRegistrationId() || null : undefined,
+        board: user.role === 'student' ? this.editBoard() : undefined,
         designation: user.role === 'teacher' ? this.editDesignation() || null : undefined,
         hire_date: user.role === 'teacher' && this.editHireDate() ? this.toIsoDate(this.editHireDate()!) : undefined,
         teacher_code: user.role === 'teacher' ? this.editTeacherCode() || null : undefined,
+        boards: user.role === 'teacher' ? this.editBoards() : undefined,
+        // level_id left undefined (not null) when unset, so it's skipped
+        // server-side rather than read as "clear the level" — a student
+        // with no level assigned yet just has editLevelId() === null here.
+        level_id: user.role === 'student' ? this.editLevelId() ?? undefined : undefined,
+        // subject_ids is always the full desired list for a Student (never
+        // undefined), since Save always reflects the multi-select's current
+        // state — including an intentional empty array to unassign everything.
+        subject_ids: user.role === 'student' ? this.editSubjectIds() : undefined,
       })
       .subscribe({
         next: () => {
@@ -604,6 +840,74 @@ export class AdminRegistryComponent implements OnInit {
           });
         },
       });
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Reset Password — Admin/Coordinator sets a new temporary password for
+  // someone else. canResetPassword() mirrors the backend's own rules
+  // (users.py reset_user_password) purely so the button doesn't offer an
+  // action that would just come back 403 — the real enforcement stays
+  // server-side either way:
+  //   1. Never your own row — self-service Change Password exists exactly
+  //      because it requires proving you know the CURRENT password.
+  //   2. A Coordinator can't reset an Admin's or another Coordinator's
+  //      password — Admin-only for those targets.
+  // ---------------------------------------------------------------------
+  resetPasswordDialogOpen = signal(false);
+  resetPasswordSubmitting = signal(false);
+  resetPasswordUser = signal<RegistryUser | null>(null);
+  resetPasswordValue = signal('');
+  resetPasswordConfirmValue = signal('');
+
+  canResetPassword(user: RegistryUser): boolean {
+    if (user.id === this.currentUserId()) return false;
+    if (user.role === 'admin' || user.role === 'coordinator') return this.isAdmin();
+    return true;
+  }
+
+  openResetPasswordDialog(user: RegistryUser): void {
+    this.resetPasswordUser.set(user);
+    this.resetPasswordValue.set('');
+    this.resetPasswordConfirmValue.set('');
+    this.resetPasswordDialogOpen.set(true);
+  }
+
+  submitResetPassword(): void {
+    const user = this.resetPasswordUser();
+    if (!user) return;
+
+    const newPassword = this.resetPasswordValue();
+    if (newPassword.length < 8) {
+      Swal.fire({ icon: 'warning', title: 'Password too short', text: 'New password must be at least 8 characters.' });
+      return;
+    }
+    if (newPassword !== this.resetPasswordConfirmValue()) {
+      Swal.fire({ icon: 'warning', title: "Passwords don't match", text: 'New password and confirmation must match.' });
+      return;
+    }
+
+    this.resetPasswordSubmitting.set(true);
+    this.registryService.resetPassword(user.id, { new_password: newPassword }).subscribe({
+      next: () => {
+        this.resetPasswordSubmitting.set(false);
+        this.resetPasswordDialogOpen.set(false);
+        Swal.fire({
+          icon: 'success',
+          title: 'Password reset',
+          text: `${user.full_name} has a new temporary password and will be prompted to change it on next login.`,
+          confirmButtonColor: '#101d3c',
+        });
+        this.loadUsers();
+      },
+      error: (err) => {
+        this.resetPasswordSubmitting.set(false);
+        Swal.fire({
+          icon: 'error',
+          title: 'Could not reset password',
+          text: err?.error?.detail ?? 'Something went wrong. Please try again.',
+        });
+      },
     });
   }
 

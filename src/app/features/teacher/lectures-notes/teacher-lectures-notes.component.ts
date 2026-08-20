@@ -18,30 +18,27 @@ import { AcademicsStaffService } from '../../../core/services/academics-staff.se
 import { TeacherContentService } from '../../../core/services/teacher-content.service';
 import { Subject } from '../../../core/models/academic.model';
 import { TeacherAssignment } from '../../../core/models/academics-staff.model';
-import { Lecture } from '../../../core/models/content.model';
+import { Lecture, SubjectClassroomLink } from '../../../core/models/content.model';
 import { YoutubePlayerComponent } from '../../../shared/ui/youtube-player/youtube-player.component';
 import { extractYoutubeVideoIdPreview } from '../../../shared/utils/youtube-preview';
 
 /**
- * Lectures Sub-Sprint 3 (Google Classroom link) + Sub-Sprint 5 (YouTube
- * video), same UI shape reused for both workflows since they're the same
- * lock-once-then-request-to-edit pattern on two different fields:
+ * LMS & Study Resources refactor.
  *
- *   no value yet    -> inline "Add ___" input + button (+ instant preview
- *                       for video, via YoutubePlayerComponent)
- *   value set/locked -> read-only value + "Request ___ Change" button
- *   pending request  -> "Edit request pending approval" badge instead of
- *                       the Request button (separate flags per workflow:
- *                       has_pending_edit_request for classroom,
- *                       has_pending_youtube_edit_request for video — a
- *                       lecture can have one, both, or neither pending
- *                       independently)
+ * Google Classroom link is now a single per-Subject setting, managed in its
+ * own card right below the subject picker:
+ *   no link yet    -> "Add Google Classroom Link" inline input + button
+ *   link set       -> read-only link + "Edit Google Classroom Link" (direct
+ *                      update, no approval step — unlike the YouTube video
+ *                      workflow below)
+ * It is set ONCE per subject and never asked for again on lecture uploads.
  *
- * Upload Lecture dialog no longer asks for a YouTube ID at all (Sub-Sprint
- * 2 moved video-setting to its own endpoint/lock — LectureCreate on the
- * backend doesn't accept youtube_video_id anymore either). A freshly
- * uploaded lecture starts with no video; the Teacher adds one via the
- * inline flow below straight after.
+ * Upload Lecture is a single-step modal again: Title, Description, and
+ * YouTube Video Link together. The video is parsed and locked server-side
+ * immediately on creation (same instant preview as before, just moved into
+ * the upload dialog instead of a separate post-creation step). Editing an
+ * already-uploaded lecture's video still goes through the existing
+ * "Request Video Change" -> Coordinator/Admin approval workflow, unchanged.
  */
 @Component({
   selector: 'app-teacher-lectures-notes',
@@ -75,36 +72,27 @@ export class TeacherLecturesNotesComponent implements OnInit {
       .map((s) => ({ label: s.name, value: s.id }));
   });
 
+  // --- Subject-level Google Classroom link ---
+  classroomLink = signal<SubjectClassroomLink | null>(null);
+  classroomLinkLoading = signal(false);
+  editingClassroomLink = signal(false); // true while the Add/Edit input is shown
+  classroomLinkInput = signal('');
+  savingClassroomLink = signal(false);
+
   // --- Lectures list ---
   lectures = signal<Lecture[]>([]);
   lecturesLoading = signal(false);
   lecturesError = signal<string | null>(null);
 
-  // --- Inline "Add Classroom Link" input state, per lecture row ---
-  addingLinkFor = signal<string | null>(null);
-  newLinkValue = signal('');
-  savingLink = signal(false);
-
-  // --- Upload Lecture dialog (video no longer set here — Sub-Sprint 2) ---
+  // --- Upload Lecture dialog (Title + Description + YouTube Video Link, one step) ---
   uploadDialogOpen = signal(false);
   newTitle = signal('');
   newDescription = signal('');
-  uploading = signal(false);
-
-  // --- Request Edit dialog (Task 3.2, classroom link) ---
-  requestEditDialogOpen = signal(false);
-  requestEditLecture = signal<Lecture | null>(null);
-  proposedUrl = signal('');
-  editReason = signal('');
-  submittingRequest = signal(false);
-
-  // --- Inline "Add YouTube Video" input state, per lecture row (Sub-Sprint 5, Task 5.1) ---
-  addingVideoFor = signal<string | null>(null);
   newVideoUrl = signal('');
   newVideoPreviewId = computed(() => extractYoutubeVideoIdPreview(this.newVideoUrl()));
-  savingVideo = signal(false);
+  uploading = signal(false);
 
-  // --- Request Video Change dialog (Sub-Sprint 5, Task 5.2) ---
+  // --- Request Video Change dialog (retained intact) ---
   requestVideoEditDialogOpen = signal(false);
   requestVideoEditLecture = signal<Lecture | null>(null);
   proposedVideoUrl = signal('');
@@ -135,7 +123,15 @@ export class TeacherLecturesNotesComponent implements OnInit {
 
   onSubjectChange(subjectId: string | null): void {
     this.selectedSubjectId.set(subjectId);
-    if (subjectId) this.loadLectures(subjectId);
+    this.editingClassroomLink.set(false);
+    this.classroomLinkInput.set('');
+    if (subjectId) {
+      this.loadLectures(subjectId);
+      this.loadClassroomLink(subjectId);
+    } else {
+      this.lectures.set([]);
+      this.classroomLink.set(null);
+    }
   }
 
   private loadLectures(subjectId: string): void {
@@ -153,23 +149,97 @@ export class TeacherLecturesNotesComponent implements OnInit {
     });
   }
 
-  // --- Upload Lecture ---
+  private loadClassroomLink(subjectId: string): void {
+    this.classroomLinkLoading.set(true);
+    this.teacherContentService.getSubjectClassroomLink(subjectId).subscribe({
+      next: (link) => {
+        this.classroomLink.set(link);
+        this.classroomLinkLoading.set(false);
+      },
+      error: () => {
+        this.classroomLink.set(null);
+        this.classroomLinkLoading.set(false);
+      },
+    });
+  }
+
+  // --- Google Classroom link: Add (once) / Edit (direct, no approval) ---
+  startEditingClassroomLink(): void {
+    this.classroomLinkInput.set(this.classroomLink()?.classroom_url ?? '');
+    this.editingClassroomLink.set(true);
+  }
+
+  cancelEditingClassroomLink(): void {
+    this.editingClassroomLink.set(false);
+    this.classroomLinkInput.set('');
+  }
+
+  saveClassroomLink(): void {
+    const subjectId = this.selectedSubjectId();
+    const url = this.classroomLinkInput().trim();
+    if (!subjectId) return;
+    if (!/^https?:\/\/.+/i.test(url)) {
+      Swal.fire({ icon: 'warning', title: 'Invalid link', text: 'The link must start with http:// or https://.' });
+      return;
+    }
+
+    this.savingClassroomLink.set(true);
+    const existing = this.classroomLink();
+    const save$ = existing
+      ? this.teacherContentService.updateSubjectClassroomLink(subjectId, url)
+      : this.teacherContentService.setSubjectClassroomLink(subjectId, url);
+
+    save$.subscribe({
+      next: (link) => {
+        this.savingClassroomLink.set(false);
+        this.classroomLink.set(link);
+        this.editingClassroomLink.set(false);
+        this.classroomLinkInput.set('');
+      },
+      error: (err) => {
+        this.savingClassroomLink.set(false);
+        Swal.fire({ icon: 'error', title: 'Could not save link', text: err?.error?.detail ?? 'Please try again.' });
+      },
+    });
+  }
+
+  // --- Upload Lecture (single step: Title, Description, YouTube Video Link) ---
   openUploadDialog(): void {
     this.newTitle.set('');
     this.newDescription.set('');
+    this.newVideoUrl.set('');
     this.uploadDialogOpen.set(true);
   }
 
   submitUpload(): void {
     const subjectId = this.selectedSubjectId();
     const title = this.newTitle().trim();
+    const videoUrl = this.newVideoUrl().trim();
     if (!subjectId || !title) {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'A title is required.' });
       return;
     }
+    if (!videoUrl) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'A YouTube video link is required.' });
+      return;
+    }
+    if (!this.newVideoPreviewId()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Video not recognized',
+        text: 'Paste a full YouTube link (youtube.com/watch?v=..., youtu.be/..., /embed/..., /shorts/...) or an 11-character video ID.',
+      });
+      return;
+    }
+
     this.uploading.set(true);
     this.teacherContentService
-      .createLecture({ subject_id: subjectId, title, description: this.newDescription() || null })
+      .createLecture({
+        subject_id: subjectId,
+        title,
+        description: this.newDescription() || null,
+        youtube_url: videoUrl,
+      })
       .subscribe({
         next: () => {
           this.uploading.set(false);
@@ -183,130 +253,7 @@ export class TeacherLecturesNotesComponent implements OnInit {
       });
   }
 
-  // --- Task 3.1: Add Classroom Link (initial set, one-time) ---
-  startAddingLink(lecture: Lecture): void {
-    this.addingLinkFor.set(lecture.id);
-    this.newLinkValue.set('');
-  }
-
-  cancelAddingLink(): void {
-    this.addingLinkFor.set(null);
-    this.newLinkValue.set('');
-  }
-
-  saveLink(lecture: Lecture): void {
-    const url = this.newLinkValue().trim();
-    // Task 5.2's http(s):// enforcement is also done server-side (Pydantic
-    // HttpUrl) — this is just a fast client-side check so a Teacher isn't
-    // round-tripping to the server to find out they forgot the scheme.
-    if (!/^https?:\/\/.+/i.test(url)) {
-      Swal.fire({ icon: 'warning', title: 'Invalid link', text: 'The link must start with http:// or https://.' });
-      return;
-    }
-    this.savingLink.set(true);
-    this.teacherContentService.setClassroomUrl(lecture.id, url).subscribe({
-      next: () => {
-        this.savingLink.set(false);
-        this.addingLinkFor.set(null);
-        const subjectId = this.selectedSubjectId();
-        if (subjectId) this.loadLectures(subjectId);
-      },
-      error: (err) => {
-        this.savingLink.set(false);
-        Swal.fire({ icon: 'error', title: 'Could not save link', text: err?.error?.detail ?? 'Please try again.' });
-      },
-    });
-  }
-
-  // --- Task 3.2: Request Edit modal ---
-  openRequestEditDialog(lecture: Lecture): void {
-    this.requestEditLecture.set(lecture);
-    this.proposedUrl.set('');
-    this.editReason.set('');
-    this.requestEditDialogOpen.set(true);
-  }
-
-  submitRequestEdit(): void {
-    const lecture = this.requestEditLecture();
-    const url = this.proposedUrl().trim();
-    const reason = this.editReason().trim();
-    if (!lecture) return;
-    if (!/^https?:\/\/.+/i.test(url)) {
-      Swal.fire({ icon: 'warning', title: 'Invalid link', text: 'The proposed link must start with http:// or https://.' });
-      return;
-    }
-    if (!reason) {
-      Swal.fire({ icon: 'warning', title: 'Reason required', text: 'Let the Coordinator know why the link needs to change.' });
-      return;
-    }
-
-    this.submittingRequest.set(true);
-    this.teacherContentService.requestClassroomEdit(lecture.id, url, reason).subscribe({
-      next: () => {
-        this.submittingRequest.set(false);
-        this.requestEditDialogOpen.set(false);
-        Swal.fire({
-          icon: 'success',
-          title: 'Request submitted',
-          text: 'A Coordinator or Admin will review it shortly.',
-          confirmButtonColor: '#101d3c',
-        });
-        const subjectId = this.selectedSubjectId();
-        if (subjectId) this.loadLectures(subjectId);
-      },
-      error: (err) => {
-        this.submittingRequest.set(false);
-        Swal.fire({ icon: 'error', title: 'Could not submit request', text: err?.error?.detail ?? 'Please try again.' });
-      },
-    });
-  }
-
-  // --- Sub-Sprint 5, Task 5.1: Add YouTube Video (initial set, one-time) ---
-  startAddingVideo(lecture: Lecture): void {
-    this.addingVideoFor.set(lecture.id);
-    this.newVideoUrl.set('');
-  }
-
-  cancelAddingVideo(): void {
-    this.addingVideoFor.set(null);
-    this.newVideoUrl.set('');
-  }
-
-  saveVideo(lecture: Lecture): void {
-    const url = this.newVideoUrl().trim();
-    if (!url) {
-      Swal.fire({ icon: 'warning', title: 'Missing URL', text: 'Paste a YouTube link or video ID first.' });
-      return;
-    }
-    // The instant preview already tells the Teacher if this looks
-    // unrecognizable before they even click Save (see the template) — this
-    // is a last-chance guard, not the first one; the authoritative check
-    // is still server-side (parse_youtube_video_id), which is what
-    // actually decides whether the save succeeds.
-    if (!this.newVideoPreviewId()) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Video not recognized',
-        text: 'Paste a full YouTube link (youtube.com/watch?v=..., youtu.be/..., /embed/..., /shorts/...) or an 11-character video ID.',
-      });
-      return;
-    }
-    this.savingVideo.set(true);
-    this.teacherContentService.setYoutubeVideo(lecture.id, url).subscribe({
-      next: () => {
-        this.savingVideo.set(false);
-        this.addingVideoFor.set(null);
-        const subjectId = this.selectedSubjectId();
-        if (subjectId) this.loadLectures(subjectId);
-      },
-      error: (err) => {
-        this.savingVideo.set(false);
-        Swal.fire({ icon: 'error', title: 'Could not save video', text: err?.error?.detail ?? 'Please try again.' });
-      },
-    });
-  }
-
-  // --- Sub-Sprint 5, Task 5.2: Request Video Change modal ---
+  // --- Request Video Change modal (retained intact) ---
   openRequestVideoEditDialog(lecture: Lecture): void {
     this.requestVideoEditLecture.set(lecture);
     this.proposedVideoUrl.set('');

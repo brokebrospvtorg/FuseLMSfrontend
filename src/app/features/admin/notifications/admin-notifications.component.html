@@ -7,7 +7,7 @@
   <p-card>
     <div class="broadcast__field">
       <label>Send to</label>
-      <p-select
+      <p-select appendTo="body"
         [options]="roleOptions"
         [ngModel]="targetRole()"
         (ngModelChange)="targetRole.set($event)"

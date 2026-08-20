@@ -16,6 +16,7 @@ const teacherNav: PortalNavItem[] = [
 
 const coordinatorNav: PortalNavItem[] = [
   { label: 'Dashboard', icon: 'dashboard', route: '/coordinator/dashboard' },
+  { label: 'Batches', icon: 'registry', route: '/coordinator/batches' },
   { label: 'Subject Requests', icon: 'subject-requests', route: '/coordinator/subject-requests' },
   { label: 'Teacher Attendance', icon: 'attendance', route: '/coordinator/teacher-attendance' },
   { label: 'Student Attendance', icon: 'attendance', route: '/coordinator/student-attendance' },
@@ -33,6 +34,7 @@ const coordinatorNav: PortalNavItem[] = [
 const adminNav: PortalNavItem[] = [
   { label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard', section: 'System Administration' },
   { label: 'Information Registry', icon: 'registry', route: '/admin/registry', section: 'Information Registry' },
+  { label: 'Batches', icon: 'registry', route: '/admin/batches', section: 'Academics' },
   { label: 'Subject Requests', icon: 'subject-requests', route: '/admin/subject-requests', section: 'Academics' },
   { label: 'Timetable', icon: 'timetable', route: '/admin/timetable', section: 'Academics' },
   { label: 'Grade Overrides', icon: 'grades', route: '/admin/grades', section: 'Academics' },
@@ -65,7 +67,7 @@ const studentNav: PortalNavItem[] = [
   { label: 'Grades Report', icon: 'grades', route: '/student/grades' },
   { label: 'Feedback/Complaints', icon: 'complaints', route: '/student/complaints' },
   { label: 'Fee System', icon: 'fees', route: '/student/fees' },
-  { label: 'Lecture Materials', icon: 'materials', route: '/student/materials' },
+  { label: 'LMS & Study Resources', icon: 'materials', route: '/student/materials' },
   { label: 'Lectures', icon: 'lectures', route: '/student/lectures' },
 ];
 
@@ -130,12 +132,16 @@ export const routes: Routes = [
       {
         path: 'materials',
         loadComponent: () =>
-          import('./features/content/content.component').then((m) => m.ContentComponent),
+          import('./features/content/google-classroom/google-classroom.component').then(
+            (m) => m.GoogleClassroomComponent,
+          ),
       },
       {
         path: 'lectures',
         loadComponent: () =>
-          import('./features/content/content.component').then((m) => m.ContentComponent),
+          import('./features/content/lectures-catalog/lectures-catalog.component').then(
+            (m) => m.LecturesCatalogComponent,
+          ),
       },
     ],
   },
@@ -147,7 +153,6 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
-        // Sub-Sprint 2.1
         path: 'dashboard',
         loadComponent: () =>
           import('./features/teacher/dashboard/teacher-dashboard.component').then(
@@ -167,7 +172,6 @@ export const routes: Routes = [
           import('./features/teacher/marks/teacher-marks.component').then((m) => m.TeacherMarksComponent),
       },
       {
-        // Sub-Sprint 6.1
         path: 'timetable',
         loadComponent: () =>
           import('./features/teacher/timetable/teacher-timetable.component').then(
@@ -175,8 +179,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Sub-Sprint 2.2 — two coming-soon sections (YouTube + GCR),
-        // this IS the finished state of this screen until Sprint 9.
         path: 'lectures-notes',
         loadComponent: () =>
           import('./features/teacher/lectures-notes/teacher-lectures-notes.component').then(
@@ -184,7 +186,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Sub-Sprint 6.2
         path: 'feedback',
         loadComponent: () =>
           import('./features/teacher/feedback/teacher-feedback.component').then(
@@ -205,6 +206,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/coordinator/dashboard/coordinator-dashboard.component').then(
             (m) => m.CoordinatorDashboardComponent,
+          ),
+      },
+      {
+        path: 'batches',
+        loadComponent: () =>
+          import('./features/academic/academics-management/academics-management.component').then(
+            (m) => m.AcademicsManagementComponent,
           ),
       },
       {
@@ -239,7 +247,7 @@ export const routes: Routes = [
         path: 'grades',
         loadComponent: () =>
           import('./features/coordinator/grades/coordinator-grades.component').then(
-            (m) => m.CoordinatorGradesComponent,
+            (m) => m.CoordinatorMarkOverrideComponent,
           ),
       },
       {
@@ -301,7 +309,6 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
-        // Sub-Sprint 2
         path: 'dashboard',
         loadComponent: () =>
           import('./features/admin/dashboard/admin-dashboard.component').then(
@@ -316,9 +323,13 @@ export const routes: Routes = [
           ),
       },
       {
-        // Reuses the Coordinator's component — both roles are already
-        // allowed server-side (GET/POST/PATCH .../subject-requests...),
-        // same pattern as Registry/Fee Proofs below.
+        path: 'batches',
+        loadComponent: () =>
+          import('./features/academic/academics-management/academics-management.component').then(
+            (m) => m.AcademicsManagementComponent,
+          ),
+      },
+      {
         path: 'subject-requests',
         loadComponent: () =>
           import('./features/coordinator/subject-requests/coordinator-subject-requests.component').then(
@@ -326,8 +337,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Reuses the Coordinator's Interactive Timetable Builder — POST/PATCH/DELETE
-        // /api/timetable/slots are already role-gated to admin+coordinator.
         path: 'timetable',
         loadComponent: () =>
           import('./features/coordinator/timetable/coordinator-timetable.component').then(
@@ -335,17 +344,13 @@ export const routes: Routes = [
           ),
       },
       {
-        // Reuses the Coordinator's Grade Overrides screen (class average +
-        // grade distribution + override, all admin+coordinator gated server-side).
         path: 'grades',
         loadComponent: () =>
           import('./features/coordinator/grades/coordinator-grades.component').then(
-            (m) => m.CoordinatorGradesComponent,
+            (m) => m.CoordinatorMarkOverrideComponent,
           ),
       },
       {
-        // Reuses the Coordinator's direct create/edit/delete of assessments
-        // & marks — same admin+coordinator gate as everything else here.
         path: 'marks-management',
         loadComponent: () =>
           import('./features/coordinator/marks-management/coordinator-marks-management.component').then(
@@ -353,9 +358,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Reuses the Coordinator's component — both roles are already
-        // allowed server-side (GET/PATCH /marks/edit-requests/pending,
-        // .../{id}), same pattern as Registry/Fee Proofs below.
         path: 'mark-edit-requests',
         loadComponent: () =>
           import('./features/coordinator/mark-edit-requests/coordinator-mark-edit-requests.component').then(
@@ -363,8 +365,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Same reuse pattern — GET/PATCH /api/classroom-requests is
-        // admin/coordinator both, backend-side.
         path: 'classroom-requests',
         loadComponent: () =>
           import('./features/coordinator/classroom-requests/coordinator-classroom-requests.component').then(
@@ -372,8 +372,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Same reuse pattern — GET/PATCH /api/youtube-requests is
-        // admin/coordinator both, backend-side.
         path: 'youtube-requests',
         loadComponent: () =>
           import('./features/coordinator/youtube-requests/coordinator-youtube-requests.component').then(
@@ -388,8 +386,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Reuses the Coordinator's teacher-attendance mark/override screen
-        // — already admin+coordinator gated server-side (Sub-Sprint 3).
         path: 'teacher-attendance',
         loadComponent: () =>
           import('./features/coordinator/teacher-attendance/coordinator-teacher-attendance.component').then(
@@ -397,8 +393,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Reuses the Coordinator's student-attendance override screen —
-        // same admin+coordinator gate (Sub-Sprint 3's "bypass the teacher lock").
         path: 'student-attendance',
         loadComponent: () =>
           import('./features/coordinator/student-attendance/coordinator-student-attendance.component').then(
@@ -406,8 +400,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // Reuses the Coordinator's Complaints Resolution Center — Pending/
-        // Solved/Closed workflow, already admin+coordinator gated.
         path: 'complaints',
         loadComponent: () =>
           import('./features/coordinator/complaints/coordinator-complaints.component').then(
@@ -415,9 +407,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // New in Admin Sub-Sprint 4: fee_structures table existed since an
-        // early schema migration but had zero backend or frontend — this
-        // is the first screen that actually uses it.
         path: 'fee-structures',
         loadComponent: () =>
           import('./features/admin/fee-structures/admin-fee-structures.component').then(
@@ -425,9 +414,6 @@ export const routes: Routes = [
           ),
       },
       {
-        // New in Admin Sub-Sprint 4: broadcast notifications (all
-        // notifications before this were single-user, triggered by an
-        // action — this is the first one-to-many "announcement" path.
         path: 'notifications',
         loadComponent: () =>
           import('./features/admin/notifications/admin-notifications.component').then(
