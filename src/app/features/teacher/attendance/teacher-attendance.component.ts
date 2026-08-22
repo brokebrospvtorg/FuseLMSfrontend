@@ -1,7 +1,9 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, ViewChild, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 
 import { CardModule } from 'primeng/card';
@@ -19,13 +21,17 @@ import { AttendanceService } from '../../../core/services/attendance.service';
 import { Subject, Batch, Level } from '../../../core/models/academic.model';
 import { RosterEntry } from '../../../core/models/academics-staff.model';
 import { TeacherTimetableSlot, TeacherAttendanceLogEntry } from '../../../core/models/attendance.model';
-import { AttendanceStatus } from '../../../core/models/enums';
+import { AttendanceStatus, Board } from '../../../core/models/enums';
 import {
   TeacherCascadingFilterComponent, TeacherFilterPair, TeacherFilterOption, TeacherFilterSelection,
   TeacherFilterSubjectContext,
 } from '../../../shared/ui/teacher-cascading-filter/teacher-cascading-filter.component';
 
 type PeriodOption = TeacherFilterOption<TeacherTimetableSlot>;
+/** One past session in the View Summary cascade's final Period/Date
+ *  stage — `data` carries the full aggregated log entry (counts +
+ *  start_time) for that specific period+date. */
+type HistoryOption = TeacherFilterOption<TeacherAttendanceLogEntry>;
 
 /** Roster entry + editable status for the marking grid. Defaults every
  *  student to Present — the common case — so the teacher only has to
@@ -49,6 +55,16 @@ interface AttendanceRow extends RosterEntry {
  *      GET /my-history-log, matching the backend's strict enforcement
  *      that Teachers can only create/edit attendance where
  *      attendance_date == date.today().
+ * 3.4 (this pass) — View Summary's filter is now the same compulsory
+ *      Batch -> Board -> Level/Class -> Subject -> Period/Date cascade as
+ *      the marking grid above it (a second, independent instance of
+ *      <app-teacher-cascading-filter>, reusing this teacher's own
+ *      `allowedPairs`), replacing the old single free-standing Subject
+ *      dropdown. The Period/Date stage is populated from
+ *      GET /my-history-log scoped to the chosen Batch/Level/Subject, with
+ *      each past session (one row per period+date actually taught) as one
+ *      option — selecting one reveals that single session's attendance
+ *      breakdown, read-only, same as everywhere else in this screen.
  */
 @Component({
   selector: 'app-teacher-attendance',
@@ -62,6 +78,14 @@ interface AttendanceRow extends RosterEntry {
   styleUrl: './teacher-attendance.component.scss',
 })
 export class TeacherAttendanceComponent implements OnInit {
+  // Template reference, not a type-only ViewChild query — the summary
+  // modal below renders a SECOND, independent <app-teacher-cascading-
+  // filter> instance (its Period/Date history stage), so a bare
+  // `@ViewChild(TeacherCascadingFilterComponent)` would be ambiguous
+  // about which one it resolves to.
+  @ViewChild('markingCascade')
+  cascadingFilter?: TeacherCascadingFilterComponent<TeacherTimetableSlot>;
+
   statusOptions: { label: string; value: AttendanceStatus }[] = [
     { label: 'Present', value: AttendanceStatus.Present },
     { label: 'Absent', value: AttendanceStatus.Absent },
@@ -118,9 +142,9 @@ export class TeacherAttendanceComponent implements OnInit {
           s.board === ctx.board &&
           s.day_of_week === weekday,
       )
-      .sort((a, b) => a.period_number - b.period_number)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time))
       .map((slot) => ({
-        label: `Period ${slot.period_number} — ${slot.start_time}\u2013${slot.end_time}`,
+        label: `${slot.start_time}\u2013${slot.end_time}`,
         value: slot.id,
         data: slot,
       }));
@@ -142,16 +166,60 @@ export class TeacherAttendanceComponent implements OnInit {
   // only reason a row would be locked here.
   locked = signal(false);
 
-  // --- Sub-Sprint 3.3 — View Summary (read-only history modal) ---
+  // --- Sub-Sprint 3.3/3.4 — View Summary (read-only history modal) ---
   summaryVisible = signal(false);
-  summaryLoading = signal(false);
-  summaryError = signal<string | null>(null);
-  summaryEntries = signal<TeacherAttendanceLogEntry[]>([]);
-  summarySubjectId = signal<string | null>(null);
+
+  // The summary modal's own cascade instance — deliberately independent
+  // of the marking grid's `currentSelection` above (a different, later
+  // stage: past sessions, not today's markable periods). Reuses the same
+  // `allowedPairs`/`batches`/`subjects`/`levels` catalog data the marking
+  // cascade already loaded on init.
+  summarySelection = signal<TeacherFilterSelection<TeacherAttendanceLogEntry> | null>(null);
+  selectedHistoryEntry = computed<TeacherAttendanceLogEntry | null>(
+    () => this.summarySelection()?.period?.data ?? null,
+  );
+
+  // Period/Date stage: for the Batch/Board/Level/Subject just resolved,
+  // fetch this teacher's past sessions for that exact combination and
+  // turn each period+date row into one cascade option. Errors are
+  // swallowed by CascadingSelect itself (see its own docstring) — the
+  // stage just renders "No period/dates available", same convention the
+  // rest of this cascade already follows.
+  loadHistoryPeriods = (ctx: TeacherFilterSubjectContext) => {
+    return this.attendanceService
+      .getMyAttendanceHistoryLog(ctx.subject.id, ctx.levelId, ctx.batch.id)
+      .pipe(
+        map((entries): HistoryOption[] =>
+          entries.map((entry) => ({
+            label: `${this.formatHistoryDate(entry.date)} \u2022 ${entry.start_time}`,
+            // A subject/batch can recur across many past dates, and in
+            // principle share a start_time across different weeks — the
+            // date+slot pair together is what actually identifies one
+            // unique past session.
+            value: `${entry.date}::${entry.timetable_slot_id}`,
+            data: entry,
+          })),
+        ),
+      );
+  };
+
+  onSummarySelectionChange(selection: TeacherFilterSelection<TeacherAttendanceLogEntry> | null): void {
+    this.summarySelection.set(selection);
+  }
+
+  /** \"2026-08-21\" -> \"21 Aug 2026\", for the Period/Date option labels
+   *  and the selected-session detail header below the cascade — public
+   *  since the template calls it directly for the latter. */
+  formatHistoryDate(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
 
   constructor(
     private staffService: AcademicsStaffService,
     private attendanceService: AttendanceService,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
@@ -163,12 +231,52 @@ export class TeacherAttendanceComponent implements OnInit {
         this.staffService.getBatches().subscribe((b) => {
           this.batches.set(b);
           this.pickerLoading.set(false);
+          this.applyDeepLinkFromQueryParams();
         });
       },
       error: () => {
         this.pickerError.set('Could not load your teaching schedule right now.');
         this.pickerLoading.set(false);
       },
+    });
+  }
+
+  /**
+   * Deep-link from the Timetable screen's "Mark Attendance" button:
+   * ?batch_id=...&subject_id=...&board=...&slot_id=... — drives the whole
+   * cascade to that combination automatically instead of making the
+   * teacher re-pick every stage.
+   *
+   * Prefers the LIVE slot (looked up in this.slots() by slot_id) over the
+   * raw query params for batch_id/subject_id/board whenever that slot
+   * still exists — the Timetable page that generated this link may have
+   * been rendered from data that's since gone stale (e.g. the Coordinator
+   * edited this teacher's timetable in the time between the two page
+   * loads). Falls back to the raw params only if the slot_id doesn't
+   * resolve to anything live anymore (rather than doing nothing at all).
+   *
+   * `<app-teacher-cascading-filter>` only renders once pickerLoading is
+   * false (see the @else branch in the template) — its ViewChild isn't
+   * populated until Angular checks that view, which happens on the next
+   * change-detection pass, not synchronously here. queueMicrotask defers
+   * just long enough for that to happen.
+   */
+  private applyDeepLinkFromQueryParams(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const slotId = params.get('slot_id');
+    const rawBatchId = params.get('batch_id');
+    const rawSubjectId = params.get('subject_id');
+    const rawBoard = params.get('board') as Board | null;
+    if (!rawBatchId || !rawSubjectId || !rawBoard) return; // nothing to deep-link to — plain manual-pick screen
+
+    const liveSlot = slotId ? this.slots().find((s) => s.id === slotId) : undefined;
+    const batchId = liveSlot?.batch_id ?? rawBatchId;
+    const subjectId = liveSlot?.subject_id ?? rawSubjectId;
+    const board = liveSlot?.board ?? rawBoard;
+    const periodValue = liveSlot ? liveSlot.id : slotId;
+
+    queueMicrotask(() => {
+      this.cascadingFilter?.applyDeepLink({ batchId, subjectId, board, periodValue });
     });
   }
 
@@ -187,28 +295,9 @@ export class TeacherAttendanceComponent implements OnInit {
 
   openSummary(): void {
     this.summaryVisible.set(true);
-    this.summarySubjectId.set(null);
-    this.loadSummary();
-  }
-
-  onSummarySubjectChanged(subjectId: string | null): void {
-    this.summarySubjectId.set(subjectId);
-    this.loadSummary();
-  }
-
-  private loadSummary(): void {
-    this.summaryLoading.set(true);
-    this.summaryError.set(null);
-    this.attendanceService.getMyAttendanceHistoryLog(this.summarySubjectId() ?? undefined).subscribe({
-      next: (entries) => {
-        this.summaryEntries.set(entries);
-        this.summaryLoading.set(false);
-      },
-      error: () => {
-        this.summaryError.set('Could not load your attendance history right now.');
-        this.summaryLoading.set(false);
-      },
-    });
+    // Fresh cascade every time the modal opens — a session picked last
+    // time shouldn't linger read-only in the background once dismissed.
+    this.summarySelection.set(null);
   }
 
   onSelectionChange(selection: TeacherFilterSelection<TeacherTimetableSlot> | null): void {

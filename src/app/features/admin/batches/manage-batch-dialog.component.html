@@ -90,11 +90,34 @@
               optionLabel="subject_name"
               optionValue="subject_id"
               [ngModel]="selectedAssignSubjectId()"
-              (ngModelChange)="selectedAssignSubjectId.set($event)"
+              (ngModelChange)="onAssignSubjectChange($event)"
               placeholder="Select an offered subject"
               [loading]="loadingOffered()"
               styleClass="w-full" />
           </div>
+
+          @if (selectedAssignSubjectId()) {
+            <div class="manage-batch__field">
+              <span class="manage-batch__section-subtitle">Currently Assigned Teachers</span>
+              @if (loadingAssignedTeachers()) {
+                <div class="manage-batch__loading">
+                  <p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" />
+                </div>
+              } @else if (assignedTeacherNames().length === 0) {
+                <p class="manage-batch__hint">No teacher assigned yet for this subject.</p>
+              } @else {
+                <div class="manage-batch__chips">
+                  @for (name of assignedTeacherNames(); track name) {
+                    <p-tag severity="info" [value]="name" />
+                  }
+                </div>
+                <span class="manage-batch__hint-inline">
+                  A subject can have more than one teacher — pick another below to add one.
+                </span>
+              }
+            </div>
+          }
+
           <div class="manage-batch__field">
             <label for="manage-batch-teacher">Teacher</label>
             <p-select appendTo="body"

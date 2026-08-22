@@ -56,6 +56,10 @@ export class AdminFeeStructuresComponent implements OnInit {
   formAmount = signal<number | null>(null);
   submitting = signal(false);
 
+  // Generate Fee Bill — per-row action state so only the row being acted
+  // on shows a spinner (same pattern as admin-fee-review's actioningProofId).
+  generatingBillForId = signal<string | null>(null);
+
   // Full student directory, kept around only to resolve a student_id ->
   // full_name for options the cascade below returns (which come from the
   // enrollments endpoint and don't carry a name).
@@ -199,6 +203,48 @@ export class AdminFeeStructuresComponent implements OnInit {
   private onSaveError(err: any): void {
     this.submitting.set(false);
     Swal.fire({ icon: 'error', title: 'Could not save', text: err?.error?.detail ?? 'Please try again.' });
+  }
+
+  // --- Generate Fee Bill ---
+  // Only meaningful for a per-student override row (fs.student_id set) —
+  // a subject-wide default row has no single student to bill, which the
+  // template gates on before showing this button at all.
+  generateFeeBill(fs: FeeStructure): void {
+    if (!fs.student_id || !fs.student_name) return;
+    const studentId = fs.student_id;
+    const studentName = fs.student_name;
+
+    Swal.fire({
+      icon: 'question',
+      title: 'Generate fee bill?',
+      text: `Generate a fee bill for ${studentName} using their current fee structure(s).`,
+      showCancelButton: true,
+      confirmButtonText: 'Generate',
+      confirmButtonColor: '#101d3c',
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+
+      this.generatingBillForId.set(fs.id);
+      this.feesService.generateFeeBill(studentId).subscribe({
+        next: (voucher) => {
+          this.generatingBillForId.set(null);
+          Swal.fire({
+            icon: 'success',
+            title: 'Fee bill generated',
+            text: `${voucher.voucher_number} — amount ${voucher.amount}, due ${voucher.due_date}.`,
+            confirmButtonColor: '#101d3c',
+          });
+        },
+        error: (err) => {
+          this.generatingBillForId.set(null);
+          Swal.fire({
+            icon: 'error',
+            title: 'Could not generate bill',
+            text: err?.error?.detail ?? 'Please try again.',
+          });
+        },
+      });
+    });
   }
 
   deleteStructure(fs: FeeStructure): void {

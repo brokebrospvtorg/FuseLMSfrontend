@@ -28,7 +28,9 @@ export class StudentDashboardComponent implements OnInit {
 
   todaysClasses = computed(() => {
     const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    return this.timetable().filter((t) => t.day_of_week.toLowerCase() === todayName);
+    return this.timetable()
+      .filter((t) => t.day_of_week.toLowerCase() === todayName)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
   });
 
   ngOnInit(): void {

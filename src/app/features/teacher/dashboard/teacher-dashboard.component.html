@@ -32,7 +32,7 @@
         <ul class="schedule-list">
           @for (entry of todaysLectures(); track entry.id) {
             <li class="schedule-list__item">
-              <span class="schedule-list__period">P{{ entry.period_number }}</span>
+              <span class="schedule-list__period">{{ entry.start_time }}</span>
               <div class="schedule-list__details">
                 <span class="schedule-list__subject">{{ entry.subject_name }}</span>
                 <span class="schedule-list__meta">{{ entry.start_time }}–{{ entry.end_time }}</span>

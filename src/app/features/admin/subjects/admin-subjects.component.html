@@ -1,0 +1,112 @@
+<div class="admin-subjects">
+  <div class="admin-subjects__header">
+    <div>
+      <h2 class="admin-subjects__title">Subjects</h2>
+      <p class="admin-subjects__subtitle">Manage the Cambridge subject catalog — add, edit, activate/deactivate, or delete.</p>
+    </div>
+    <p-button label="Add Subject" icon="pi pi-plus" size="small" (onClick)="openAddSubject()" />
+  </div>
+
+  <p-card>
+    @if (loading()) {
+      <div class="admin-subjects__loading">
+        <p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" />
+      </div>
+    } @else if (error()) {
+      <p-message severity="error" [text]="error()!" />
+    } @else if (subjects().length === 0) {
+      <p class="admin-subjects__empty">No subjects in the catalog yet — add the first one above.</p>
+    } @else {
+      <p-table [value]="subjects()">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Name</th>
+            <th>Code</th>
+            <th>Board</th>
+            <th>Levels</th>
+            <th>Status</th>
+            <th style="width: 14rem">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-subject>
+          <tr>
+            <td>{{ subject.name }}</td>
+            <td>{{ subject.code }}</td>
+            <td>{{ subject.board }}</td>
+            <td>
+              @for (level of subject.levels; track level.id) {
+                <p-tag severity="secondary" [value]="level.name" styleClass="admin-subjects__level-tag" />
+              }
+            </td>
+            <td>
+              <p-tag [severity]="subject.is_active ? 'success' : 'danger'"
+                [value]="subject.is_active ? 'Active' : 'Inactive'" />
+            </td>
+            <td>
+              <div class="admin-subjects__actions">
+                <p-button icon="pi pi-pencil" size="small" severity="secondary" [text]="true"
+                  title="Edit name/code" (onClick)="openEditSubject(subject)" />
+                <p-button
+                  [icon]="subject.is_active ? 'pi pi-ban' : 'pi pi-check-circle'"
+                  size="small"
+                  [severity]="subject.is_active ? 'warn' : 'success'"
+                  [text]="true"
+                  [loading]="statusUpdatingId() === subject.id"
+                  [title]="subject.is_active ? 'Deactivate' : 'Activate'"
+                  (onClick)="toggleStatus(subject)" />
+                <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true"
+                  title="Delete" (onClick)="deleteSubject(subject)" />
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<app-add-subject-dialog
+  [visible]="addDialogVisible()"
+  (closed)="onAddDialogClosed()"
+  (saved)="onSubjectAdded()" />
+
+<p-dialog
+  header="Edit Subject"
+  [visible]="editDialogVisible()"
+  (visibleChange)="onEditDialogVisibleChange($event)"
+  [modal]="true"
+  [style]="{ width: '26rem' }">
+
+  <div class="admin-subjects__field">
+    <label for="edit-subject-name">Subject Name</label>
+    <input pInputText
+      id="edit-subject-name"
+      type="text"
+      [ngModel]="editName()"
+      (ngModelChange)="editName.set($event)"
+      class="w-full" />
+  </div>
+
+  <div class="admin-subjects__field">
+    <label for="edit-subject-code">Subject Code</label>
+    <input pInputText
+      id="edit-subject-code"
+      type="text"
+      [ngModel]="editCode()"
+      (ngModelChange)="editCode.set($event)"
+      class="w-full" />
+    <span class="admin-subjects__hint-inline">
+      Must be unique — checked against the existing catalog (case-insensitive).
+    </span>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeEditDialog()" />
+    <p-button
+      label="Save Changes"
+      icon="pi pi-check"
+      [loading]="editSaving()"
+      [disabled]="!canSaveEdit()"
+      (onClick)="saveEdit()" />
+  </ng-template>
+</p-dialog>

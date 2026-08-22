@@ -1,3 +1,4 @@
+
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,6 +19,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { Batch, BatchSubject } from '../../../core/models/academic.model';
 import { AssessmentFull, AuditLogEntry } from '../../../core/models/academics-staff.model';
+import { Board } from '../../../core/models/enums';
+import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 
 /** One roster row joined with its current Mark (if any) for the selected
  *  assessment. `draftMarks` is the value bound to the inline editor;
@@ -45,9 +48,18 @@ interface MarkOverrideRow {
  *
  * Cascading selection flow, each stage narrowing the next and clearing
  * everything downstream on change:
- *   Batch -> Level (offered in that batch) -> Subject (offered at that
- *   level, in that batch) -> Assessment/Test (created for that subject
- *   + batch) -> marks table for the selected assessment's roster.
+ *   Batch -> Board (offered in that batch) -> Level (offered in that
+ *   batch, under that board) -> Subject (offered at that level, in that
+ *   batch, under that board) -> Assessment/Test (created for that
+ *   subject + batch) -> marks table for the selected assessment's
+ *   roster.
+ *
+ * Board is a mandatory stage, not cosmetic: `offeredSubjects` holds one
+ * row per (level, subject, board) offering (schema_update_15 — the same
+ * subject can be offered more than once for a batch, once per board), so
+ * skipping straight from Batch to Level the way this screen used to
+ * would silently collapse multiple boards' offerings of the same
+ * subject into a single ambiguous Level/Subject option.
  */
 @Component({
   selector: 'app-coordinator-mark-override',
@@ -65,34 +77,60 @@ export class CoordinatorMarkOverrideComponent implements OnInit {
   batches = signal<Batch[]>([]);
   batchesLoading = signal(true);
   selectedBatchId = signal<string | null>(null);
-  batchOptions = computed(() => this.batches().map((b) => ({ label: b.name, value: b.id })));
+  // Only batches the Admin/Coordinator has left open for work (batch.is_active
+  // — a stored toggle, "is this batch open for admin/coordinator work",
+  // independent of is_current) should be pickable for a marks correction.
+  // Previously showed every batch ever generated, including years-ahead
+  // template batches nothing has been offered on yet and old closed ones.
+  batchOptions = computed(() =>
+    this.batches()
+      .filter((b) => b.is_active)
+      .map((b) => ({ label: b.name, value: b.id })),
+  );
 
-  // --- Stage 2 & 3 source data: everything offered in the selected batch,
-  // one row per (level, subject) pair — same shape the Admin "offered
-  // subjects" pickers already use, so Level + Subject both derive from a
-  // single request instead of two separate endpoints. ---
+  // --- Stage 2, 3 & 4 source data: everything offered in the selected
+  // batch, one row per (level, subject, board) offering — same shape the
+  // Admin "offered subjects" pickers already use, so Board + Level +
+  // Subject all derive from a single request instead of three separate
+  // endpoints. ---
   offeredSubjects = signal<BatchSubject[]>([]);
   offeredSubjectsLoading = signal(false);
 
+  // --- Stage 2: Board (depends on Batch) — options are only the boards
+  // actually offered in the selected batch (derived from offeredSubjects
+  // itself), not the full static BOARD_OPTIONS list, so a board with
+  // nothing offered under it in this batch never becomes a dead end. ---
+  selectedBoard = signal<Board | null>(null);
+  boardOptions = computed(() => {
+    const boardsPresent = new Set<Board>(this.offeredSubjects().map((s) => s.board));
+    return BOARD_OPTIONS.filter((opt) => boardsPresent.has(opt.value));
+  });
+
+  // --- Stage 3: Level (depends on Batch + Board) ---
   selectedLevelId = signal<string | null>(null);
   levelOptions = computed(() => {
+    const board = this.selectedBoard();
+    if (!board) return [];
     const seen = new Map<string, string>();
     for (const s of this.offeredSubjects()) {
+      if (s.board !== board) continue;
       if (!seen.has(s.level_id)) seen.set(s.level_id, s.level_name);
     }
     return Array.from(seen.entries()).map(([value, label]) => ({ label, value }));
   });
 
+  // --- Stage 4: Subject (depends on Batch + Board + Level) ---
   selectedSubjectId = signal<string | null>(null);
   subjectOptions = computed(() => {
+    const board = this.selectedBoard();
     const levelId = this.selectedLevelId();
-    if (!levelId) return [];
+    if (!board || !levelId) return [];
     return this.offeredSubjects()
-      .filter((s) => s.level_id === levelId)
+      .filter((s) => s.board === board && s.level_id === levelId)
       .map((s) => ({ label: s.subject_name, value: s.subject_id }));
   });
 
-  // --- Stage 4: Assessment / Test, filtered by Subject (+ the Batch
+  // --- Stage 5: Assessment / Test, filtered by Subject (+ the Batch
   // already selected in stage 1) ---
   assessments = signal<AssessmentFull[]>([]);
   assessmentsLoading = signal(false);
@@ -144,9 +182,8 @@ export class CoordinatorMarkOverrideComponent implements OnInit {
 
   onBatchChange(batchId: string | null): void {
     this.selectedBatchId.set(batchId);
-    this.selectedLevelId.set(null);
     this.offeredSubjects.set([]);
-    this.resetSubjectAndBelow();
+    this.resetBoardAndBelow();
 
     if (!batchId) return;
     this.offeredSubjectsLoading.set(true);
@@ -157,6 +194,11 @@ export class CoordinatorMarkOverrideComponent implements OnInit {
       },
       error: () => this.offeredSubjectsLoading.set(false),
     });
+  }
+
+  onBoardChange(board: Board | null): void {
+    this.selectedBoard.set(board);
+    this.resetLevelAndBelow();
   }
 
   onLevelChange(levelId: string | null): void {
@@ -192,6 +234,16 @@ export class CoordinatorMarkOverrideComponent implements OnInit {
     if (!assessmentId || !subjectId || !batchId) return;
 
     this.loadRosterAndMarks(assessmentId, subjectId, batchId);
+  }
+
+  private resetBoardAndBelow(): void {
+    this.selectedBoard.set(null);
+    this.resetLevelAndBelow();
+  }
+
+  private resetLevelAndBelow(): void {
+    this.selectedLevelId.set(null);
+    this.resetSubjectAndBelow();
   }
 
   private resetSubjectAndBelow(): void {

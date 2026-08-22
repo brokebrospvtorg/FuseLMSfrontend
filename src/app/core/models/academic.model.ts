@@ -106,6 +106,20 @@ export interface SubjectCreatePayload {
   level_ids: string[];
 }
 
+/** PUT /api/academic/subjects/{id} request body — Admin Subjects module.
+ *  Deliberately narrower than SubjectCreatePayload: only name/code are
+ *  editable on that screen (see SubjectUpdate's docstring in
+ *  app/schemas/academic.py for why board/levels aren't). */
+export interface SubjectUpdatePayload {
+  name: string;
+  code: string;
+}
+
+/** PATCH /api/academic/subjects/{id}/status request body. */
+export interface SubjectStatusUpdatePayload {
+  is_active: boolean;
+}
+
 /**
  * Mirrors BatchSubjectOut in app/schemas/academic.py — one row of
  * GET /api/academic/batches/{batch_id}/offered-subjects. This is what
@@ -246,7 +260,6 @@ export interface TimetableEntry {
   subject_name: string;
   teacher_name: string;
   day_of_week: string;
-  period_number: number;
   start_time: string;
   end_time: string;
 }
@@ -264,9 +277,13 @@ export interface TeachingScheduleEntry {
   batch_id: string;
   batch_name: string;
   day_of_week: string;
-  period_number: number;
   start_time: string;
   end_time: string;
+  // Mirrors TimetableSlotDetailOut.board — resolved server-side from the
+  // batch's actual active offering, same as TeacherTimetableSlot.board
+  // (attendance.model.ts). Was missing here even though the backend has
+  // always sent it.
+  board: Board | null;
 }
 
 export interface DashboardSummary {

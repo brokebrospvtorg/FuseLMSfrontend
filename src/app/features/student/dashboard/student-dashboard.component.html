@@ -148,9 +148,9 @@
             <ul class="flex flex-col gap-1">
               @for (cls of todaysClasses(); track cls.id) {
                 <li class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
-                  <span class="w-9 h-9 flex-shrink-0 rounded-lg bg-slate-100 text-navy text-xs font-bold
+                  <span class="w-14 h-9 flex-shrink-0 rounded-lg bg-slate-100 text-navy text-xs font-bold
                                flex items-center justify-center">
-                    P{{ cls.period_number }}
+                    {{ cls.start_time }}
                   </span>
                   <div class="flex flex-col text-sm">
                     <span class="font-medium text-navy">{{ cls.subject_name }}</span>

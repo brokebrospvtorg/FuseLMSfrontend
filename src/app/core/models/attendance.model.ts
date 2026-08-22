@@ -71,7 +71,6 @@ export interface TeacherTimetableSlot {
   teacher_id: string;
   batch_id: string;
   day_of_week: string;
-  period_number: number;
   start_time: string;
   end_time: string;
   // Over-Inclusive Cascading Dropdowns fix: the active batch_subjects
@@ -109,7 +108,7 @@ export interface PeriodRecord {
 export interface TeacherAttendanceLogEntry {
   date: string;
   timetable_slot_id: string;
-  period_number: number;
+  start_time: string;
   subject_id: string;
   subject_name: string;
   level_code: string | null;
@@ -149,9 +148,17 @@ export interface TimetableSlotDetail {
   batch_id: string;
   batch_name: string;
   day_of_week: string;
-  period_number: number;
   start_time: string;
   end_time: string;
+  // Mirrors TimetableSlotDetailOut.board — populated on Teacher-scoped
+  // reads only (see that field's docstring in app/schemas/attendance.py);
+  // null on the Admin/Coordinator Interactive Timetable Builder's
+  // unfiltered listing. The Coordinator Portal's Batch -> Board -> Level
+  // -> Subject cascades (Attendance, Timetable) don't rely on this field —
+  // they resolve board from the offered-subjects catalog instead (see
+  // shared/utils/offered-pairs.util.ts) — but it's typed here so it isn't
+  // silently dropped if the backend does start sending it on this path.
+  board?: Board | null;
 }
 
 export interface CreateTimetableSlotRequest {
@@ -160,7 +167,6 @@ export interface CreateTimetableSlotRequest {
   teacher_id: string;
   batch_id: string;
   day_of_week: string;
-  period_number: number;
   start_time: string;
   end_time: string;
 }
@@ -172,7 +178,64 @@ export interface UpdateTimetableSlotRequest {
   teacher_id?: string;
   batch_id?: string;
   day_of_week?: string;
-  period_number?: number;
   start_time?: string;
   end_time?: string;
+}
+
+// --- Admin: Teacher Attendance (View & Edit, full Coordinator parity) ---
+
+/** GET /api/attendance/admin/teacher-attendance — one row per period on
+ *  the selected date, matching the Batch -> Board -> Level -> Subject
+ *  cascade, with the assigned teacher's own attendance status for that
+ *  period+date (null fields = never marked yet at all). */
+export interface AdminTeacherAttendanceEntry {
+  timetable_slot_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  batch_id: string;
+  batch_name: string;
+  board: Board;
+  level_id: string;
+  level_code: string | null;
+  subject_id: string;
+  subject_name: string;
+  teacher_id: string;
+  teacher_name: string;
+  // Non-null on every field below iff this period+date has already been
+  // recorded at all — the screen requires reason when editing to a
+  // different status than what's already saved here.
+  attendance_record_id: string | null;
+  status: AttendanceStatus | null;
+  source: string | null;
+  marked_by: string | null;
+  marked_at: string | null;
+}
+
+/** POST /api/attendance/admin/teacher-attendance — mark, edit, or
+ *  override one teacher's attendance for one period+date. `reason` is
+ *  required by the backend when this changes an existing record's
+ *  status; optional for a first-time mark. */
+export interface AdminTeacherAttendanceMarkRequest {
+  timetable_slot_id: string;
+  subject_id: string;
+  teacher_user_id: string;
+  date: string;
+  status: AttendanceStatus;
+  reason?: string;
+}
+
+/** Mirrors AttendanceRecordOut — the raw row shape POST
+ *  /admin/teacher-attendance returns (unjoined, unlike AttendanceRecord
+ *  above which carries a joined subject_name). */
+export interface AttendanceRecordWriteResult {
+  id: string;
+  user_id: string;
+  subject_id: string;
+  timetable_slot_id: string;
+  date: string;
+  status: AttendanceStatus;
+  marked_by: string;
+  source: string;
+  marked_at: string;
 }

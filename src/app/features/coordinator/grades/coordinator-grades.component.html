@@ -9,7 +9,7 @@
     @if (batchesLoading()) {
       <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
     } @else {
-      <!-- Cascading Selection Flow: Batch -> Level -> Subject -> Assessment -->
+      <!-- Cascading Selection Flow: Batch -> Board -> Level -> Subject -> Assessment -->
       <div class="mark-override__filters">
         <p-select appendTo="body"
           [options]="batchOptions()"
@@ -21,10 +21,10 @@
         </p-select>
 
         <p-select appendTo="body"
-          [options]="levelOptions()"
-          [ngModel]="selectedLevelId()"
-          (ngModelChange)="onLevelChange($event)"
-          placeholder="2. Select Level"
+          [options]="boardOptions()"
+          [ngModel]="selectedBoard()"
+          (ngModelChange)="onBoardChange($event)"
+          placeholder="2. Select Board"
           [showClear]="true"
           [disabled]="!selectedBatchId()"
           [loading]="offeredSubjectsLoading()"
@@ -32,10 +32,20 @@
         </p-select>
 
         <p-select appendTo="body"
+          [options]="levelOptions()"
+          [ngModel]="selectedLevelId()"
+          (ngModelChange)="onLevelChange($event)"
+          placeholder="3. Select Level"
+          [showClear]="true"
+          [disabled]="!selectedBoard()"
+          styleClass="w-full md:w-15rem">
+        </p-select>
+
+        <p-select appendTo="body"
           [options]="subjectOptions()"
           [ngModel]="selectedSubjectId()"
           (ngModelChange)="onSubjectChange($event)"
-          placeholder="3. Select Subject"
+          placeholder="4. Select Subject"
           [showClear]="true"
           [disabled]="!selectedLevelId()"
           styleClass="w-full md:w-15rem">
@@ -45,7 +55,7 @@
           [options]="assessmentOptions()"
           [ngModel]="selectedAssessmentId()"
           (ngModelChange)="onAssessmentChange($event)"
-          placeholder="4. Select Assessment / Test"
+          placeholder="5. Select Assessment / Test"
           [showClear]="true"
           [disabled]="!selectedSubjectId()"
           [loading]="assessmentsLoading()"

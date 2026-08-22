@@ -3,7 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
-import { LoginRequest, CurrentUser, ChangePasswordRequest } from '../models/auth.model';
+import {
+  LoginRequest, CurrentUser, ChangePasswordRequest, PasswordResetApprovalRequest,
+} from '../models/auth.model';
 
 const SESSION_STORAGE_KEY = 'fuse_current_user';
 
@@ -92,6 +94,20 @@ export class AuthService {
         const user = this._currentUser();
         if (user) this.setUser({ ...user, must_change_password: false });
       }));
+  }
+
+  /** Logged-out 'Request Password Reset from Admin' button — POST
+   *  /api/auth/request-password-reset-approval. Distinct from the
+   *  email-token forgot-password flow: no session, no token, just files a
+   *  request an Admin reviews manually from the Operations screen. Always
+   *  resolves with the same generic success detail regardless of whether
+   *  the identifier matched an account (mirrors the backend's
+   *  user-enumeration stance). */
+  requestPasswordResetApproval(payload: PasswordResetApprovalRequest): Observable<{ detail: string }> {
+    return this.http.post<{ detail: string }>(
+      `${this.baseUrl}/request-password-reset-approval`,
+      payload,
+    );
   }
 
   private setUser(user: CurrentUser): void {

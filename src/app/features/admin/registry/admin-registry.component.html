@@ -1,3 +1,4 @@
+
 <div class="page">
   <h1 class="page__title">Information Registry</h1>
 
@@ -65,7 +66,12 @@
               @if (row.role === 'student') {
                 <p-button label="Link Parent" size="small" severity="secondary" (onClick)="openLinkParentDialog(row)" />
               }
-              @if (row.status !== 'pending') {
+              <!-- Hidden (not just blocked-on-click) when the current user
+                   isn't allowed to suspend this row's role — see
+                   canToggleStatus() for the full hierarchy: Admin is never
+                   suspendable here, and a Coordinator cannot suspend
+                   another Coordinator, only Admin can. -->
+              @if (canToggleStatus(row)) {
                 <p-button
                   [label]="row.status === 'active' ? 'Suspend' : 'Reactivate'"
                   size="small"
@@ -114,8 +120,8 @@
 
   @if (newRole() === 'student') {
     <div class="registry__form-field">
-      <label for="new-roll-number">Roll Number</label>
-      <input id="new-roll-number" pInputText [ngModel]="newRollNumber()" (ngModelChange)="newRollNumber.set($event)" class="w-full" />
+      <label>Roll Number</label>
+      <p class="registry__hint registry__hint--inline">Auto-generated (format INK-{{ currentYear }}-XXXX) once the account is created — not editable here.</p>
     </div>
     <div class="registry__form-field">
       <label for="new-admission-date">Admission Date</label>
@@ -162,23 +168,93 @@
         styleClass="w-full">
       </p-select>
     </div>
+
+    <!-- Parent Link Flow: explicit choice between linking an existing
+         Parent right now, or deferring it — "Link Parent" (row action)
+         covers the deferred case afterwards, same endpoint either way. -->
     <div class="registry__form-field">
-      <label for="new-parent-link">Link to Parent (optional)</label>
+      <label for="new-parent-link-mode">Parent Link</label>
       <p-select appendTo="body"
-        id="new-parent-link"
-        [options]="parentOptions()"
-        [ngModel]="newParentId()"
-        (ngModelChange)="newParentId.set($event)"
-        placeholder="Select an existing parent…"
-        [showClear]="true"
+        id="new-parent-link-mode"
+        [options]="parentLinkModeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="newParentLinkMode()"
+        (ngModelChange)="onNewParentLinkModeChange($event)"
         styleClass="w-full">
       </p-select>
     </div>
-    @if (newParentId()) {
+    @if (newParentLinkMode() === 'existing') {
+      <div class="registry__form-field">
+        <label for="new-parent-link">Existing Parent <span class="registry__required">*</span></label>
+        <p-select appendTo="body"
+          id="new-parent-link"
+          [options]="parentOptions()"
+          [ngModel]="newParentId()"
+          (ngModelChange)="newParentId.set($event)"
+          placeholder="Select an existing parent…"
+          [showClear]="true"
+          styleClass="w-full">
+        </p-select>
+      </div>
       <div class="registry__form-field">
         <label for="new-relationship">Relationship</label>
         <input id="new-relationship" pInputText placeholder="e.g. Father, Mother, Guardian"
                [ngModel]="newRelationshipLabel()" (ngModelChange)="newRelationshipLabel.set($event)" class="w-full" />
+      </div>
+    } @else {
+      <p class="registry__hint registry__hint--inline">No parent will be linked now — use "Link Parent" from the Registry row action whenever one's ready.</p>
+    }
+
+    <!-- Cascading Scope: optional initial Batch -> Level -> Subject
+         enrollment, same shape/behaviour as the Add Teacher cascade
+         further down — leaving Batch unset just creates the account with
+         no initial enrollment, same as before this change. -->
+    <div class="registry__form-field">
+      <label for="new-student-batch">Initial Enrollment — Batch (optional)</label>
+      <p-select appendTo="body"
+        id="new-student-batch"
+        [options]="newTeacherBatchOptions()"
+        [ngModel]="newStudentBatchId()"
+        (ngModelChange)="onNewStudentBatchChange($event)"
+        placeholder="Select a batch…"
+        [showClear]="true"
+        styleClass="w-full">
+      </p-select>
+    </div>
+    @if (newStudentBatchId()) {
+      <div class="registry__form-field">
+        <label for="new-student-level">Level</label>
+        <p-select appendTo="body"
+          id="new-student-level"
+          [options]="levelOptions()"
+          [ngModel]="newStudentLevelId()"
+          (ngModelChange)="onNewStudentLevelChange($event)"
+          placeholder="Select a level…"
+          [showClear]="true"
+          styleClass="w-full">
+        </p-select>
+      </div>
+    }
+    @if (newStudentBatchId() && newStudentLevelId()) {
+      <div class="registry__form-field">
+        <label for="new-student-subjects">Subject(s)</label>
+        @if (newStudentOfferedSubjectsLoading()) {
+          <p-progressSpinner styleClass="registry__inline-spinner" strokeWidth="6" />
+        } @else {
+          <p-multiSelect appendTo="body"
+            id="new-student-subjects"
+            [options]="newStudentSubjectOptions()"
+            [ngModel]="newStudentSubjectIds()"
+            (ngModelChange)="newStudentSubjectIds.set($event)"
+            placeholder="Select subject(s) offered for this batch/level"
+            display="chip"
+            styleClass="w-full">
+          </p-multiSelect>
+          @if (newStudentSubjectOptions().length === 0) {
+            <small class="registry__hint registry__hint--inline">No active subjects offered for this batch at this level yet.</small>
+          }
+        }
       </div>
     }
   }
@@ -201,8 +277,8 @@
       <input id="new-teacher-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
     </div>
     <div class="registry__form-field">
-      <label for="new-teacher-code">Teacher Code</label>
-      <input id="new-teacher-code" pInputText [ngModel]="newTeacherCode()" (ngModelChange)="newTeacherCode.set($event)" class="w-full" />
+      <label>Teacher Code</label>
+      <p class="registry__hint registry__hint--inline">Auto-generated (format INK-T-XXXX) once the account is created — not editable here.</p>
     </div>
     <div class="registry__form-field">
       <label for="new-teacher-boards">Boards Taught <span class="registry__required">*</span></label>
@@ -218,6 +294,59 @@
         styleClass="w-full">
       </p-multiSelect>
     </div>
+
+    <!-- Admin Teacher Creation, point 2: cascading Batch -> Level -> Subject
+         for an optional initial subject assignment. Leaving Batch unset
+         just creates the account with no assignment, same as before this
+         change — Assign Teacher from Admin Batches still works afterwards
+         either way. -->
+    <div class="registry__form-field">
+      <label for="new-teacher-batch">Initial Assignment — Batch (optional)</label>
+      <p-select appendTo="body"
+        id="new-teacher-batch"
+        [options]="newTeacherBatchOptions()"
+        [ngModel]="newTeacherBatchId()"
+        (ngModelChange)="onNewTeacherBatchChange($event)"
+        placeholder="Select a batch…"
+        [showClear]="true"
+        styleClass="w-full">
+      </p-select>
+    </div>
+    @if (newTeacherBatchId()) {
+      <div class="registry__form-field">
+        <label for="new-teacher-level">Level</label>
+        <p-select appendTo="body"
+          id="new-teacher-level"
+          [options]="levelOptions()"
+          [ngModel]="newTeacherLevelId()"
+          (ngModelChange)="onNewTeacherLevelChange($event)"
+          placeholder="Select a level…"
+          [showClear]="true"
+          styleClass="w-full">
+        </p-select>
+      </div>
+    }
+    @if (newTeacherBatchId() && newTeacherLevelId()) {
+      <div class="registry__form-field">
+        <label for="new-teacher-subjects">Subject(s)</label>
+        @if (newTeacherOfferedSubjectsLoading()) {
+          <p-progressSpinner styleClass="registry__inline-spinner" strokeWidth="6" />
+        } @else {
+          <p-multiSelect appendTo="body"
+            id="new-teacher-subjects"
+            [options]="newTeacherSubjectOptions()"
+            [ngModel]="newTeacherSubjectIds()"
+            (ngModelChange)="newTeacherSubjectIds.set($event)"
+            placeholder="Select subject(s) offered for this batch/level"
+            display="chip"
+            styleClass="w-full">
+          </p-multiSelect>
+          @if (newTeacherSubjectOptions().length === 0) {
+            <small class="registry__hint registry__hint--inline">No active subjects offered for this batch at this level yet.</small>
+          }
+        }
+      </div>
+    }
   }
 
   @if (newRole() === 'parent') {
@@ -226,46 +355,55 @@
       <input id="new-parent-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
     </div>
     <div class="registry__form-field">
-      <label for="new-parent-registration-id">Registration ID</label>
-      <input id="new-parent-registration-id" pInputText [ngModel]="newRegistrationId()" (ngModelChange)="newRegistrationId.set($event)" class="w-full" />
+      <label>Parent Reg ID</label>
+      <p class="registry__hint registry__hint--inline">Auto-generated (format INK-P-XXXX) once the account is created — not editable here.</p>
     </div>
   }
 
-  <div class="registry__form-field">
-    <div class="registry__subjects-header">
-      <label for="new-set-password">Set an initial password now</label>
-      <div class="registry__cross-level-toggle">
-        <p-toggleswitch
-          inputId="new-set-password"
-          [ngModel]="newSetInitialPassword()"
-          (ngModelChange)="newSetInitialPassword.set($event)">
-        </p-toggleswitch>
+  @if (newRole() === 'teacher' || newRole() === 'student') {
+    <!-- Admin Teacher/Student Creation: no password toggle for either role
+         — both always get the fixed default password below, not a choice
+         made in this dialog. -->
+    <p class="registry__hint">
+      This {{ roleLabel(newRole()!) }} account will be created "active" with the default password <strong>Inkling&#64;2026</strong> — they'll be prompted to change it the first time they log in.
+    </p>
+  } @else {
+    <div class="registry__form-field">
+      <div class="registry__subjects-header">
+        <label for="new-set-password">Set an initial password now</label>
+        <div class="registry__cross-level-toggle">
+          <p-toggleswitch
+            inputId="new-set-password"
+            [ngModel]="newSetInitialPassword()"
+            (ngModelChange)="newSetInitialPassword.set($event)">
+          </p-toggleswitch>
+        </div>
       </div>
     </div>
-  </div>
-  @if (newSetInitialPassword()) {
-    <div class="registry__form-field">
-      <label for="new-initial-password">Initial Password</label>
-      <input id="new-initial-password" pInputText type="password" [ngModel]="newInitialPassword()" (ngModelChange)="newInitialPassword.set($event)" class="w-full" />
-    </div>
-    <div class="registry__form-field">
-      <label for="new-initial-password-confirm">Confirm Password</label>
-      <input id="new-initial-password-confirm" pInputText type="password" [ngModel]="newInitialPasswordConfirm()" (ngModelChange)="newInitialPasswordConfirm.set($event)" class="w-full" />
-      @if (newInitialPassword() && newInitialPassword().length < 8) {
-        <small class="registry__field-error">Must be at least 8 characters.</small>
-      } @else if (newInitialPasswordConfirm() && newInitialPassword() !== newInitialPasswordConfirm()) {
-        <small class="registry__field-error">Passwords don't match.</small>
-      }
-    </div>
-  }
-
-  <p class="registry__hint">
     @if (newSetInitialPassword()) {
-      The account is created "active" with the password above — they'll be prompted to change it the first time they log in.
-    } @else {
-      The account is created as "pending" with an activation link — for now that link is console-logged on the backend, not actually emailed.
+      <div class="registry__form-field">
+        <label for="new-initial-password">Initial Password</label>
+        <input id="new-initial-password" pInputText type="password" [ngModel]="newInitialPassword()" (ngModelChange)="newInitialPassword.set($event)" class="w-full" />
+      </div>
+      <div class="registry__form-field">
+        <label for="new-initial-password-confirm">Confirm Password</label>
+        <input id="new-initial-password-confirm" pInputText type="password" [ngModel]="newInitialPasswordConfirm()" (ngModelChange)="newInitialPasswordConfirm.set($event)" class="w-full" />
+        @if (newInitialPassword() && newInitialPassword().length < 8) {
+          <small class="registry__field-error">Must be at least 8 characters.</small>
+        } @else if (newInitialPasswordConfirm() && newInitialPassword() !== newInitialPasswordConfirm()) {
+          <small class="registry__field-error">Passwords don't match.</small>
+        }
+      </div>
     }
-  </p>
+
+    <p class="registry__hint">
+      @if (newSetInitialPassword()) {
+        The account is created "active" with the password above — they'll be prompted to change it the first time they log in.
+      } @else {
+        The account is created as "pending" with an activation link — for now that link is console-logged on the backend, not actually emailed.
+      }
+    </p>
+  }
 
   <ng-template pTemplate="footer">
     <p-button label="Cancel" severity="secondary" (onClick)="addDialogOpen.set(false)" />
@@ -308,7 +446,14 @@
     @if (user.role === 'student') {
       <div class="registry__form-field">
         <label for="edit-roll-number">Roll Number</label>
-        <input id="edit-roll-number" pInputText [ngModel]="editRollNumber()" (ngModelChange)="editRollNumber.set($event)" class="w-full" />
+        <!-- Read-Only Reg ID & Roll Number: server-generated at creation
+             (INK-{year}-XXXX, see users.py:_next_roll_number) and no
+             longer editable from here — [readonly] keeps it visible
+             (still bound to editRollNumber(), still sent back unchanged
+             on Save) but blocks direct edits from this dialog. -->
+        <input id="edit-roll-number" pInputText [ngModel]="editRollNumber()" [readonly]="true"
+          class="w-full registry__field-locked" />
+        <p class="registry__hint registry__hint--inline">System-generated at enrollment — not editable here.</p>
       </div>
       <div class="registry__form-field">
         <label for="edit-admission-date">Admission Date</label>
@@ -340,7 +485,11 @@
       </div>
       <div class="registry__form-field">
         <label for="edit-registration-id">Registration ID</label>
-        <input id="edit-registration-id" pInputText [ngModel]="editRegistrationId()" (ngModelChange)="editRegistrationId.set($event)" class="w-full" />
+        <!-- Read-Only Reg ID & Roll Number: same treatment as Roll Number
+             above — system-issued and locked from this dialog. -->
+        <input id="edit-registration-id" pInputText [ngModel]="editRegistrationId()" [readonly]="true"
+          class="w-full registry__field-locked" />
+        <p class="registry__hint registry__hint--inline">System-generated at enrollment — not editable here.</p>
       </div>
       <div class="registry__form-field">
         <label for="edit-board">Board <span class="registry__required">*</span></label>
@@ -350,21 +499,36 @@
           optionLabel="label"
           optionValue="value"
           [ngModel]="editBoard()"
-          (ngModelChange)="editBoard.set($event)"
+          (ngModelChange)="onEditBoardChange($event)"
           placeholder="Select the exam board"
           styleClass="w-full">
         </p-select>
       </div>
 
-      <!-- Editable: academic level + subject assignment. Level maps to
-           student_level_enrollments (a level change completes the old active
-           row and opens a new one); subjects map to enrollments for the
-           current batch. Cross-Level Subject Enrollment: by default the
-           subject pool is scoped to the level picked below, but the "Show
-           All Levels" toggle expands it to every subject across every
-           level (each one tagged, e.g. "Further Maths [A-Level]") so a
-           student can be enrolled in a subject outside their primary
-           track — the backend accepts any subject_id regardless of level. -->
+      <!-- Editable: Batch -> Level -> Subject cascade. Batch scopes which
+           offered-subjects pool Level/Subject draw from (a subject is only
+           ever pickable if it's an actual active offering for THIS batch);
+           Level maps to student_level_enrollments (a level change completes
+           the old active row and opens a new one); subjects map to
+           enrollments for the chosen batch. Cross-Level Subject Enrollment:
+           by default the subject pool is scoped to the level picked below,
+           but the "Show All Levels" toggle expands it to every subject
+           across every level (each one tagged, e.g. "Further Maths
+           [A-Level]") so a student can be enrolled in a subject outside
+           their primary track — the backend accepts any subject_id
+           regardless of level. -->
+      <div class="registry__form-field">
+        <label for="edit-batch">Batch</label>
+        <p-select appendTo="body"
+          id="edit-batch"
+          [options]="editBatchOptions()"
+          [ngModel]="editBatchId()"
+          (ngModelChange)="onEditBatchChange($event)"
+          placeholder="Select a batch"
+          [showClear]="true"
+          styleClass="w-full">
+        </p-select>
+      </div>
       <div class="registry__form-field">
         <label for="edit-level">Academic Level</label>
         @if (studentEnrollmentsLoading()) {
@@ -398,19 +562,23 @@
           [options]="subjectOptions()"
           [ngModel]="editSubjectIds()"
           (ngModelChange)="editSubjectIds.set($event)"
-          [disabled]="(!editLevelId() && !crossLevelMode()) || levelSubjectsLoading() || allSubjectsLoading()"
-          [placeholder]="crossLevelMode() ? 'Select subjects (any level)' : (editLevelId() ? 'Select subjects' : 'Select a level first')"
+          [disabled]="(!crossLevelMode() && (!editBatchId() || !editLevelId())) || levelSubjectsLoading() || allSubjectsLoading()"
+          [placeholder]="crossLevelMode() ? 'Select subjects (any level)' : (!editBatchId() ? 'Select a batch first' : (editLevelId() ? 'Select subjects' : 'Select a level first'))"
           display="chip"
           [filter]="true"
           styleClass="w-full">
         </p-multiSelect>
         @if (!crossLevelMode() && editLevelId() && !levelSubjectsLoading() && subjectOptions().length === 0) {
-          <p class="registry__readonly-empty">No subjects defined for this level yet.</p>
+          <p class="registry__readonly-empty">No subjects offered for this Board + Level yet.</p>
         }
       </div>
 
-      <!-- Read-only: linked parent(s) (spec module 2 — "Parent id and name").
-           Managed via Link Parent (row action) or at account creation, not editable here. -->
+      <!-- Linked parent(s) (spec module 2 — "Parent id and name"), plus
+           explicit Parent Management row actions: De-link Parent removes
+           just this relationship (parent_student_links), Edit Parent
+           Details jumps into that Parent's own Edit Details dialog. New
+           links are still created via Link Parent (row action) or at
+           account creation, not from inside this list. -->
       <div class="registry__readonly-section">
         <p class="registry__readonly-label">Linked Parent(s)</p>
         @if (studentParentsLoading()) {
@@ -420,9 +588,15 @@
         } @else {
           <ul class="registry__readonly-list">
             @for (link of studentParents(); track link.id) {
-              <li>
-                {{ parentNameFor(link.parent_id) }}
-                @if (link.relationship_label) { <span class="registry__readonly-muted">({{ link.relationship_label }})</span> }
+              <li class="registry__parent-link-row">
+                <span>
+                  {{ parentNameFor(link.parent_id) }}
+                  @if (link.relationship_label) { <span class="registry__readonly-muted">({{ link.relationship_label }})</span> }
+                </span>
+                <span class="registry__parent-link-actions">
+                  <p-button label="Edit Parent Details" size="small" text="true" (onClick)="editLinkedParent(link)" />
+                  <p-button label="De-link Parent" size="small" text="true" severity="danger" (onClick)="delinkParent(link)" />
+                </span>
               </li>
             }
           </ul>

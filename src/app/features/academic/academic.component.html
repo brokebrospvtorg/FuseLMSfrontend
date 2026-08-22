@@ -17,10 +17,10 @@
               <div class="timetable-grid__day-header">{{ gridDayLabels[day] }}</div>
             }
 
-            @for (period of gridPeriods(); track period) {
-              <div class="timetable-grid__period-label">P{{ period }}</div>
+            @for (time of gridTimes(); track time) {
+              <div class="timetable-grid__period-label">{{ time }}</div>
               @for (day of gridDays; track day) {
-                @let slot = slotFor(day, period);
+                @let slot = slotFor(day, time);
                 <div class="timetable-grid__cell" [class.timetable-grid__cell--filled]="slot">
                   @if (slot) {
                     <span class="timetable-grid__subject">{{ slot.subject_name }}</span>

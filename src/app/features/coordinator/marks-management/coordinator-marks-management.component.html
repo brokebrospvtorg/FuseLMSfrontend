@@ -7,29 +7,19 @@
       <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
     } @else {
       <div class="marks-mgmt__filters">
-        <p-select appendTo="body"
-          [options]="levelOptions()"
-          [ngModel]="selectedLevelId()"
-          (ngModelChange)="onLevelChanged($event)"
-          placeholder="Class / Level"
-          [showClear]="true"
-          styleClass="w-full md:w-16rem">
-        </p-select>
-        <p-select appendTo="body"
-          [options]="subjectOptions()"
-          [ngModel]="selectedSubjectId()"
-          (ngModelChange)="selectedSubjectId.set($event); onFiltersChanged()"
-          placeholder="Subject"
-          styleClass="w-full md:w-16rem">
-        </p-select>
-        <p-select appendTo="body"
-          [options]="batchOptions()"
-          [ngModel]="selectedBatchId()"
-          (ngModelChange)="selectedBatchId.set($event); onFiltersChanged()"
-          placeholder="Batch"
-          styleClass="w-full md:w-16rem">
-        </p-select>
+        <app-teacher-cascading-filter
+          [batches]="batches()"
+          [subjects]="subjects()"
+          [levels]="levels()"
+          [allowedPairs]="allowedPairs()"
+          [periodsEnabled]="false"
+          (subjectChange)="onSubjectChange($event)">
+        </app-teacher-cascading-filter>
       </div>
+
+      @if (allowedPairs().length === 0) {
+        <p class="page__empty">No subjects are actively offered for any batch yet — offer subjects from the Batches screen first.</p>
+      }
 
       @if (selectedSubjectId() && selectedBatchId()) {
         <div class="marks-mgmt__header">

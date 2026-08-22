@@ -58,7 +58,7 @@ export class ParentTimetableComponent implements OnInit {
       }
     }
     for (const day of WEEK_DAYS) {
-      grouped[day].sort((a, b) => a.period_number - b.period_number);
+      grouped[day].sort((a, b) => a.start_time.localeCompare(b.start_time));
     }
     return grouped;
   });

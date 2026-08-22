@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
@@ -7,7 +7,7 @@ import {
   Subject, Batch, Level, SubjectRequestReviewRow, ReviewSubjectRequestPayload,
   TeachingScheduleEntry, Enrollment, GeneratedBatchTemplate, CreateBatchPayload, UpdateBatchPayload,
   BatchSummary, OfferedSubject, OfferSubjectsPayload, AssignTeacherToBatchPayload,
-  SubjectCreatePayload,
+  SubjectCreatePayload, SubjectUpdatePayload, SubjectStatusUpdatePayload,
 } from '../models/academic.model';
 import {
   AssessmentFull, CreateAssessmentRequest, UpdateAssessmentRequest, RosterEntry, MarkUpsertPayload, MarkFull,
@@ -35,8 +35,16 @@ export class AcademicsStaffService {
 
   /** The teacher's own weekly schedule (GET /api/timetable/my-teaching-schedule) —
    *  every slot where they're the assigned teacher, across all subjects/batches. */
-  getMyTeachingSchedule(): Observable<TeachingScheduleEntry[]> {
+  /** dayOfWeek omitted returns the full week (unchanged default); passed,
+   *  filters server-side to just that day — the Teacher Timetable
+   *  screen's day-tab filter uses this instead of filtering the already-
+   *  fetched full week client-side, so switching days is a real request
+   *  rather than a stale local filter once the week's data goes stale. */
+  getMyTeachingSchedule(dayOfWeek?: string): Observable<TeachingScheduleEntry[]> {
+    let params = new HttpParams();
+    if (dayOfWeek) params = params.set('day_of_week', dayOfWeek);
     return this.http.get<TeachingScheduleEntry[]>(`${this.timetableUrl}/my-teaching-schedule`, {
+      params,
       withCredentials: true,
     });
   }
@@ -46,8 +54,15 @@ export class AcademicsStaffService {
     return this.http.get<Level[]>(`${this.academicUrl}/levels`, { withCredentials: true });
   }
 
-  getSubjects(levelId?: string): Observable<Subject[]> {
-    const params: Record<string, string> = levelId ? { level_id: levelId } : {};
+  /** includeInactive: pass true only from the Admin Subjects management
+   *  screen — it needs to see (and re-activate) deactivated subjects.
+   *  Every other caller should leave this false/omitted so pickers keep
+   *  showing active subjects only (see list_subjects in
+   *  routers/academic.py for why the default has to stay false). */
+  getSubjects(levelId?: string, includeInactive = false): Observable<Subject[]> {
+    const params: Record<string, string> = {};
+    if (levelId) params['level_id'] = levelId;
+    if (includeInactive) params['include_inactive'] = 'true';
     return this.http.get<Subject[]>(`${this.academicUrl}/subjects`, { params, withCredentials: true });
   }
 
@@ -60,6 +75,34 @@ export class AcademicsStaffService {
    *  the backend (400 on conflict), not here. */
   createSubject(payload: SubjectCreatePayload): Observable<Subject> {
     return this.http.post<Subject>(`${this.academicUrl}/subjects`, payload, { withCredentials: true });
+  }
+
+  /** Admin Subjects module — PUT /academic/subjects/{id}. Admin-only
+   *  server-side (see app/routers/subjects.py:update_subject); same
+   *  case-insensitive name/code duplicate check as create, 400 on
+   *  conflict. */
+  updateSubject(subjectId: string, payload: SubjectUpdatePayload): Observable<Subject> {
+    return this.http.put<Subject>(`${this.academicUrl}/subjects/${subjectId}`, payload, { withCredentials: true });
+  }
+
+  /** Admin Subjects module — PATCH /academic/subjects/{id}/status.
+   *  Activate/Deactivate, Admin-only server-side. Reversible — see
+   *  SubjectStatusUpdate's docstring in app/schemas/academic.py. */
+  setSubjectStatus(subjectId: string, payload: SubjectStatusUpdatePayload): Observable<Subject> {
+    return this.http.patch<Subject>(`${this.academicUrl}/subjects/${subjectId}/status`, payload, {
+      withCredentials: true,
+    });
+  }
+
+  /** Admin Subjects module — DELETE /academic/subjects/{id}. Admin-only
+   *  server-side, and the backend itself refuses (409) if the subject is
+   *  still referenced by any batch offering, enrollment, teacher
+   *  assignment, or subject request — see delete_subject's dependency
+   *  check in app/routers/subjects.py. The caller is expected to surface
+   *  err.error.detail from that 409 rather than re-deriving the reason
+   *  client-side. */
+  deleteSubject(subjectId: string): Observable<void> {
+    return this.http.delete<void>(`${this.academicUrl}/subjects/${subjectId}`, { withCredentials: true });
   }
 
   /** The Batch Generator's standard 5-year window (current year + 4
@@ -153,6 +196,43 @@ export class AcademicsStaffService {
   /** Server-side filters to "my own" when the caller is a Teacher. */
   getMyTeacherAssignments(): Observable<TeacherAssignment[]> {
     return this.http.get<TeacherAssignment[]>(`${this.academicUrl}/teacher-assignments`, { withCredentials: true });
+  }
+
+  /**
+   * Explicit teacher_id variant of getMyTeacherAssignments(), for a
+   * caller whose own account role isn't "teacher" but who still needs
+   * to check one specific teacher_id's assignments — currently just the
+   * Dual-Role Switcher (RoleSwitchService), asking "does this
+   * Coordinator have any teaching assignments of their own". Backend
+   * accepts teacher_id from any authenticated role (get_current_user,
+   * not require_roles) so this is a plain filtered GET, same endpoint
+   * getMyTeacherAssignments() already uses.
+   */
+  getTeacherAssignmentsFor(teacherId: string): Observable<TeacherAssignment[]> {
+    return this.http.get<TeacherAssignment[]>(`${this.academicUrl}/teacher-assignments`, {
+      withCredentials: true,
+      params: { teacher_id: teacherId },
+    });
+  }
+
+  /**
+   * Cascading-dropdown support for the Coordinator's Interactive Timetable
+   * Builder: GET /academic/teacher-assignments already accepts
+   * subject_id/batch_id filters (added for exactly this pattern — see that
+   * endpoint's own docstring) and fans out one row per active board, same
+   * treatment as every other offering-backed list here. Used to populate
+   * the Teacher Assignee stage with only teachers actually assigned to
+   * teach the cascade's selected Subject within its selected Batch,
+   * instead of every teacher in the registry.
+   */
+  getTeacherAssignments(subjectId?: string, batchId?: string): Observable<TeacherAssignment[]> {
+    const params: Record<string, string> = {};
+    if (subjectId) params['subject_id'] = subjectId;
+    if (batchId) params['batch_id'] = batchId;
+    return this.http.get<TeacherAssignment[]>(`${this.academicUrl}/teacher-assignments`, {
+      params,
+      withCredentials: true,
+    });
   }
 
   /**

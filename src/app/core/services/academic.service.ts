@@ -29,14 +29,25 @@ export class AcademicService {
   /**
    * Subjects explicitly offered (batch_subjects.is_active = true) for a
    * given batch — the ONLY source Student/Parent subject-request screens
-   * may read from. Replaces the old GET /academic/subjects/available,
-   * which was never implemented on the backend and always 404'd
-   * ("Could not load available subjects right now").
+   * (and the Admin Registry's Student Edit Details subject picker) may
+   * read from. Replaces the old GET /academic/subjects/available, which
+   * was never implemented on the backend and always 404'd ("Could not
+   * load available subjects right now").
+   *
+   * `board` is optional and narrows to offerings under one examining
+   * Board (schema_update_15 — the same batch/subject can be offered more
+   * than once, once per board). Omitting it returns offerings across
+   * every board, same as calling GET .../offered-subjects with no query
+   * param at all — callers that know which board they care about (e.g. a
+   * Student's own registered board) should always pass it rather than
+   * filtering the unfiltered list client-side, per that endpoint's own
+   * docstring.
    */
-  getOfferedSubjects(batchId: string): Observable<BatchSubject[]> {
-    return this.http.get<BatchSubject[]>(`${this.baseUrl}/batches/${batchId}/offered-subjects`, {
-      withCredentials: true,
-    });
+  getOfferedSubjects(batchId: string, board?: string): Observable<BatchSubject[]> {
+    const url = board
+      ? `${this.baseUrl}/batches/${batchId}/offered-subjects?board=${encodeURIComponent(board)}`
+      : `${this.baseUrl}/batches/${batchId}/offered-subjects`;
+    return this.http.get<BatchSubject[]>(url, { withCredentials: true });
   }
 
   /**

@@ -7,82 +7,98 @@
     <p-button label="Add Slot" icon="pi pi-plus" (onClick)="openCreateDialog()" />
   </div>
 
-  <p-card>
-    <div class="timetable-builder__filter">
-      <label>Batch</label>
-      <p-select appendTo="body"
-        [options]="batchOptions()"
-        [ngModel]="batchFilter()"
-        (ngModelChange)="batchFilter.set($event)"
-        styleClass="w-full md:w-16rem" />
-    </div>
-  </p-card>
-
-  @if (loading()) {
+  @if (pickerLoading()) {
     <div class="flex justify-center py-10">
       <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
     </div>
-  } @else if (filteredSlots().length === 0) {
-    <p class="text-slate-500 py-4">No slots yet — click "Add Slot" to build the schedule.</p>
+  } @else if (pickerError()) {
+    <p class="text-red-600 py-2">{{ pickerError() }}</p>
   } @else {
     <p-card>
-      <p-table [value]="filteredSlots()" [rows]="10" [paginator]="filteredSlots().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Day</th>
-            <th>Period</th>
-            <th>Time</th>
-            <th>Subject</th>
-            <th>Teacher</th>
-            <th>Batch</th>
-            <th></th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-row>
-          <tr>
-            <td class="capitalize">{{ row.day_of_week }}</td>
-            <td>{{ row.period_number }}</td>
-            <td>{{ row.start_time }}–{{ row.end_time }}</td>
-            <td>{{ row.subject_name }}</td>
-            <td>{{ row.teacher_name }}</td>
-            <td>{{ row.batch_name }}</td>
-            <td class="timetable-builder__row-actions">
-              <p-button label="Edit" size="small" severity="secondary" (onClick)="openEditDialog(row)" />
-              <p-button label="Delete" size="small" severity="danger" (onClick)="deleteSlot(row)" />
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
+      <div class="timetable-builder__filter-header">
+        <span class="timetable-builder__filter-title">Filter by</span>
+        <p-button label="Clear filters" size="small" severity="secondary" [text]="true" (onClick)="clearSearchFilters()" />
+      </div>
+      <!-- Search filters — strict cascade: Batch -> Board -> Level/Class ->
+           Subject -> Teacher Assignee. Narrows the table below
+           progressively; clearing any stage falls back toward "show
+           everything". -->
+      <app-teacher-cascading-filter #searchCascade
+        [batches]="batches()"
+        [subjects]="subjects()"
+        [levels]="levels()"
+        [allowedPairs]="allowedPairs()"
+        levelLabel="Level / Class"
+        periodLabel="Teacher Assignee"
+        periodPlaceholder="Select a teacher"
+        [loadPeriods]="loadTeacherAssigneesFor"
+        (subjectChange)="onSearchSubjectChange($event)"
+        (selectionChange)="onSearchSelectionChange($event)">
+      </app-teacher-cascading-filter>
     </p-card>
+
+    @if (loading()) {
+      <div class="flex justify-center py-10">
+        <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+      </div>
+    } @else if (filteredSlots().length === 0) {
+      <p class="text-slate-500 py-4">No slots match this filter — click "Add Slot" to build the schedule.</p>
+    } @else {
+      <p-card>
+        <!-- Strictly chronological by start_time — period_number no longer exists. -->
+        <p-table [value]="filteredSlots()" [rows]="10" [paginator]="filteredSlots().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Day</th>
+              <th>Time</th>
+              <th>Subject</th>
+              <th>Teacher</th>
+              <th>Batch</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr>
+              <td class="capitalize">{{ row.day_of_week }}</td>
+              <td>{{ row.start_time }}–{{ row.end_time }}</td>
+              <td>{{ row.subject_name }}</td>
+              <td>{{ row.teacher_name }}</td>
+              <td>{{ row.batch_name }}</td>
+              <td class="timetable-builder__row-actions">
+                <p-button label="Edit" size="small" severity="secondary" (onClick)="openEditDialog(row)" />
+                <p-button label="Delete" size="small" severity="danger" (onClick)="deleteSlot(row)" />
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-card>
+    }
   }
 </div>
 
-<p-dialog [header]="dialogMode() === 'create' ? 'Add Slot' : 'Edit Slot'" [visible]="dialogOpen()" (visibleChange)="dialogOpen.set($event)" [modal]="true" [style]="{ width: '30rem' }">
-  @if (dialogMode() === 'create') {
-    <div class="timetable-builder__form-field">
-      <label>Level</label>
-      <p-select appendTo="body" [options]="levels()" optionLabel="name" optionValue="id" [ngModel]="formLevelId()" (ngModelChange)="formLevelId.set($event)" styleClass="w-full" />
-    </div>
+<p-dialog [header]="dialogMode() === 'create' ? 'Add Slot' : 'Edit Slot'" [visible]="dialogOpen()" (visibleChange)="dialogOpen.set($event)" [modal]="true" [style]="{ width: '38rem' }">
+  @if (formNote()) {
+    <p class="timetable-builder__form-note">{{ formNote() }}</p>
   }
-  <div class="timetable-builder__form-field">
-    <label>Subject</label>
-    <p-select appendTo="body" [options]="subjects()" optionLabel="name" optionValue="id" [ngModel]="formSubjectId()" (ngModelChange)="formSubjectId.set($event)" styleClass="w-full" />
-  </div>
-  <div class="timetable-builder__form-field">
-    <label>Teacher</label>
-    <p-select appendTo="body" [options]="teachers()" optionLabel="full_name" optionValue="id" [ngModel]="formTeacherId()" (ngModelChange)="formTeacherId.set($event)" styleClass="w-full" />
-  </div>
-  <div class="timetable-builder__form-field">
-    <label>Batch</label>
-    <p-select appendTo="body" [options]="batches()" optionLabel="name" optionValue="id" [ngModel]="formBatchId()" (ngModelChange)="formBatchId.set($event)" styleClass="w-full" />
-  </div>
+
+  <!-- Strict cascade for slot creation/edit: Batch -> Board -> Level/Class
+       -> Subject -> Teacher Assignee. Day/Start/End remain plain fields
+       below it since they aren't part of the offering hierarchy. -->
+  <app-teacher-cascading-filter #formCascade
+    [batches]="batches()"
+    [subjects]="subjects()"
+    [levels]="levels()"
+    [allowedPairs]="allowedPairs()"
+    levelLabel="Level / Class"
+    periodLabel="Teacher Assignee"
+    periodPlaceholder="Select a teacher"
+    [loadPeriods]="loadTeacherAssigneesFor"
+    (selectionChange)="onFormSelectionChange($event)">
+  </app-teacher-cascading-filter>
+
   <div class="timetable-builder__form-field">
     <label>Day</label>
     <p-select appendTo="body" [options]="dayOptions" [ngModel]="formDay()" (ngModelChange)="formDay.set($event)" styleClass="w-full" />
-  </div>
-  <div class="timetable-builder__form-field">
-    <label>Period Number</label>
-    <p-inputNumber [ngModel]="formPeriod()" (ngModelChange)="formPeriod.set($event)" [min]="1" [max]="12" styleClass="w-full" />
   </div>
   <div class="timetable-builder__form-field">
     <label>Start Time</label>

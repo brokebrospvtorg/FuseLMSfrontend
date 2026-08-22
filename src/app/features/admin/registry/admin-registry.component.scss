@@ -60,6 +60,18 @@
   margin-top: 0.5rem;
 }
 
+// Admin Teacher Creation: a shorter, no-top-margin variant for a hint that
+// sits directly under a field (Teacher Code's "auto-generated" note, the
+// cascade's "no subjects offered" note) rather than under the whole dialog.
+.registry__hint--inline {
+  margin-top: 0.25rem;
+}
+
+.registry__inline-spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 .registry__edit-context {
   margin-bottom: 1rem;
   color: var(--text-color-secondary, #64748b);
@@ -114,4 +126,32 @@
   margin-top: 0.3rem;
   font-size: 0.78rem;
   color: #c00000;
+}
+
+// Read-Only Reg ID & Roll Number: visually distinguishes a [readonly]
+// input (still displays/binds its value, just can't be typed into) from a
+// normal editable one, so it doesn't look like a field the Admin simply
+// forgot to fill in.
+.registry__field-locked {
+  background: #f4f5f8;
+  color: #5b6376;
+  cursor: not-allowed;
+}
+
+// Parent Management (Student Edit Details): each linked-parent row now
+// carries its own De-link / Edit Parent Details actions, so the row needs
+// to lay the name out against the action buttons instead of plain
+// stacked list text.
+.registry__parent-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.registry__parent-link-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }

@@ -15,6 +15,7 @@ import { TagModule } from 'primeng/tag';
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { UserService } from '../../../core/services/user.service';
 import { Batch, Level, Subject, OfferedSubject } from '../../../core/models/academic.model';
+import { TeacherAssignment } from '../../../core/models/academics-staff.model';
 import { User } from '../../../core/models/user.model';
 import { UserRole, Board } from '../../../core/models/enums';
 import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
@@ -49,6 +50,17 @@ import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
  * AdminRegistryComponent) rather than ReactiveFormsModule/FormGroup,
  * which isn't used anywhere else in the app — introducing a second forms
  * paradigm for one dialog isn't worth the inconsistency.
+ *
+ * Multiple teachers per subject: the backend has always allowed a
+ * subject+batch to have more than one teacher assigned (the unique
+ * constraint on teacher_subject_assignments is teacher+subject+batch, not
+ * just subject+batch) — this dialog previously just never showed who was
+ * already assigned, which made it look like only one teacher was
+ * possible. Picking a subject in "Assign Teacher" now also loads and
+ * displays its current teacher(s) (assignedTeachers/assignedTeacherNames
+ * below), refreshed after each successful assignment, so adding a second
+ * or third teacher to the same subject is visible as it happens rather
+ * than only discoverable via the Information Registry afterward.
  */
 @Component({
   selector: 'app-manage-batch-dialog',
@@ -106,6 +118,32 @@ export class ManageBatchDialogComponent implements OnChanges {
   savingOffered = signal(false);
   assigningTeacher = signal(false);
 
+  // --- Currently Assigned Teachers (for the subject picked below) ---
+  // Multiple different teachers CAN already be assigned to the same
+  // subject+batch — the backend has never blocked that (unique constraint
+  // is teacher+subject+batch, not just subject+batch). The dialog simply
+  // never showed who was already assigned, which made "assign a second
+  // teacher" look unsupported even though POST .../assign-teacher already
+  // allowed it. This surfaces that existing state instead of adding new
+  // backend capability.
+  assignedTeachers = signal<TeacherAssignment[]>([]);
+  loadingAssignedTeachers = signal(false);
+
+  assignedTeacherNames = computed(() => {
+    const teachersById = new Map(this.teachers().map((t) => [t.id, t.full_name]));
+    // A teacher can appear more than once in assignedTeachers() (once per
+    // active board — see TeacherAssignment.board's own docstring); collapse
+    // to one name per distinct teacher_id for display here.
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const a of this.assignedTeachers()) {
+      if (seen.has(a.teacher_id)) continue;
+      seen.add(a.teacher_id);
+      names.push(teachersById.get(a.teacher_id) ?? 'Unknown teacher');
+    }
+    return names;
+  });
+
   /** Subjects offered on this batch for the currently selected Level AND
    *  Board — the source list for "Assign Teacher" (schema_update_15: the
    *  same subject can be offered twice, once per board, so filtering by
@@ -143,6 +181,7 @@ export class ManageBatchDialogComponent implements OnChanges {
     this.selectedAssignSubjectId.set(null);
     this.selectedTeacherId.set(null);
     this.catalogSubjects.set([]);
+    this.assignedTeachers.set([]);
   }
 
   private loadStaticLists(): void {
@@ -177,6 +216,7 @@ export class ManageBatchDialogComponent implements OnChanges {
         // drop it from the Assign dropdown's selection if so.
         if (!this.offeredSubjectsForLevel().some((s) => s.subject_id === this.selectedAssignSubjectId())) {
           this.selectedAssignSubjectId.set(null);
+          this.assignedTeachers.set([]);
         }
       },
       error: () => this.loadingOffered.set(false),
@@ -187,6 +227,7 @@ export class ManageBatchDialogComponent implements OnChanges {
     this.selectedLevelId.set(levelId);
     this.selectedAssignSubjectId.set(null);
     this.selectedSubjectIdsToOffer.set([]);
+    this.assignedTeachers.set([]);
 
     if (!levelId) {
       this.catalogSubjects.set([]);
@@ -212,6 +253,7 @@ export class ManageBatchDialogComponent implements OnChanges {
   onBoardChange(board: Board | null): void {
     this.selectedBoard.set(board);
     this.selectedAssignSubjectId.set(null);
+    this.assignedTeachers.set([]);
     this.syncOfferSelectionForLevel();
   }
 
@@ -278,6 +320,35 @@ export class ManageBatchDialogComponent implements OnChanges {
     });
   }
 
+  /** Subject dropdown handler in the "Assign Teacher" section — unlike the
+   *  other selects here, this one also needs to load who's already
+   *  assigned to the picked subject, so loadAssignedTeachers() is called
+   *  as a side effect rather than leaving this a plain signal.set() in
+   *  the template like the others. */
+  onAssignSubjectChange(subjectId: string | null): void {
+    this.selectedAssignSubjectId.set(subjectId);
+    this.loadAssignedTeachers();
+  }
+
+  private loadAssignedTeachers(): void {
+    const subjectId = this.selectedAssignSubjectId();
+    if (!this.batch || !subjectId) {
+      this.assignedTeachers.set([]);
+      return;
+    }
+    this.loadingAssignedTeachers.set(true);
+    this.academicsStaffService.getTeacherAssignments(subjectId, this.batch.id).subscribe({
+      next: (assignments) => {
+        this.assignedTeachers.set(assignments);
+        this.loadingAssignedTeachers.set(false);
+      },
+      error: () => {
+        this.assignedTeachers.set([]);
+        this.loadingAssignedTeachers.set(false);
+      },
+    });
+  }
+
   assignTeacher(): void {
     const subjectId = this.selectedAssignSubjectId();
     const teacherId = this.selectedTeacherId();
@@ -289,6 +360,11 @@ export class ManageBatchDialogComponent implements OnChanges {
         this.assigningTeacher.set(false);
         this.selectedTeacherId.set(null);
         Swal.fire({ icon: 'success', title: 'Teacher assigned', confirmButtonColor: '#101d3c' });
+        // Refreshes the "Currently Assigned Teachers" list right below the
+        // form so a second (third, etc.) teacher just added to the same
+        // subject shows up immediately — confirming multi-teacher
+        // assignment worked, without closing/reopening the dialog.
+        this.loadAssignedTeachers();
         this.saved.emit();
       },
       error: (err) => {

@@ -36,7 +36,10 @@ export interface CreateUserRequest {
   email: string;
   role: AssignableRole;
   phone_number?: string | null;
-  roll_number?: string | null;
+  // Admin Student Creation: no roll_number field here at all (compare
+  // UpdateUserRequest below, which still has one) — Roll Number is always
+  // server-generated (INK-{year}-XXXX) on create, never client-supplied,
+  // same convention as teacher_code.
   admission_date?: string | null;
   father_name?: string | null;
   date_of_birth?: string | null;
@@ -44,25 +47,46 @@ export interface CreateUserRequest {
   religion?: string | null;
   nationality?: string | null;
   cnic?: string | null;
+  // Student-only: the student's own exam-board registration id (unrelated
+  // to the Parent Reg ID auto-assigned when role === 'parent' — that one
+  // has no field here at all, same reasoning as roll_number above).
   registration_id?: string | null;
   // Student-only, REQUIRED when role === 'student': the exam board this
   // student is registered under.
   board?: Board | null;
   designation?: string | null;
   hire_date?: string | null;
-  teacher_code?: string | null;
+  // Admin Teacher Creation: no teacher_code field here at all (compare
+  // UpdateUserRequest below, which still has one) — Teacher Code is
+  // always server-generated (INK-T-XXXX) on create, never client-supplied.
   // Teacher-only, REQUIRED (at least one) when role === 'teacher': the
   // board(s) this teacher is qualified to teach.
   boards?: Board[] | null;
+  // Parent Link Flow (Student creation only): explicit choice between
+  // linking an existing Parent now ('existing', parent_id required) or
+  // deferring it ('later' — Link Parent from the Registry row action
+  // covers it afterwards). Omitting this is equivalent to 'later'.
+  parent_link_mode?: 'existing' | 'later' | null;
   parent_id?: string | null;
   relationship_label?: string | null;
+  // Cascading Scope (Student creation only): optional initial Batch ->
+  // Level -> Subject enrollment, same three-stage shape as the existing
+  // Add Teacher initial-assignment cascade. Leaving batch_id unset creates
+  // the Student with no initial enrollment; Admin User Management (Edit
+  // Details) remains available afterwards either way. subject_ids requires
+  // both batch_id and level_id to be set alongside it.
+  batch_id?: string | null;
+  level_id?: string | null;
+  subject_ids?: string[] | null;
   // Password Management: Admin/Coordinator may set the account's initial
   // password directly instead of the default email-activation-token flow.
   // Omit/blank to keep today's behaviour exactly as-is (status='pending',
   // activation email). When provided (min 8 chars, enforced both here and
   // by UserCreate server-side), the account is created 'active' with this
   // password and must_change_password=True, so the person is prompted to
-  // pick their own on first login.
+  // pick their own on first login. Ignored entirely for role === 'teacher'
+  // (DEFAULT_TEACHER_INITIAL_PASSWORD) and role === 'student'
+  // (DEFAULT_STUDENT_INITIAL_PASSWORD) — those always win server-side.
   initial_password?: string | null;
 }
 
@@ -100,6 +124,14 @@ export interface UpdateUserRequest {
    *  an empty array is a valid, explicit "unassign every subject", distinct
    *  from omitting the field (which leaves subjects untouched). */
   level_id?: string | null;
+  /** Batch -> Level -> Subject cascade: which Batch subject_ids/level_id
+   *  are being resolved against — now explicit and caller-supplied rather
+   *  than the backend silently resolving "whichever Batch is flagged
+   *  is_current" on its own. Student-only, same role-agnostic-at-the-
+   *  schema-level convention as level_id/subject_ids above. Omit to leave
+   *  the student's existing batch-scoped enrollments untouched (e.g. a
+   *  PATCH that only changes phone_number). */
+  batch_id?: string | null;
   subject_ids?: string[];
 }
 

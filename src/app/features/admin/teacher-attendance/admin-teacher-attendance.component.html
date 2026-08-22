@@ -1,0 +1,136 @@
+<div class="p-6 flex flex-col gap-5">
+  <div>
+    <h1 class="text-xl font-bold text-navy">Teacher Attendance (View &amp; Edit)</h1>
+    <p class="text-sm text-slate-500">
+      Mark, edit, or override any teacher's attendance for any date. Changing an already-recorded
+      status requires a reason, which is logged to the audit trail and sent to the teacher.
+    </p>
+  </div>
+
+  @if (pickerLoading()) {
+    <div class="flex justify-center py-10">
+      <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    </div>
+  } @else if (pickerError()) {
+    <p-message severity="error" [text]="pickerError()!" />
+  } @else {
+    <p-card>
+      <!-- Cascading Selection: Batch -> Board -> Level -> Subject, via the
+           shared cascade widget — the chain stops at Subject; Date (below)
+           determines which day's periods get fetched for that selection. -->
+      <app-teacher-cascading-filter
+        [batches]="batches()"
+        [subjects]="subjects()"
+        [levels]="levels()"
+        [allowedPairs]="allowedPairs()"
+        [periodsEnabled]="false"
+        (subjectChange)="onSubjectContextChange($event)">
+      </app-teacher-cascading-filter>
+
+      <div class="attendance-editor__filters attendance-editor__filters--date">
+        <div class="attendance-editor__field">
+          <label>Date</label>
+          <p-datepicker
+            [ngModel]="selectedDate()"
+            (ngModelChange)="selectedDate.set($event); onDateChange()"
+            dateFormat="dd M yy"
+            [maxDate]="today"
+            styleClass="w-full" />
+        </div>
+      </div>
+    </p-card>
+
+    @if (!subjectContext()) {
+      <p class="text-slate-400 italic py-4">Pick a batch, board, level, and subject to load its periods.</p>
+    } @else if (loading()) {
+      <div class="flex justify-center py-10">
+        <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+      </div>
+    } @else if (error()) {
+      <p-message severity="error" [text]="error()!" />
+    } @else if (rows().length === 0) {
+      <p class="text-slate-500 py-4">No periods scheduled for this selection on this date.</p>
+    } @else {
+      <p-card>
+        <p-table [value]="rows()">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Period</th>
+              <th>Teacher</th>
+              <th>Current Status</th>
+              <th>Set Status</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr>
+              <td>{{ row.start_time }}&ndash;{{ row.end_time }}</td>
+              <td>{{ row.teacher_name }}</td>
+              <td>
+                @if (row.status) {
+                  <p-tag [severity]="statusSeverity(row.status)" [value]="row.status" />
+                } @else {
+                  <p-tag severity="secondary" value="Not marked" />
+                }
+              </td>
+              <td>
+                <p-selectButton
+                  [options]="statusOptions"
+                  [ngModel]="row.draftStatus === 'unset' ? null : row.draftStatus"
+                  (ngModelChange)="setDraftStatus(row, $event)"
+                  optionLabel="label"
+                  optionValue="value" />
+              </td>
+              <td>
+                <p-button
+                  label="Save"
+                  size="small"
+                  [disabled]="!isDirty(row)"
+                  [loading]="savingSlotId() === row.timetable_slot_id"
+                  (onClick)="saveRow(row)" />
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-card>
+    }
+  }
+</div>
+
+<p-dialog
+  header="Confirm Attendance Change"
+  [visible]="reasonDialogOpen()"
+  (visibleChange)="reasonDialogOpen.set($event)"
+  [modal]="true"
+  [style]="{ width: '28rem' }">
+  @if (reasonDialogRow(); as row) {
+    <p class="attendance-editor__dialog-context">
+      <strong>{{ row.teacher_name }}</strong>:
+      <span>{{ row.status ?? 'unset' }}</span> <i class="pi pi-arrow-right"></i>
+      <strong>{{ row.draftStatus }}</strong>
+    </p>
+  }
+
+  <div class="attendance-editor__form-field">
+    <label for="attendance-override-reason">
+      Reason (required — logged to the audit log; the teacher is notified)
+    </label>
+    <textarea
+      id="attendance-override-reason"
+      pTextarea
+      rows="3"
+      [ngModel]="reasonText()"
+      (ngModelChange)="reasonText.set($event)"
+      class="w-full">
+    </textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" (onClick)="cancelReasonDialog()" />
+    <p-button
+      label="Confirm Change"
+      [loading]="savingSlotId() === reasonDialogRow()?.timetable_slot_id"
+      [disabled]="!reasonText().trim()"
+      (onClick)="confirmReasonDialog()" />
+  </ng-template>
+</p-dialog>

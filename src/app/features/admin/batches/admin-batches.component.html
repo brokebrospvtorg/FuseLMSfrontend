@@ -109,10 +109,9 @@
               [attr.aria-label]="'View summary for ' + row.name">
             <td>{{ row.name }}</td>
             <td>
-              <!-- Visual proof of WHY this row sorted where it did — the
-                   backend's tier 1 ("active students") is exactly
-                   active_students_count > 0, so this badge is the same
-                   number driving the row's position, not a separate stat. -->
+              <!-- Enrollment count is informational only — it no longer
+                   drives row order (rows sort by Active-first, then
+                   chronologically; see filteredBatches() above). -->
               <p-tag
                 [severity]="row.active_students_count > 0 ? 'success' : 'secondary'"
                 [value]="row.active_students_count + (row.active_students_count === 1 ? ' Student' : ' Students')" />

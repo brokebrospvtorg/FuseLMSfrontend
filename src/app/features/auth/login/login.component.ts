@@ -5,17 +5,7 @@ import { Router } from '@angular/router';
 import Swal from 'sweetalert2';
 
 import { AuthService } from '../../../core/services/auth.service';
-
-// Only the student portal exists so far — everything else routes here
-// once login succeeds, so Admin/Coordinator/Teacher/Parent accounts still
-// get a clean confirmation instead of a dead 404.
-const ROLE_HOME: Partial<Record<string, string>> = {
-  student: '/student/dashboard',
-  teacher: '/teacher/marks',
-  coordinator: '/coordinator/grades',
-  admin: '/admin/registry',
-  parent: '/parent/dashboard',
-};
+import { getRoleHome } from '../../../shared/utils/role-home';
 
 @Component({
   selector: 'app-login',
@@ -55,9 +45,19 @@ export class LoginComponent {
       .subscribe({
         next: (user) => {
           this.loading.set(false);
-          const home = ROLE_HOME[user.role];
 
-          if (home) {
+          // FORCE PASSWORD CHANGE ON FIRST LOGIN: a temporary/admin-reset
+          // password sends the user straight to the forced-change screen,
+          // before they ever see a dashboard — this is the front door of
+          // that flow; mustChangePasswordGuard covers every other one
+          // (deep links, back button, a stale tab reused after a reset).
+          if (user.must_change_password) {
+            this.router.navigate(['/change-password']);
+            return;
+          }
+
+          const home = getRoleHome(user.role);
+          if (home !== '/login') {
             this.router.navigate([home]);
             return;
           }
@@ -91,11 +91,70 @@ export class LoginComponent {
 
     const detail: string = err?.error?.detail ?? 'Something went wrong. Please try again.';
 
+    // A failed login (bad credentials) is the moment this is most useful —
+    // offer the admin-approval reset path right alongside the error
+    // instead of making them separately notice the footer link.
+    if (err.status === 401) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Login failed',
+        text: detail,
+        confirmButtonText: 'Try Again',
+        confirmButtonColor: '#101d3c',
+        showDenyButton: true,
+        denyButtonText: 'Request Password Reset from Admin',
+        denyButtonColor: '#475569',
+      }).then((result) => {
+        if (result.isDenied) this.requestPasswordResetFromAdmin();
+      });
+      return;
+    }
+
     Swal.fire({
       icon: err.status === 402 ? 'warning' : 'error',
       title: err.status === 402 ? 'Access restricted' : 'Login failed',
       text: detail,
       confirmButtonColor: '#101d3c',
+    });
+  }
+
+  /** 'Request Password Reset from Admin' — offered both from the footer
+   *  link and from a failed-login prompt. No session/token needed; just
+   *  files a password_reset_requests row an Admin reviews from Operations
+   *  > Password Requests. Uses a Swal input prompt rather than a full
+   *  dialog component since it's a single free-text field. */
+  requestPasswordResetFromAdmin(): void {
+    Swal.fire({
+      title: 'Request Password Reset from Admin',
+      html: "Enter your email, roll number, or employee code. An Admin will reset your password — you'll log in with the temporary password they provide and be asked to set a new one.",
+      input: 'text',
+      inputPlaceholder: 'Email, roll number, or employee code',
+      showCancelButton: true,
+      confirmButtonText: 'Send Request',
+      confirmButtonColor: '#101d3c',
+      inputValidator: (value) =>
+        !value?.trim() ? 'Please enter your email, roll number, or employee code.' : undefined,
+    }).then((result) => {
+      if (!result.isConfirmed || !result.value) return;
+
+      this.auth.requestPasswordResetApproval({ identifier: result.value.trim() }).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Request Sent',
+            text: 'Reset request sent to Admin successfully.',
+            confirmButtonColor: '#101d3c',
+          });
+        },
+        error: () => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Could not send request',
+            text: 'Something went wrong sending your request. Please try again shortly.',
+            confirmButtonColor: '#101d3c',
+          });
+        },
+      });
     });
   }
 }

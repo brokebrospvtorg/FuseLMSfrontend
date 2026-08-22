@@ -60,6 +60,28 @@ export class FeesService {
     );
   }
 
+  /** Admin/Coordinator: prices a bill from the student's active
+   *  enrollments' fee_structures (per-student override, else subject
+   *  default) and creates a fee_voucher for the current batch. 409 if one
+   *  already exists for this student+batch; 422 if a subject is missing a
+   *  fee structure. */
+  generateFeeBill(studentId: string): Observable<FeeVoucher> {
+    return this.http.post<FeeVoucher>(
+      `${this.baseUrl}/students/${studentId}/generate-bill`,
+      {},
+      { withCredentials: true },
+    );
+  }
+
+  /** Streams the on-the-fly rendered bill PDF as a blob, same
+   *  RBAC-protected pattern as getProofFile above. */
+  getFeeBillPdf(voucherId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/vouchers/${voucherId}/bill-pdf`, {
+      withCredentials: true,
+      responseType: 'blob',
+    });
+  }
+
   // --- Fee Structures (Admin Sub-Sprint 4: preset fee layouts) ---
 
   getFeeStructures(subjectId?: string): Observable<FeeStructure[]> {

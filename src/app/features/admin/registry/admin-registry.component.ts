@@ -2,6 +2,7 @@ import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 
 import { CardModule } from 'primeng/card';
@@ -20,12 +21,13 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { RegistryService } from '../../../core/services/registry.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AcademicService } from '../../../core/services/academic.service';
+import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import {
   RegistryUser, RegistryUserDetail, AssignableRole,
   TeacherAssignmentRegistryEntry, ParentChildRegistryEntry, ParentStudentLink,
   StudentEnrollmentRegistryEntry,
 } from '../../../core/models/registry.model';
-import { Level, Subject } from '../../../core/models/academic.model';
+import { Batch, Level, Subject, BatchSubject } from '../../../core/models/academic.model';
 import { Board } from '../../../core/models/enums';
 import { BOARD_OPTIONS } from '../batches/admin-batches.component';
 
@@ -68,6 +70,11 @@ const COORDINATOR_ASSIGNABLE_ROLE_OPTIONS = ASSIGNABLE_ROLE_OPTIONS.filter((o) =
   styleUrl: './admin-registry.component.scss',
 })
 export class AdminRegistryComponent implements OnInit {
+  // Admin Student Creation: purely a display value for the Add User
+  // dialog's "Auto-generated (format INK-{year}-XXXX)" hint — matches the
+  // server's own current-year-at-creation-time convention (_next_roll_number).
+  currentYear = new Date().getFullYear();
+
   roleFilterOptions = ROLE_FILTER_OPTIONS;
   // Computed (not a static field) so it can depend on isAdmin() below —
   // ordering in the class body doesn't matter since computed() callbacks
@@ -99,7 +106,11 @@ export class AdminRegistryComponent implements OnInit {
   newRole = signal<AssignableRole | null>(null);
   newPhoneNumber = signal('');
   // Role-conditional extras
-  newRollNumber = signal('');
+  // Admin Student Creation, point 1: Roll Number is no longer entered here
+  // at all — it's server-generated (INK-{year}-XXXX) the moment the
+  // account is created. No signal for it any more; the Add User dialog
+  // just shows an informational note (see template), same treatment as
+  // Teacher Code.
   newAdmissionDate = signal<Date | null>(null);
   newFatherName = signal('');
   newDateOfBirth = signal<Date | null>(null);
@@ -110,7 +121,10 @@ export class AdminRegistryComponent implements OnInit {
   newRegistrationId = signal('');
   newDesignation = signal('');
   newHireDate = signal<Date | null>(null);
-  newTeacherCode = signal('');
+  // Admin Teacher Creation, point 1: Teacher Code is no longer entered
+  // here at all — it's server-generated (INK-T-XXXX) the moment the
+  // account is created. No signal for it anymore; the Add User dialog
+  // just shows an informational note (see template) instead of an input.
   // schema_update_11: required Board fields — single-select for a Student
   // (the board they're registered under), multi-select for a Teacher (the
   // board(s) they're qualified to teach, at least one).
@@ -121,9 +135,67 @@ export class AdminRegistryComponent implements OnInit {
   // initial password directly instead of the default email-activation-token
   // path. Off by default so unmodified behaviour (pending + activation
   // email) stays the default for every existing Add User submission.
+  // Admin Teacher Creation, point 3: irrelevant for role === 'teacher' —
+  // that role always gets the fixed default password server-side
+  // (DEFAULT_TEACHER_INITIAL_PASSWORD) no matter what's in these signals,
+  // so the template hides this whole toggle+fields block for Teacher and
+  // shows a fixed-credentials hint instead.
   newSetInitialPassword = signal(false);
   newInitialPassword = signal('');
   newInitialPasswordConfirm = signal('');
+
+  // --- Add Teacher: initial Batch/Level/Subject assignment (optional) ---
+  // Cascading dropdowns per Admin Teacher Creation point 2. Batch is a
+  // free pick here (unlike the Edit Details student subject-picker further
+  // down, which is pinned to currentBatchId) since a new Teacher isn't
+  // tied to "the" current batch the way a Student's active enrollment is.
+  // Level is the global 4-level catalog (academicLevels, loaded once in
+  // ngOnInit); Subject options are whatever's actually offered+active for
+  // the chosen Batch, filtered down to the chosen Level — same
+  // "offered-subjects, never the raw catalog" rule as everywhere else in
+  // this component (see levelSubjects' own docstring above). Entirely
+  // optional: leaving Batch unset just creates the Teacher account with no
+  // initial subject assignment, exactly like today, and Assign Teacher
+  // remains available afterwards from the Admin Batches screen either way.
+  allBatches = signal<Batch[]>([]);
+  newTeacherBatchOptions = computed(() =>
+    this.allBatches().map((b) => ({ label: b.name, value: b.id })),
+  );
+  newTeacherBatchId = signal<string | null>(null);
+  newTeacherLevelId = signal<string | null>(null);
+  newTeacherOfferedSubjects = signal<BatchSubject[]>([]);
+  newTeacherOfferedSubjectsLoading = signal(false);
+  newTeacherSubjectIds = signal<string[]>([]);
+  newTeacherSubjectOptions = computed(() =>
+    this.newTeacherOfferedSubjects()
+      .filter((s) => s.level_id === this.newTeacherLevelId())
+      .map((s) => ({ label: s.subject_name, value: s.subject_id })),
+  );
+
+  // --- Add Student: Cascading Scope (Batch -> Level -> Subject), optional
+  // initial enrollment. Same three-stage shape as the Add Teacher cascade
+  // just above — reuses allBatches/newTeacherBatchOptions' sibling pattern
+  // with its own dedicated Batch dropdown so a Student's initial batch
+  // pick is independent of whatever's selected in the Teacher form. ---
+  newStudentBatchId = signal<string | null>(null);
+  newStudentLevelId = signal<string | null>(null);
+  newStudentOfferedSubjects = signal<BatchSubject[]>([]);
+  newStudentOfferedSubjectsLoading = signal(false);
+  newStudentSubjectIds = signal<string[]>([]);
+  newStudentSubjectOptions = computed(() =>
+    this.newStudentOfferedSubjects()
+      .filter((s) => s.level_id === this.newStudentLevelId())
+      .map((s) => ({ label: s.subject_name, value: s.subject_id })),
+  );
+
+  // --- Add Student: Parent Link Flow — "Link Existing Parent" or "Link
+  // Later". Defaults to 'later' so an Admin who doesn't touch this control
+  // gets today's behaviour (no link created at account-creation time). ---
+  newParentLinkMode = signal<'existing' | 'later'>('later');
+  parentLinkModeOptions: { label: string; value: 'existing' | 'later' }[] = [
+    { label: 'Link Existing Parent', value: 'existing' },
+    { label: 'Link Later', value: 'later' },
+  ];
 
   // --- Edit Role dialog ---
   editRoleDialogOpen = signal(false);
@@ -163,12 +235,44 @@ export class AdminRegistryComponent implements OnInit {
   levelOptions = computed(() =>
     this.academicLevels().map((l) => ({ label: l.name, value: l.id })),
   );
-  // Subjects scoped to whichever level is currently picked in the dialog —
-  // the default-mode pool (requirement: "By default, the Subject
-  // Multi-Select highlights/filters subjects matching the chosen Primary
-  // Level").
-  levelSubjects = signal<Subject[]>([]);
+  // Subjects scoped to whichever level AND board is currently picked in
+  // the dialog — the default-mode pool (requirement: "By default, the
+  // Subject Multi-Select highlights/filters subjects matching the chosen
+  // Primary Level"). Sourced from GET .../offered-subjects (BatchSubject),
+  // never the raw catalog — see that interface's own docstring: a Subject
+  // catalog row isn't scoped to a board by itself (Subject.board can be
+  // null/"All"), only an actual offered-subjects row says whether it's
+  // really running under the board this student is registered under. The
+  // catalog-only version of this (GET /academic/subjects?level_id=) was
+  // Board Offering Scope Bug's root cause — it let Physics show up for a
+  // student under LRN even though only the British Council offering of
+  // Physics had ever been turned on for the current batch.
+  levelSubjects = signal<BatchSubject[]>([]);
   levelSubjectsLoading = signal(false);
+  // The single "current" Batch — the global default (Registry-wide
+  // "active" batch), used only as the Edit Details cascade's starting
+  // point below when a Student has no enrollment yet to infer a Batch
+  // from. Loaded once, like academicLevels.
+  currentBatchId = signal<string | null>(null);
+
+  // --- Edit Details: Batch -> Level -> Subject cascade (Student only) ---
+  // Batch is now an explicit, editable first stage of the cascade — same
+  // Batch dropdown shape as the Add Teacher / Add Student cascades
+  // (newTeacherBatchOptions / newStudentBatchId's sibling pattern), backed
+  // by the same allBatches list. Previously this stage was implicit and
+  // pinned to whichever Batch was flagged is_current server-side; a
+  // Student's subject enrollments (Enrollment rows) actually carry their
+  // OWN batch_id per subject, so pinning to "the" current batch meant an
+  // Admin could never manage a Student's enrollment in any other batch
+  // (e.g. correcting a subject that was mistakenly enrolled against last
+  // year's batch). Selecting a Batch here re-scopes the offered-subjects
+  // pool (loadLevelSubjects below) to THAT batch, and Save now resends the
+  // chosen batch_id explicitly instead of the backend re-resolving
+  // "whichever batch is_current" on its own.
+  editBatchId = signal<string | null>(null);
+  editBatchOptions = computed(() =>
+    this.allBatches().map((b) => ({ label: b.name, value: b.id })),
+  );
 
   // Cross-Level Subject Enrollment: "Show All Levels" toggle. Off by
   // default (matches the requirement above); flipping it on swaps the
@@ -189,7 +293,7 @@ export class AdminRegistryComponent implements OnInit {
         return { label: `${s.name} [${levelTag}]`, value: s.id };
       });
     }
-    return this.levelSubjects().map((s) => ({ label: s.name, value: s.id }));
+    return this.levelSubjects().map((s) => ({ label: s.subject_name, value: s.subject_id }));
   });
 
   editLevelId = signal<string | null>(null);
@@ -234,6 +338,7 @@ export class AdminRegistryComponent implements OnInit {
     private registryService: RegistryService,
     private authService: AuthService,
     private academicService: AcademicService,
+    private academicsStaffService: AcademicsStaffService,
     private route: ActivatedRoute,
   ) {}
 
@@ -241,6 +346,8 @@ export class AdminRegistryComponent implements OnInit {
     this.loadUsers();
     this.loadParentOptions();
     this.loadAcademicLevels();
+    this.loadCurrentBatch();
+    this.loadAllBatches();
 
     // Admin Dashboard's "Add New User" Quick Action deep-links here with
     // ?action=add-user so the dialog opens immediately instead of making
@@ -277,22 +384,136 @@ export class AdminRegistryComponent implements OnInit {
     });
   }
 
-  /** Refetches the subject list scoped to `levelId` — the multi-select's
-   *  options are always exactly this list, so a subject can never be picked
-   *  unless it belongs to the currently-selected level. */
+  /** The "current" Batch, resolved once at startup — see currentBatchId's
+   *  own comment for why this has to be the same batch PATCH /users/{id}
+   *  writes enrollments against. */
+  loadCurrentBatch(): void {
+    this.academicService.getCurrentBatch().subscribe({
+      next: (batch) => this.currentBatchId.set(batch?.id ?? null),
+    });
+  }
+
+  /** Every Batch (not just the current one) — source for the Add Teacher
+   *  cascade's Batch stage (Admin Teacher Creation point 2). Unlike
+   *  currentBatchId above, a new Teacher's optional initial assignment
+   *  isn't pinned to "the" current batch, so the Admin picks explicitly. */
+  loadAllBatches(): void {
+    this.academicsStaffService.getBatches().subscribe({
+      next: (batches) => this.allBatches.set(batches),
+    });
+  }
+
+  /** Batch stage handler for the Add Teacher cascade: resets every stage
+   *  below it and fetches this batch's offered (active) subjects across
+   *  all boards — Level/Subject narrowing happens client-side from there,
+   *  same "offered-subjects, never the raw catalog" rule as
+   *  loadLevelSubjects above. No board filter here because the actual
+   *  assignment endpoint (assignTeacherToBatch) resolves the usable board
+   *  itself from whatever's actually active for the chosen batch/subject —
+   *  this cascade only needs Batch -> Level -> Subject, per spec. */
+  onNewTeacherBatchChange(batchId: string | null): void {
+    this.newTeacherBatchId.set(batchId);
+    this.newTeacherLevelId.set(null);
+    this.newTeacherSubjectIds.set([]);
+    this.newTeacherOfferedSubjects.set([]);
+    if (!batchId) return;
+    this.newTeacherOfferedSubjectsLoading.set(true);
+    this.academicService.getOfferedSubjects(batchId).subscribe({
+      next: (offered) => {
+        this.newTeacherOfferedSubjects.set(offered);
+        this.newTeacherOfferedSubjectsLoading.set(false);
+      },
+      error: () => this.newTeacherOfferedSubjectsLoading.set(false),
+    });
+  }
+
+  /** Level stage handler for the Add Teacher cascade — purely narrows
+   *  newTeacherSubjectOptions (computed above) to this level; no refetch
+   *  needed since newTeacherOfferedSubjects already holds every offered
+   *  subject for the chosen batch across all levels. */
+  onNewTeacherLevelChange(levelId: string | null): void {
+    this.newTeacherLevelId.set(levelId);
+    this.newTeacherSubjectIds.set([]);
+  }
+
+  /** Batch stage handler for the Add Student Cascading Scope — mirrors
+   *  onNewTeacherBatchChange above exactly, just against the Student's own
+   *  set of signals so picking a batch in one form never disturbs the
+   *  other. Board isn't filtered here for the same reason as the Teacher
+   *  cascade: the offered-subjects list already spans every board active
+   *  for this batch, and Level/Subject narrow it down from there. */
+  onNewStudentBatchChange(batchId: string | null): void {
+    this.newStudentBatchId.set(batchId);
+    this.newStudentLevelId.set(null);
+    this.newStudentSubjectIds.set([]);
+    this.newStudentOfferedSubjects.set([]);
+    if (!batchId) return;
+    this.newStudentOfferedSubjectsLoading.set(true);
+    this.academicService.getOfferedSubjects(batchId).subscribe({
+      next: (offered) => {
+        this.newStudentOfferedSubjects.set(offered);
+        this.newStudentOfferedSubjectsLoading.set(false);
+      },
+      error: () => this.newStudentOfferedSubjectsLoading.set(false),
+    });
+  }
+
+  /** Level stage handler for the Add Student cascade — purely narrows
+   *  newStudentSubjectOptions (computed above) to this level; no refetch
+   *  needed, same reasoning as onNewTeacherLevelChange. */
+  onNewStudentLevelChange(levelId: string | null): void {
+    this.newStudentLevelId.set(levelId);
+    this.newStudentSubjectIds.set([]);
+  }
+
+  /** Refetches the subject list scoped to `levelId`, the currently-picked
+   *  `editBatchId()`, AND the currently-selected `editBoard()` — Board
+   *  Offering Scope Bug fix, extended to Batch: a subject can never be
+   *  picked unless it's an actual active offering (batch_subjects) for
+   *  the CHOSEN batch, under this student's board, at this level.
+   *  Previously scoped to level only (GET /academic/subjects?level_id=),
+   *  which meant a subject only ever offered under British Council still
+   *  showed up — and was assignable — for a student registered under LRN;
+   *  and before Batch became an explicit cascade stage, this was
+   *  hard-pinned to whichever batch was flagged is_current, so a subject
+   *  only offered in a different batch couldn't be reached at all.
+   *  Requires editBatchId() and editBoard() to both already be resolved;
+   *  if either isn't ready yet (e.g. this fires from one of two
+   *  independent in-flight requests when the dialog first opens), this
+   *  safely no-ops to an empty list — the other request's completion
+   *  re-calls this with everything available. */
   loadLevelSubjects(levelId: string | null): void {
-    if (!levelId) {
+    const batchId = this.editBatchId();
+    const board = this.editBoard();
+    if (!levelId || !batchId || !board) {
       this.levelSubjects.set([]);
       return;
     }
     this.levelSubjectsLoading.set(true);
-    this.academicService.getSubjects(levelId).subscribe({
-      next: (subjects) => {
-        this.levelSubjects.set(subjects);
+    this.academicService.getOfferedSubjects(batchId, board).subscribe({
+      next: (offered) => {
+        this.levelSubjects.set(offered.filter((s) => s.level_id === levelId));
         this.levelSubjectsLoading.set(false);
       },
       error: () => this.levelSubjectsLoading.set(false),
     });
+  }
+
+  /** Batch stage handler for the Edit Details cascade — switching Batch
+   *  re-scopes the offered-subjects pool to the newly-picked batch. In
+   *  default (non-cross-level) mode the previous subject selection is
+   *  cleared first (a subject offered in one batch isn't necessarily
+   *  offered in another), mirroring onEditLevelChange/onEditBoardChange
+   *  above; cross-level mode's subject pool (allSubjects) isn't
+   *  batch-scoped at all, so nothing is cleared there. Level is left
+   *  untouched — a Student's academic level doesn't depend on which
+   *  batch their subject enrollment is being managed against. */
+  onEditBatchChange(batchId: string | null): void {
+    this.editBatchId.set(batchId);
+    if (!this.crossLevelMode()) {
+      this.editSubjectIds.set([]);
+    }
+    this.loadLevelSubjects(this.editLevelId());
   }
 
   /** Fired when the Admin changes the level dropdown inside Edit Details.
@@ -310,6 +531,22 @@ export class AdminRegistryComponent implements OnInit {
       this.editSubjectIds.set([]);
     }
     this.loadLevelSubjects(levelId);
+  }
+
+  /** Fired when the Admin changes the Board dropdown inside Edit Details.
+   *  Same reasoning as onEditLevelChange — a subject offered under LRN
+   *  isn't necessarily offered under British Council, so switching board
+   *  invalidates the previous (board-scoped) subject selection in default
+   *  mode and reloads the option pool for the new board. Cross-level mode
+   *  currently bypasses board scoping the same way it bypasses level
+   *  scoping (see allSubjects/loadAllSubjects — an intentional Admin
+   *  override, unaffected by this fix), so nothing is cleared there. */
+  onEditBoardChange(board: Board | null): void {
+    this.editBoard.set(board);
+    if (!this.crossLevelMode()) {
+      this.editSubjectIds.set([]);
+    }
+    this.loadLevelSubjects(this.editLevelId());
   }
 
   /** Refetches every subject across every level, once, then caches it —
@@ -379,7 +616,6 @@ export class AdminRegistryComponent implements OnInit {
     this.newEmail.set('');
     this.newRole.set(null);
     this.newPhoneNumber.set('');
-    this.newRollNumber.set('');
     this.newAdmissionDate.set(null);
     this.newFatherName.set('');
     this.newDateOfBirth.set(null);
@@ -390,15 +626,38 @@ export class AdminRegistryComponent implements OnInit {
     this.newRegistrationId.set('');
     this.newDesignation.set('');
     this.newHireDate.set(null);
-    this.newTeacherCode.set('');
     this.newBoard.set(null);
     this.newBoards.set([]);
     this.newParentId.set(null);
     this.newRelationshipLabel.set('');
+    this.newParentLinkMode.set('later');
     this.newSetInitialPassword.set(false);
     this.newInitialPassword.set('');
     this.newInitialPasswordConfirm.set('');
+    // Add Teacher cascade (Batch -> Level -> Subject) — reset every stage.
+    this.newTeacherBatchId.set(null);
+    this.newTeacherLevelId.set(null);
+    this.newTeacherSubjectIds.set([]);
+    this.newTeacherOfferedSubjects.set([]);
+    // Add Student Cascading Scope (Batch -> Level -> Subject) — reset
+    // every stage, same as the Teacher cascade above.
+    this.newStudentBatchId.set(null);
+    this.newStudentLevelId.set(null);
+    this.newStudentSubjectIds.set([]);
+    this.newStudentOfferedSubjects.set([]);
     this.addDialogOpen.set(true);
+  }
+
+  /** Parent Link Flow: switching to "Link Later" clears whatever parent
+   *  was picked while "Link Existing Parent" was selected, so a stale
+   *  parent_id/relationship never silently rides along into a submission
+   *  that's supposed to defer linking entirely. */
+  onNewParentLinkModeChange(mode: 'existing' | 'later'): void {
+    this.newParentLinkMode.set(mode);
+    if (mode === 'later') {
+      this.newParentId.set(null);
+      this.newRelationshipLabel.set('');
+    }
   }
 
   submitAddUser(): void {
@@ -422,12 +681,24 @@ export class AdminRegistryComponent implements OnInit {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Board a Teacher is qualified to teach.' });
       return;
     }
-    // Password Management: only validated/sent when the toggle is on —
+    // Parent Link Flow: "Link Existing Parent" requires an actual parent
+    // pick — mirrors the backend's UserCreate._validate_parent_link_flow
+    // validator exactly, so a bad submission is caught here instead of
+    // round-tripping to a 422.
+    if (role === 'student' && this.newParentLinkMode() === 'existing' && !this.newParentId()) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select a parent to link, or switch to "Link Later".' });
+      return;
+    }
+    // Password Management: only validated/sent for non-Teacher roles —
     // matches UserCreate.initial_password being Optional server-side, so
     // leaving the toggle off reproduces today's pending+activation-email
-    // behaviour exactly.
+    // behaviour exactly. A Teacher's password is never this component's
+    // choice at all (see DEFAULT_TEACHER_INITIAL_PASSWORD server-side,
+    // which the backend applies unconditionally for role === 'teacher'),
+    // so the toggle/fields are hidden in the template for that role and
+    // nothing here needs validating for it.
     let initialPassword: string | null = null;
-    if (this.newSetInitialPassword()) {
+    if (role !== 'teacher' && this.newSetInitialPassword()) {
       initialPassword = this.newInitialPassword();
       if (initialPassword.length < 8) {
         Swal.fire({ icon: 'warning', title: 'Password too short', text: 'Initial password must be at least 8 characters.' });
@@ -439,6 +710,37 @@ export class AdminRegistryComponent implements OnInit {
       }
     }
 
+    // Add Teacher cascade: Batch is optional (a new Teacher can be created
+    // with no initial subject assignment at all), but once a Batch is
+    // picked, at least one Subject is expected — otherwise the picked
+    // Batch/Level silently do nothing, which is more likely a forgotten
+    // step than an intentional "batch but no subjects" submission.
+    const teacherBatchId = role === 'teacher' ? this.newTeacherBatchId() : null;
+    const teacherSubjectIds = role === 'teacher' ? this.newTeacherSubjectIds() : [];
+    if (teacherBatchId && teacherSubjectIds.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing info',
+        text: 'Select at least one Subject for the chosen Batch, or clear the Batch to skip initial assignment.',
+      });
+      return;
+    }
+
+    // Add Student Cascading Scope: same "batch picked implies at least one
+    // subject" rule as the Teacher cascade above — subject_ids requires
+    // both batch_id and level_id server-side (UserCreate._validate_cascading_scope).
+    const studentBatchId = role === 'student' ? this.newStudentBatchId() : null;
+    const studentLevelId = role === 'student' ? this.newStudentLevelId() : null;
+    const studentSubjectIds = role === 'student' ? this.newStudentSubjectIds() : [];
+    if (studentBatchId && !studentLevelId) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select a Level for the chosen Batch, or clear the Batch to skip initial enrollment.' });
+      return;
+    }
+    if (studentSubjectIds.length > 0 && (!studentBatchId || !studentLevelId)) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'A Batch and Level are required before selecting Subjects.' });
+      return;
+    }
+
     this.addSubmitting.set(true);
     this.registryService
       .createUser({
@@ -446,7 +748,9 @@ export class AdminRegistryComponent implements OnInit {
         email,
         role,
         phone_number: this.newPhoneNumber() || null,
-        roll_number: role === 'student' ? this.newRollNumber() || null : null,
+        // No roll_number here — Admin Student Creation, point 1: the
+        // server always generates it (INK-{year}-XXXX); CreateUserRequest
+        // doesn't even have a field for it any more.
         admission_date: role === 'student' && this.newAdmissionDate() ? this.toIsoDate(this.newAdmissionDate()!) : null,
         father_name: role === 'student' ? this.newFatherName() || null : null,
         date_of_birth: role === 'student' && this.newDateOfBirth() ? this.toIsoDate(this.newDateOfBirth()!) : null,
@@ -458,22 +762,82 @@ export class AdminRegistryComponent implements OnInit {
         board: role === 'student' ? this.newBoard() : null,
         designation: role === 'teacher' ? this.newDesignation() || null : null,
         hire_date: role === 'teacher' && this.newHireDate() ? this.toIsoDate(this.newHireDate()!) : null,
-        teacher_code: role === 'teacher' ? this.newTeacherCode() || null : null,
+        // No teacher_code here — Admin Teacher Creation point 1: the
+        // server always generates it (INK-T-XXXX); CreateUserRequest
+        // doesn't even have a field for it any more.
         boards: role === 'teacher' ? this.newBoards() : null,
-        parent_id: role === 'student' ? this.newParentId() || null : null,
-        relationship_label: role === 'student' ? this.newRelationshipLabel() || null : null,
+        // Parent Link Flow: parent_link_mode is the explicit signal the
+        // backend validates against; parent_id/relationship_label are only
+        // meaningful (and only sent) when the mode is 'existing'.
+        parent_link_mode: role === 'student' ? this.newParentLinkMode() : null,
+        parent_id: role === 'student' && this.newParentLinkMode() === 'existing' ? this.newParentId() || null : null,
+        relationship_label: role === 'student' && this.newParentLinkMode() === 'existing' ? this.newRelationshipLabel() || null : null,
+        // Cascading Scope: optional initial Batch -> Level -> Subject
+        // enrollment, same shape as the Teacher cascade handled below.
+        batch_id: studentBatchId || null,
+        level_id: studentLevelId || null,
+        subject_ids: studentSubjectIds.length > 0 ? studentSubjectIds : null,
         initial_password: initialPassword,
       })
       .subscribe({
-        next: () => {
+        next: (createdUser) => {
+          // Initial subject assignment, if the Admin picked a Batch +
+          // Subject(s) in the cascade above — same TeacherSubjectAssignment
+          // row / same endpoint the Admin Batches screen's own
+          // cascading-dropdown flow writes to (assign_teacher_to_batch's
+          // docstring literally describes this cascade), so it shows up
+          // immediately in the Information Registry with no separate sync
+          // step. Fired after account creation succeeds; a failure here
+          // doesn't roll back the account — it's a separate follow-up
+          // action the Admin can always retry from Admin Batches.
+          if (teacherBatchId && teacherSubjectIds.length > 0) {
+            forkJoin(
+              teacherSubjectIds.map((subjectId) =>
+                this.academicsStaffService.assignTeacherToBatch(teacherBatchId, {
+                  subject_id: subjectId,
+                  teacher_id: createdUser.id,
+                }),
+              ),
+            ).subscribe({
+              next: () => {
+                this.addSubmitting.set(false);
+                this.addDialogOpen.set(false);
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Account created',
+                  text: `${fullName} has been added as Teacher with the default password (Inkling@2026) — they'll be prompted to change it on first login. Initial subject assignment saved.`,
+                  confirmButtonColor: '#101d3c',
+                });
+                this.loadUsers();
+              },
+              error: (err) => {
+                this.addSubmitting.set(false);
+                this.addDialogOpen.set(false);
+                Swal.fire({
+                  icon: 'warning',
+                  title: 'Account created, but assignment failed',
+                  text: err?.error?.detail ??
+                    `${fullName} was added as Teacher, but the initial subject assignment could not be saved. Assign subjects from Admin Batches instead.`,
+                });
+                this.loadUsers();
+              },
+            });
+            return;
+          }
           this.addSubmitting.set(false);
           this.addDialogOpen.set(false);
           Swal.fire({
             icon: 'success',
             title: 'Account created',
-            text: initialPassword
-              ? `${fullName} has been added as ${this.roleLabel(role)} with the temporary password you set — they'll be prompted to change it on first login.`
-              : `${fullName} has been added as ${this.roleLabel(role)} — an activation email has been sent (console-logged for now).`,
+            text: role === 'teacher'
+              ? `${fullName} has been added as Teacher with the default password (Inkling@2026) — they'll be prompted to change it on first login.`
+              : role === 'student'
+                ? `${fullName} has been added as Student with an auto-generated Roll Number and the default password (Inkling@2026) — they'll be prompted to change it on first login.${
+                    this.newParentLinkMode() === 'later' ? ' No parent linked yet — use "Link Parent" whenever you\'re ready.' : ''
+                  }`
+                : initialPassword
+                  ? `${fullName} has been added as ${this.roleLabel(role)} with the temporary password you set — they'll be prompted to change it on first login.`
+                  : `${fullName} has been added as ${this.roleLabel(role)} — an activation email has been sent (console-logged for now).`,
             confirmButtonColor: '#101d3c',
           });
           this.loadUsers();
@@ -567,6 +931,7 @@ export class AdminRegistryComponent implements OnInit {
     this.parentChildren.set([]);
     this.studentParents.set([]);
     this.studentEnrollments.set(null);
+    this.editBatchId.set(null);
     this.editLevelId.set(null);
     this.editSubjectIds.set([]);
     this.levelSubjects.set([]);
@@ -614,6 +979,16 @@ export class AdminRegistryComponent implements OnInit {
           this.editLevelId.set(data.current_level_id);
           const activeSubjects = data.subjects.filter((s) => s.status === 'active');
           this.editSubjectIds.set(activeSubjects.map((s) => s.subject_id));
+          // Batch stage prefill: infer it from an existing active subject
+          // enrollment (each Enrollment row carries its own batch_id) so
+          // reopening this dialog lands back on whichever batch the
+          // Student is actually enrolled against — not necessarily
+          // today's global "current" batch. Falls back to currentBatchId
+          // only when there's no enrollment yet to infer one from (a
+          // brand-new Student), so the picker still starts on a sensible
+          // default instead of empty.
+          const enrolledBatchId = activeSubjects[0]?.batch_id ?? this.currentBatchId();
+          this.editBatchId.set(enrolledBatchId ?? null);
           this.loadLevelSubjects(data.current_level_id);
 
           // Auto-enable cross-level mode if this student already has one —
@@ -648,6 +1023,18 @@ export class AdminRegistryComponent implements OnInit {
         this.editHireDate.set(this.fromIsoDate(detail.teacher_profile?.hire_date));
         this.editTeacherCode.set(detail.teacher_profile?.teacher_code ?? '');
         this.editBoard.set(detail.student_profile?.board ?? null);
+        // Same reasoning as the editLevelId/editBatchId prefill above: set
+        // the signal directly rather than going through onEditBoardChange
+        // (which would clear the just-prefilled editSubjectIds), then
+        // re-run loadLevelSubjects now that board is known. This and the
+        // getStudentEnrollments call above race independently — whichever
+        // of the two resolves last is the one that ends up with
+        // editLevelId, editBatchId, AND editBoard all set, so the earlier
+        // one's call is a harmless no-op (see loadLevelSubjects' own
+        // comment).
+        if (detail.role === 'student') {
+          this.loadLevelSubjects(this.editLevelId());
+        }
         // teacher_profile can legitimately come back null (e.g. a teacher
         // record whose profile row is missing server-side — now logged
         // there rather than silently dropped) — default to an empty list
@@ -687,6 +1074,13 @@ export class AdminRegistryComponent implements OnInit {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Board a Teacher is qualified to teach.' });
       return;
     }
+    // Batch -> Level -> Subject cascade: a Batch must be picked before any
+    // subject can be assigned/saved against it — mirrors the backend's own
+    // "Assign an academic level before assigning subjects" guard for Level.
+    if (user.role === 'student' && this.editSubjectIds().length > 0 && !this.editBatchId()) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select a Batch before assigning subjects.' });
+      return;
+    }
 
     this.editDetailsSubmitting.set(true);
     this.registryService
@@ -710,6 +1104,11 @@ export class AdminRegistryComponent implements OnInit {
         // server-side rather than read as "clear the level" — a student
         // with no level assigned yet just has editLevelId() === null here.
         level_id: user.role === 'student' ? this.editLevelId() ?? undefined : undefined,
+        // Batch -> Level -> Subject cascade: batch_id is now explicit and
+        // always resent alongside subject_ids for a Student (never left to
+        // the backend's own is_current fallback) — same undefined-when-
+        // unset convention as level_id above.
+        batch_id: user.role === 'student' ? this.editBatchId() ?? undefined : undefined,
         // subject_ids is always the full desired list for a Student (never
         // undefined), since Save always reflects the multi-select's current
         // state — including an intentional empty array to unassign everything.
@@ -735,10 +1134,40 @@ export class AdminRegistryComponent implements OnInit {
 
   // ---------------------------------------------------------------------
   // Status (suspend / reactivate)
+  //
+  // Suspension hierarchy ("Super Admin" = this system's Admin role, the
+  // top tier — see users.py update_user for the backend-enforced mirror
+  // of every rule below):
+  //   1. Admin accounts can never be suspended/reactivated here, by
+  //      anyone — including another Admin. That's a direct-database
+  //      action, unchanged from before.
+  //   2. A Coordinator cannot suspend/reactivate another Coordinator
+  //      account — peers, not subordinates. Only Admin can.
+  //   3. A Coordinator CAN still suspend/reactivate Teacher, Student, and
+  //      Parent accounts.
+  // canToggleStatus() mirrors these so the Suspend/Reactivate button is
+  // hidden entirely rather than shown-then-blocked (same pattern as
+  // canResetPassword() below) — toggleStatus() itself still re-checks
+  // before calling the API, since the real enforcement is server-side.
   // ---------------------------------------------------------------------
+  canToggleStatus(user: RegistryUser): boolean {
+    if (user.status === 'pending') return false;
+    if (user.role === 'admin') return false;
+    if (user.role === 'coordinator') return this.isAdmin();
+    return true;
+  }
+
   toggleStatus(user: RegistryUser): void {
     if (user.role === 'admin') {
       Swal.fire({ icon: 'info', title: "Can't change Admin status", text: 'Admin accounts are managed directly in the database.' });
+      return;
+    }
+    if (user.role === 'coordinator' && !this.isAdmin()) {
+      Swal.fire({
+        icon: 'info',
+        title: "Can't change a Coordinator's status",
+        text: 'Only Admin can suspend or reactivate a Coordinator account.',
+      });
       return;
     }
     if (user.status === 'pending') {
@@ -814,6 +1243,66 @@ export class AdminRegistryComponent implements OnInit {
           Swal.fire({ icon: 'error', title: 'Could not link parent', text: err?.error?.detail ?? 'Something went wrong. Please try again.' });
         },
       });
+  }
+
+  // ---------------------------------------------------------------------
+  // Parent Management (Student Edit Details): De-link Parent and Edit
+  // Parent Details — explicit row-level actions next to each entry in the
+  // Student's "Linked Parent(s)" list, replacing the old
+  // view-only-until-you-leave-this-dialog treatment of that section. Both
+  // act on the SAME studentParents() list rendered there, so no extra
+  // fetch is needed to know which link/parent a click refers to.
+  // ---------------------------------------------------------------------
+
+  /** De-link Parent — soft-deletes the parent_student_links row connecting
+   *  this Parent to this Student (DELETE /api/users/parent-links/{id}),
+   *  the reverse of Link Parent / the "Link Existing Parent" creation-time
+   *  flow. Does not touch either account itself — just the relationship —
+   *  so both the Parent and the Student accounts stay exactly as they
+   *  were, just no longer connected to each other. */
+  delinkParent(link: ParentStudentLink): void {
+    const student = this.editDetailsUser();
+    const parentName = this.parentNameFor(link.parent_id);
+    Swal.fire({
+      icon: 'warning',
+      title: `De-link ${parentName}?`,
+      text: student ? `${parentName} will no longer be linked to ${student.full_name}. This can be redone later from Link Parent.` : undefined,
+      showCancelButton: true,
+      confirmButtonText: 'Yes, de-link',
+      confirmButtonColor: '#c00000',
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      this.registryService.deleteParentLink(link.id).subscribe({
+        next: () => {
+          this.studentParents.update((rows) => rows.filter((r) => r.id !== link.id));
+          Swal.fire({ icon: 'success', title: 'Parent de-linked', confirmButtonColor: '#101d3c' });
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Could not de-link parent',
+            text: err?.error?.detail ?? 'Something went wrong. Please try again.',
+          });
+        },
+      });
+    });
+  }
+
+  /** Edit Parent Details — jumps straight from a Student's "Linked
+   *  Parent(s)" row into that same Parent account's own Edit Details
+   *  dialog, sourcing the RegistryUser it needs from allParents() (already
+   *  loaded for the link-picker dropdown, same lookup source as
+   *  parentNameFor above) rather than requiring a separate fetch. Reuses
+   *  openEditDetailsDialog wholesale — it fully resets every Edit Details
+   *  signal itself, so re-invoking it while the dialog is already open for
+   *  the Student simply repopulates it for the Parent instead. */
+  editLinkedParent(link: ParentStudentLink): void {
+    const parent = this.allParents().find((p) => p.id === link.parent_id);
+    if (!parent) {
+      Swal.fire({ icon: 'error', title: 'Could not open parent', text: 'This parent account could not be found — it may have been removed.' });
+      return;
+    }
+    this.openEditDetailsDialog(parent);
   }
 
   // ---------------------------------------------------------------------

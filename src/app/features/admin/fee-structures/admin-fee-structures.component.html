@@ -43,6 +43,15 @@
             <td>{{ row.student_name ? row.student_name : 'Default (all students)' }}</td>
             <td>{{ row.amount | number: '1.0-2' }}</td>
             <td class="fee-structures__row-actions">
+              @if (row.student_id) {
+                <p-button
+                  label="Generate Fee Bill"
+                  icon="pi pi-file-pdf"
+                  size="small"
+                  severity="help"
+                  [loading]="generatingBillForId() === row.id"
+                  (onClick)="generateFeeBill(row)" />
+              }
               <p-button label="Edit" size="small" severity="secondary" (onClick)="openEditDialog(row)" />
               <p-button label="Remove" size="small" severity="danger" (onClick)="deleteStructure(row)" />
             </td>

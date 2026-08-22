@@ -1,11 +1,10 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
 
 import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
-import { SelectModule } from 'primeng/select';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
@@ -15,9 +14,12 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
-import { Subject, Batch, Level } from '../../../core/models/academic.model';
+import { Subject, Batch, Level, BatchSubject } from '../../../core/models/academic.model';
 import { AssessmentFull, RosterEntry, MarkUpsertPayload } from '../../../core/models/academics-staff.model';
 import { calculatePercentage, calculateGrade } from '../../../shared/utils/grading.util';
+import {
+  TeacherCascadingFilterComponent, TeacherFilterPair, TeacherFilterSubjectContext,
+} from '../../../shared/ui/teacher-cascading-filter/teacher-cascading-filter.component';
 
 interface MarksEntryRow extends RosterEntry {
   marks_obtained: number | null;
@@ -31,18 +33,29 @@ interface MarksEntryRow extends RosterEntry {
  * "bypass the Teacher lock entirely" screen the spec calls for).
  *
  * Deliberately NOT scoped to "my assignments" like Teacher's screen —
- * Coordinator picks Level → Subject → Batch across the whole school,
- * same three-tier picker as CoordinatorGradesComponent. And unlike
- * Teacher's screen, there's no `locked` gate after first save: marks
- * stay directly editable, and there's no Request-Edit workflow here
- * because there's nothing to request — Coordinator just edits it.
+ * Coordinator sees every active (Batch, Board, Level, Subject) offering
+ * across the whole school via the same shared
+ * TeacherCascadingFilterComponent Teacher's screen uses (mandatory
+ * Batch -> Board -> Level -> Subject order, enforced by that component —
+ * see its own docstring), just with `allowedPairs` built from EVERY
+ * batch's active offered-subjects instead of one teacher's assignments.
+ * And unlike Teacher's screen, there's no `locked` gate after first
+ * save: marks stay directly editable, and there's no Request-Edit
+ * workflow here because there's nothing to request — Coordinator just
+ * edits it. This is "Marks Override" — adjusting the raw numeric input.
+ * It's deliberately separate from, not a replacement for, Grade Override
+ * (CoordinatorGradesComponent) which sets the final letter grade
+ * directly for cases that shouldn't derive from marks at all (a grade
+ * appeal, documented illness, etc.) — removing that would be a real
+ * regression, not a cleanup.
  */
 @Component({
   selector: 'app-coordinator-marks-management',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, CardModule, TableModule, SelectModule, ButtonModule,
+    CommonModule, FormsModule, CardModule, TableModule, ButtonModule,
     DialogModule, InputTextModule, InputNumberModule, TagModule, ProgressSpinnerModule, MessageModule,
+    TeacherCascadingFilterComponent,
   ],
   templateUrl: './coordinator-marks-management.component.html',
   styleUrl: './coordinator-marks-management.component.scss',
@@ -53,17 +66,18 @@ export class CoordinatorMarksManagementComponent implements OnInit {
   batches = signal<Batch[]>([]);
   pickerLoading = signal(true);
 
-  selectedLevelId = signal<string | null>(null);
   selectedSubjectId = signal<string | null>(null);
   selectedBatchId = signal<string | null>(null);
 
-  levelOptions = computed(() => this.levels().map((l) => ({ label: l.name, value: l.id })));
-  subjectOptions = computed(() => {
-    const levelId = this.selectedLevelId();
-    const pool = levelId ? this.subjects().filter((s) => s.level_id === levelId) : this.subjects();
-    return pool.map((s) => ({ label: s.name, value: s.id }));
-  });
-  batchOptions = computed(() => this.batches().map((b) => ({ label: b.name, value: b.id })));
+  /** Authorization/scope guard for the cascading filter — for a
+   *  Coordinator this isn't "what am I assigned to" (there's no such
+   *  restriction), it's "what's actually active anywhere in the school":
+   *  every is_active=true row across every batch's offered-subjects,
+   *  fanned out per board same as Teacher's own allowedPairs. Built once
+   *  in ngOnInit by looping getOfferedSubjects() per batch — batch counts
+   *  are small (a handful of exam sessions at a time), so this is a
+   *  one-time N+1 on load, not a per-keystroke cost. */
+  allowedPairs = signal<TeacherFilterPair[]>([]);
 
   // --- Assessments for the selected subject+batch ---
   assessments = signal<AssessmentFull[]>([]);
@@ -97,25 +111,66 @@ export class CoordinatorMarksManagementComponent implements OnInit {
         this.subjects.set(s);
         this.staffService.getBatches().subscribe((b) => {
           this.batches.set(b);
-          this.pickerLoading.set(false);
+          this.loadAllowedPairs(b);
         });
       });
     });
   }
 
-  onLevelChanged(levelId: string | null): void {
-    this.selectedLevelId.set(levelId);
-    const stillValid = this.subjects().some(
-      (s) => s.id === this.selectedSubjectId() && (!levelId || s.level_id === levelId),
-    );
-    if (!stillValid) {
-      this.selectedSubjectId.set(null);
-      this.resetBelowPicker();
+  /** Fetches every batch's active offered-subjects and flattens them into
+   *  the (subject, batch, board) triples the cascading filter needs —
+   *  the school-wide equivalent of what GET /academic/teacher-assignments
+   *  already resolves per-teacher server-side. No such bulk endpoint
+   *  exists for "every active offering across every batch" (nothing
+   *  needed it before this screen), so this loops the existing
+   *  per-batch endpoint instead of adding a new one for a single caller. */
+  private loadAllowedPairs(batches: Batch[]): void {
+    if (batches.length === 0) {
+      this.pickerLoading.set(false);
+      return;
+    }
+    let remaining = batches.length;
+    const pairs: TeacherFilterPair[] = [];
+    for (const batch of batches) {
+      this.staffService.getOfferedSubjects(batch.id).subscribe({
+        next: (offered: BatchSubject[]) => {
+          for (const o of offered) {
+            if (o.is_active) pairs.push({ subjectId: o.subject_id, batchId: batch.id, board: o.board });
+          }
+          if (--remaining === 0) {
+            this.allowedPairs.set(pairs);
+            this.pickerLoading.set(false);
+          }
+        },
+        error: () => {
+          // One batch's offered-subjects failing to load shouldn't block
+          // every other batch from showing up in the picker.
+          if (--remaining === 0) {
+            this.allowedPairs.set(pairs);
+            this.pickerLoading.set(false);
+          }
+        },
+      });
     }
   }
 
-  onFiltersChanged(): void {
+  onSubjectChange(ctx: TeacherFilterSubjectContext | null): void {
     this.resetBelowPicker();
+    this.selectedSubjectId.set(ctx?.subject.id ?? null);
+    this.selectedBatchId.set(ctx?.batch.id ?? null);
+    if (!ctx) return;
+
+    this.assessmentsLoading.set(true);
+    this.staffService.getAssessments(ctx.subject.id, ctx.batch.id).subscribe({
+      next: (data) => {
+        this.assessments.set(data);
+        this.assessmentsLoading.set(false);
+      },
+      error: () => this.assessmentsLoading.set(false),
+    });
+  }
+
+  private refreshAssessments(): void {
     const subjectId = this.selectedSubjectId();
     const batchId = this.selectedBatchId();
     if (!subjectId || !batchId) return;
@@ -161,7 +216,7 @@ export class CoordinatorMarksManagementComponent implements OnInit {
         next: () => {
           this.creating.set(false);
           this.createDialogOpen.set(false);
-          this.onFiltersChanged();
+          this.refreshAssessments();
         },
         error: (err) => {
           this.creating.set(false);
@@ -193,7 +248,7 @@ export class CoordinatorMarksManagementComponent implements OnInit {
       next: () => {
         this.savingEdit.set(false);
         this.editDialogOpen.set(false);
-        this.onFiltersChanged();
+        this.refreshAssessments();
         // Re-select if it was the open one, so the marks grid's max-marks
         // validation and header reflect the new value immediately.
         if (this.activeAssessment()?.id === assessment.id) {
@@ -225,7 +280,7 @@ export class CoordinatorMarksManagementComponent implements OnInit {
             this.activeAssessment.set(null);
             this.roster.set([]);
           }
-          this.onFiltersChanged();
+          this.refreshAssessments();
           Swal.fire({ icon: 'success', title: 'Assessment deleted', timer: 1400, showConfirmButton: false });
         },
         error: (err) => {
@@ -247,7 +302,7 @@ export class CoordinatorMarksManagementComponent implements OnInit {
       this.staffService.publishAssessment(assessment.id).subscribe({
         next: () => {
           Swal.fire({ icon: 'success', title: 'Published', timer: 1400, showConfirmButton: false });
-          this.onFiltersChanged();
+          this.refreshAssessments();
         },
         error: (err) => {
           Swal.fire({ icon: 'error', title: 'Publish rejected', text: err?.error?.detail ?? 'Please try again.' });

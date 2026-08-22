@@ -88,6 +88,16 @@ export class RegistryService {
     return this.http.delete<void>(`${this.apiBaseUrl}/users/${userId}`, { withCredentials: true });
   }
 
+  /** Parent Management (Student Edit Details) — De-link Parent. Soft-
+   *  deletes the parent_student_links row (DELETE
+   *  /api/users/parent-links/{link_id}), the reverse of createParentLink
+   *  above. Admin/Coordinator on the backend, same as createParentLink. */
+  deleteParentLink(linkId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.apiBaseUrl}/users/parent-links/${linkId}`, { withCredentials: true },
+    );
+  }
+
   /** Admin/Coordinator sets a new temporary password for someone else —
    *  POST /api/users/{user_id}/reset-password. The backend additionally
    *  enforces: can't target your own account (use self-service Change

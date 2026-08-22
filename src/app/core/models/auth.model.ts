@@ -27,3 +27,31 @@ export interface ChangePasswordRequest {
   new_password: string;
   confirm_password: string;
 }
+
+/** POST /api/auth/request-password-reset-approval — the logged-out
+ *  'Request Password Reset from Admin' button. identifier is free text:
+ *  email, Student roll number, or Teacher employee code. */
+export interface PasswordResetApprovalRequest {
+  identifier: string;
+}
+
+/** Admin Operations > Password Requests queue row. Mirrors
+ *  PasswordResetRequestOut. */
+export interface PasswordResetRequestRow {
+  id: string;
+  user_id: string;
+  user_name: string | null;
+  role: string | null;
+  roll_or_employee_id: string | null;
+  identifier_submitted: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface ReviewPasswordResetRequestPayload {
+  status: 'approved' | 'rejected';
+  review_note: string | null;
+}

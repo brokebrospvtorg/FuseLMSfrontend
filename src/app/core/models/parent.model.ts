@@ -75,7 +75,6 @@ export interface ParentTimetableEntry {
   subject_name: string;
   teacher_name: string;
   day_of_week: string;
-  period_number: number;
   start_time: string;
   end_time: string;
 }

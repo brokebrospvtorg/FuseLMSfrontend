@@ -88,7 +88,8 @@
         Log In
       </button>
 
-      <a href="#" class="text-center text-sm text-navy underline">Forgot Password?</a>
+      <a href="#" (click)="$event.preventDefault(); requestPasswordResetFromAdmin()"
+         class="text-center text-sm text-navy underline">Forgot / Reset Password?</a>
     </form>
 
     <div class="text-center text-xs text-slate-400 mt-6 pt-5 border-t border-slate-100">

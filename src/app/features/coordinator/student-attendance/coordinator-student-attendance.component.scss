@@ -4,6 +4,12 @@
   flex-wrap: wrap;
 }
 
+.attendance-editor__filters--period-date {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
 .attendance-editor__field {
   display: flex;
   flex-direction: column;
@@ -15,6 +21,16 @@
     font-size: 0.85rem;
     font-weight: 600;
   }
+}
+
+.attendance-editor__field--grow {
+  flex: 2 1 20rem;
+}
+
+.attendance-editor__empty {
+  color: #8b93a7;
+  font-size: 0.85rem;
+  margin: 0.4rem 0 0;
 }
 
 .attendance-editor__actions {

@@ -44,7 +44,7 @@ export class TeacherDashboardComponent implements OnInit {
     const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     return this.schedule()
       .filter((s) => s.day_of_week.toLowerCase() === todayName)
-      .sort((a, b) => a.period_number - b.period_number);
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
   });
 
   ngOnInit(): void {

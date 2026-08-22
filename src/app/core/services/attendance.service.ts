@@ -7,7 +7,9 @@ import {
   AttendanceRecord, AttendanceSummary, TeacherRosterEntry, TeacherDailyStatusEntry,
   TeacherDailyLogRequest, TeacherDailyLogResult, TeacherTimetableSlot, StudentAttendanceMarkRequest,
   PeriodRecord, CoordinatorRosterEntry, CoordinatorStudentOverrideRequest, TeacherAttendanceLogEntry,
+  AdminTeacherAttendanceEntry, AdminTeacherAttendanceMarkRequest, AttendanceRecordWriteResult,
 } from '../models/attendance.model';
+import { Board } from '../models/enums';
 
 @Injectable({ providedIn: 'root' })
 export class AttendanceService {
@@ -84,18 +86,24 @@ export class AttendanceService {
   }
 
   /** Day-Wise UI's "View Summary" — read-only historical log of classes
-   *  this teacher has already taken, optionally filtered by subject/level/
-   *  date range. Backend caps date_to at today server-side regardless of
-   *  what's passed here. */
+   *  this teacher has already taken, filtered by the compulsory
+   *  Batch -> Board -> Level/Class -> Subject cascade (Board itself isn't
+   *  a query param — see the backend docstring for why — the Period/Date
+   *  stage that follows is this same response, turned into cascading-
+   *  filter options by the caller). dateFrom/dateTo remain available for
+   *  callers that want a plain range instead. Backend caps date_to at
+   *  today server-side regardless of what's passed here. */
   getMyAttendanceHistoryLog(
     subjectId?: string,
     levelId?: string,
+    batchId?: string,
     dateFrom?: string,
     dateTo?: string,
   ): Observable<TeacherAttendanceLogEntry[]> {
     let params = new HttpParams();
     if (subjectId) params = params.set('subject_id', subjectId);
     if (levelId) params = params.set('level_id', levelId);
+    if (batchId) params = params.set('batch_id', batchId);
     if (dateFrom) params = params.set('date_from', dateFrom);
     if (dateTo) params = params.set('date_to', dateTo);
 
@@ -116,6 +124,39 @@ export class AttendanceService {
 
   overrideStudentAttendance(payload: CoordinatorStudentOverrideRequest): Observable<AttendanceRecord[]> {
     return this.http.post<AttendanceRecord[]>(`${this.baseUrl}/coordinator/override-students`, payload, {
+      withCredentials: true,
+    });
+  }
+
+  // --- Admin: Teacher Attendance (View & Edit, cascading Batch -> Board
+  // -> Level -> Subject scope, full parity with the Coordinator's own
+  // Day-Wise view) ---
+
+  /** One row per period on `date` matching the cascade filters, with the
+   *  assigned teacher's own current attendance status (null = unmarked). */
+  getAdminTeacherAttendance(
+    date: string,
+    batchId: string,
+    board?: Board,
+    levelId?: string,
+    subjectId?: string,
+  ): Observable<AdminTeacherAttendanceEntry[]> {
+    let params = new HttpParams().set('date', date).set('batch_id', batchId);
+    if (board) params = params.set('board', board);
+    if (levelId) params = params.set('level_id', levelId);
+    if (subjectId) params = params.set('subject_id', subjectId);
+
+    return this.http.get<AdminTeacherAttendanceEntry[]>(`${this.baseUrl}/admin/teacher-attendance`, {
+      params,
+      withCredentials: true,
+    });
+  }
+
+  /** Marks, edits, or overrides one teacher's attendance for one
+   *  period+date. The backend requires `reason` whenever this changes an
+   *  already-recorded status — see AdminTeacherAttendanceMarkRequest. */
+  markOrOverrideAdminTeacherAttendance(payload: AdminTeacherAttendanceMarkRequest): Observable<AttendanceRecordWriteResult> {
+    return this.http.post<AttendanceRecordWriteResult>(`${this.baseUrl}/admin/teacher-attendance`, payload, {
       withCredentials: true,
     });
   }

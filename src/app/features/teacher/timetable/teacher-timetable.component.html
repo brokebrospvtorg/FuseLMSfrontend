@@ -1,15 +1,88 @@
 <div class="page">
   <h1 class="page__title">Timetable</h1>
 
+  <!-- Task B: Flexible Filter Controls -->
+  <div class="timetable-filters">
+    <div class="timetable-filters__days">
+      <button
+        type="button"
+        class="timetable-filters__day-pill"
+        [class.timetable-filters__day-pill--active]="selectedDay() === 'all'"
+        (click)="onDayChanged('all')">
+        All Week
+      </button>
+      @for (day of weekDays; track day) {
+        <button
+          type="button"
+          class="timetable-filters__day-pill"
+          [class.timetable-filters__day-pill--active]="selectedDay() === day"
+          [class.timetable-filters__day-pill--today]="day === today && selectedDay() !== day"
+          (click)="onDayChanged(day)">
+          {{ dayLabelsShort[day] }}
+          @if (day === today) { <span class="timetable-filters__today-dot"></span> }
+        </button>
+      }
+    </div>
+
+    <div class="timetable-filters__pickers">
+      <p-select
+        [options]="batchOptions()"
+        [ngModel]="selectedBatchId()"
+        (ngModelChange)="selectedBatchId.set($event)"
+        placeholder="All Batches"
+        [showClear]="true"
+        styleClass="w-full md:w-14rem">
+      </p-select>
+      <p-select
+        [options]="subjectOptions()"
+        [ngModel]="selectedSubjectId()"
+        (ngModelChange)="selectedSubjectId.set($event)"
+        placeholder="All Subjects"
+        [showClear]="true"
+        styleClass="w-full md:w-14rem">
+      </p-select>
+    </div>
+  </div>
+
   @if (loading()) {
     <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
   } @else if (error()) {
     <p-message severity="error" [text]="error()!" />
-  } @else if (schedule().length === 0) {
+  } @else if (filteredSchedule().length === 0) {
     <p-card>
-      <p class="page__empty">Your Coordinator hasn't scheduled any periods for you yet.</p>
+      <p class="page__empty">
+        @if (schedule().length === 0) {
+          Your Coordinator hasn't scheduled any periods for you yet.
+        } @else {
+          No periods match these filters.
+        }
+      </p>
     </p-card>
-  } @else {
+  }
+
+  <!-- Single-day view: flat chronological card list ("Today's Classes" etc.) -->
+  @else if (selectedDay() !== 'all') {
+    <div class="timetable-cards">
+      @for (entry of sortedSchedule(); track entry.id) {
+        <p-card styleClass="timetable-card" [class.timetable-card--today]="isToday(entry)">
+          <div class="timetable-card__row">
+            <div class="timetable-card__time">{{ formatTime(entry.start_time) }} – {{ formatTime(entry.end_time) }}</div>
+            @if (isToday(entry)) { <p-tag severity="info" value="Today" /> }
+          </div>
+          <p class="timetable-card__subject">📌 {{ entry.subject_name }}</p>
+          <p class="timetable-card__meta">🏫 {{ entry.batch_name }}
+            @if (boardLabel(entry.board); as label) { <span class="timetable-card__board">· {{ label }}</span> }
+          </p>
+          @if (isToday(entry)) {
+            <p-button label="Mark Attendance" size="small" styleClass="timetable-card__action" (onClick)="markAttendance(entry)" />
+          }
+        </p-card>
+      }
+    </div>
+  }
+
+  <!-- All Week view: original grouped-by-day grid -->
+  @else {
     <div class="timetable-grid">
       @for (day of weekDays; track day) {
         <p-card styleClass="timetable-grid__day" [class.timetable-grid__day--today]="day === today">
@@ -29,9 +102,15 @@
                   <span class="timetable-grid__period-badge">{{ formatTime(entry.start_time) }}</span>
                   <div class="timetable-grid__period-details">
                     <span class="timetable-grid__subject">{{ entry.subject_name }}</span>
-                    <span class="timetable-grid__meta">{{ entry.batch_name }}</span>
+                    <span class="timetable-grid__meta">
+                      {{ entry.batch_name }}
+                      @if (boardLabel(entry.board); as label) { · {{ label }} }
+                    </span>
                     <span class="timetable-grid__meta">{{ formatTime(entry.start_time) }} – {{ formatTime(entry.end_time) }}</span>
                   </div>
+                  @if (day === today) {
+                    <p-button label="Mark" size="small" [text]="true" (onClick)="markAttendance(entry)" />
+                  }
                 </li>
               }
             </ul>

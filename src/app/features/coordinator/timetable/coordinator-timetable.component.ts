@@ -1,6 +1,9 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+
+import { Component, OnInit, ViewChild, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 
 import { CardModule } from 'primeng/card';
@@ -8,7 +11,6 @@ import { TableModule } from 'primeng/table';
 import { SelectModule } from 'primeng/select';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
-import { InputNumberModule } from 'primeng/inputnumber';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
@@ -18,6 +20,11 @@ import { RegistryService } from '../../../core/services/registry.service';
 import { TimetableSlotDetail } from '../../../core/models/attendance.model';
 import { Batch, Level, Subject } from '../../../core/models/academic.model';
 import { RegistryUser } from '../../../core/models/registry.model';
+import { loadOfferedPairs } from '../../../shared/utils/offered-pairs.util';
+import {
+  TeacherCascadingFilterComponent, TeacherFilterPair, TeacherFilterOption,
+  TeacherFilterSelection, TeacherFilterSubjectContext,
+} from '../../../shared/ui/teacher-cascading-filter/teacher-cascading-filter.component';
 
 const DAY_OPTIONS = [
   { label: 'Monday', value: 'monday' },
@@ -28,10 +35,32 @@ const DAY_OPTIONS = [
   { label: 'Saturday', value: 'saturday' },
 ];
 
+// The cascade's final stage doubles as "Teacher Assignee" here — its
+// option `value`/`data` is just the teacher's user id, resolved against
+// the Registry's teacher list (TeacherSubjectAssignmentOut carries no
+// name of its own).
+type TeacherAssigneeOption = TeacherFilterOption<string>;
+
 /**
- * Interactive Timetable Builder (Coordinator Portal Sub-Sprint 3). Create,
- * edit-in-place (see the PATCH added to timetable.py — previously only
- * create+delete existed), and delete slots. Every student/parent/teacher
+ * Interactive Timetable Builder (Coordinator Portal Sub-Sprint 3).
+ *
+ * Time Sorting: period_number is gone everywhere in this app —
+ * `filteredSlots` below sorts strictly by `start_time`, the only ordering
+ * a slot has (see TimetableSlot's own note in the backend router).
+ *
+ * Cascading Dropdowns: both the search filter panel and the Add/Edit Slot
+ * dialog now enforce the same strict chain — [Batch] -> [Board] ->
+ * [Level/Class] -> [Subject] -> [Teacher Assignee] — via two independent
+ * instances of the shared `<app-teacher-cascading-filter>` widget (one
+ * per #searchCascade / #formCascade template ref, since @ViewChild only
+ * resolves the first match by type). The widget's "Period" stage is
+ * reused here as the Teacher Assignee stage: `loadTeacherAssigneesFor`
+ * supplies teachers actually assigned to the selected Subject+Batch
+ * (GET /academic/teacher-assignments?subject_id=&batch_id=), same
+ * authorization philosophy as everywhere else — never widen past an
+ * actual active assignment/offering.
+ *
+ * Create, edit-in-place, and delete slots. Every student/parent/teacher
  * view is a derived read of the same timetable_slots rows (my-timetable,
  * my-teaching-schedule) — there's no separate "publish" step or flag to
  * flip; a slot is live the moment it's saved here.
@@ -41,12 +70,15 @@ const DAY_OPTIONS = [
   standalone: true,
   imports: [
     CommonModule, FormsModule, CardModule, TableModule, SelectModule, ButtonModule,
-    DialogModule, InputNumberModule, DatePickerModule, ProgressSpinnerModule,
+    DialogModule, DatePickerModule, ProgressSpinnerModule, TeacherCascadingFilterComponent,
   ],
   templateUrl: './coordinator-timetable.component.html',
   styleUrl: './coordinator-timetable.component.scss',
 })
 export class CoordinatorTimetableComponent implements OnInit {
+  @ViewChild('searchCascade') searchCascade?: TeacherCascadingFilterComponent<string>;
+  @ViewChild('formCascade') formCascade?: TeacherCascadingFilterComponent<string>;
+
   dayOptions = DAY_OPTIONS;
 
   slots = signal<TimetableSlotDetail[]>([]);
@@ -57,29 +89,59 @@ export class CoordinatorTimetableComponent implements OnInit {
   batches = signal<Batch[]>([]);
   teachers = signal<RegistryUser[]>([]);
 
-  batchOptions = computed(() => [
-    { label: 'All batches', value: null },
-    ...this.batches().map((b) => ({ label: b.name, value: b.id })),
-  ]);
+  // Every batch+subject combination with an active offering, across every
+  // batch — the authorization guard for both cascade instances below (see
+  // shared/utils/offered-pairs.util.ts).
+  allowedPairs = signal<TeacherFilterPair[]>([]);
+  pickerLoading = signal(true);
+  pickerError = signal<string | null>(null);
 
-  batchFilter = signal<string | null>(null);
+  // --- Search filter panel: Batch -> Board -> Level -> Subject -> Teacher
+  // Assignee. Each stage narrows `filteredSlots` progressively; the chain
+  // resets to "show everything" the moment an earlier stage is cleared. ---
+  searchSubjectCtx = signal<TeacherFilterSubjectContext | null>(null);
+  searchTeacherId = signal<string | null>(null);
+
   filteredSlots = computed(() => {
-    const b = this.batchFilter();
-    return b ? this.slots().filter((s) => s.batch_id === b) : this.slots();
+    let list = this.slots();
+    const ctx = this.searchSubjectCtx();
+    if (ctx) {
+      list = list.filter((s) => s.batch_id === ctx.batch.id && s.subject_id === ctx.subject.id);
+    }
+    const teacherId = this.searchTeacherId();
+    if (teacherId) {
+      list = list.filter((s) => s.teacher_id === teacherId);
+    }
+    // Chronological by clock time — the only ordering a slot has now that
+    // period_number is gone.
+    return [...list].sort((a, b) => a.start_time.localeCompare(b.start_time));
   });
+
+  onSearchSubjectChange(ctx: TeacherFilterSubjectContext | null): void {
+    this.searchSubjectCtx.set(ctx);
+    this.searchTeacherId.set(null);
+  }
+
+  onSearchSelectionChange(selection: TeacherFilterSelection<string> | null): void {
+    this.searchTeacherId.set(selection?.period?.value ?? null);
+  }
+
+  clearSearchFilters(): void {
+    this.searchCascade?.reset();
+  }
 
   // --- Add/Edit dialog (shared) ---
   dialogOpen = signal(false);
   dialogMode = signal<'create' | 'edit'>('create');
   editingSlotId = signal<string | null>(null);
   submitting = signal(false);
+  formNote = signal<string | null>(null);
 
-  formLevelId = signal<string | null>(null);
-  formSubjectId = signal<string | null>(null);
-  formTeacherId = signal<string | null>(null);
-  formBatchId = signal<string | null>(null);
+  // Full Batch -> Board -> Level -> Subject -> Teacher Assignee selection
+  // for the dialog; null until every stage resolves. day/start/end aren't
+  // part of the cascade — they're plain fields alongside it.
+  formSelection = signal<TeacherFilterSelection<string> | null>(null);
   formDay = signal<string | null>(null);
-  formPeriod = signal<number | null>(null);
   formStartTime = signal<Date | null>(null);
   formEndTime = signal<Date | null>(null);
 
@@ -93,8 +155,28 @@ export class CoordinatorTimetableComponent implements OnInit {
     this.loadSlots();
     this.academicsStaffService.getLevels().subscribe({ next: (l) => this.levels.set(l) });
     this.academicsStaffService.getSubjects().subscribe({ next: (s) => this.subjects.set(s) });
-    this.academicsStaffService.getBatches().subscribe({ next: (b) => this.batches.set(b) });
     this.registryService.getUsers('teacher').subscribe({ next: (t) => this.teachers.set(t) });
+
+    this.pickerLoading.set(true);
+    this.academicsStaffService.getBatches().subscribe({
+      next: (batches) => {
+        this.batches.set(batches);
+        loadOfferedPairs(this.academicsStaffService, batches).subscribe({
+          next: (pairs) => {
+            this.allowedPairs.set(pairs);
+            this.pickerLoading.set(false);
+          },
+          error: () => {
+            this.pickerError.set('Could not load the batch/board/subject offerings right now.');
+            this.pickerLoading.set(false);
+          },
+        });
+      },
+      error: () => {
+        this.pickerError.set('Could not load batches right now.');
+        this.pickerLoading.set(false);
+      },
+    });
   }
 
   private loadSlots(): void {
@@ -108,83 +190,128 @@ export class CoordinatorTimetableComponent implements OnInit {
     });
   }
 
+  /** Teacher Assignee stage: teachers actually assigned to teach the
+   *  cascade's resolved Subject within its resolved Batch. Fanned out per
+   *  active board server-side (same as every other offering-backed list),
+   *  so this dedupes by teacher id — a teacher assigned once shouldn't
+   *  appear twice just because the subject's offering spans 2+ boards. */
+  loadTeacherAssigneesFor = (
+    ctx: TeacherFilterSubjectContext,
+  ): Observable<TeacherAssigneeOption[]> => {
+    return this.academicsStaffService.getTeacherAssignments(ctx.subject.id, ctx.batch.id).pipe(
+      map((assignments) => {
+        const teachersById = new Map(this.teachers().map((t) => [t.id, t]));
+        const seen = new Set<string>();
+        const options: TeacherAssigneeOption[] = [];
+        for (const a of assignments) {
+          if (seen.has(a.teacher_id)) continue;
+          const teacher = teachersById.get(a.teacher_id);
+          if (!teacher) continue;
+          seen.add(a.teacher_id);
+          options.push({ label: teacher.full_name, value: teacher.id, data: teacher.id });
+        }
+        return options.sort((a, b) => a.label.localeCompare(b.label));
+      }),
+    );
+  };
+
   openCreateDialog(): void {
     this.dialogMode.set('create');
     this.editingSlotId.set(null);
-    this.formLevelId.set(null);
-    this.formSubjectId.set(null);
-    this.formTeacherId.set(null);
-    this.formBatchId.set(this.batchFilter());
+    this.formNote.set(null);
+    this.formSelection.set(null);
     this.formDay.set(null);
-    this.formPeriod.set(null);
     this.formStartTime.set(null);
     this.formEndTime.set(null);
     this.dialogOpen.set(true);
+    // The cascade lives inside the dialog's template; its ViewChild isn't
+    // populated until Angular checks that view on the next tick.
+    queueMicrotask(() => this.formCascade?.reset());
   }
 
   openEditDialog(slot: TimetableSlotDetail): void {
     this.dialogMode.set('edit');
     this.editingSlotId.set(slot.id);
-    this.formSubjectId.set(slot.subject_id);
-    this.formTeacherId.set(slot.teacher_id);
-    this.formBatchId.set(slot.batch_id);
+    this.formNote.set(null);
+    this.formSelection.set(null);
     this.formDay.set(slot.day_of_week);
-    this.formPeriod.set(slot.period_number);
     this.formStartTime.set(this.timeStringToDate(slot.start_time));
     this.formEndTime.set(this.timeStringToDate(slot.end_time));
-    // level_id isn't in the detail response — subject implies a level, but
-    // we don't force the picker to a value; PATCH omits level_id entirely
-    // when editing unless the coordinator explicitly changes the subject.
-    this.formLevelId.set(null);
     this.dialogOpen.set(true);
+
+    // A raw TimetableSlot doesn't store which board its offering was
+    // under (that's resolved server-side, per-request, from the active
+    // batch_subjects rows) — pick whichever active board this slot's
+    // batch+subject pair currently has, sorted first, same fallback
+    // convention the backend itself uses when board is otherwise
+    // ambiguous. If the offering's since been withdrawn entirely (no
+    // board left), leave the cascade blank rather than guessing — the
+    // Coordinator re-picks Batch/Board/Level/Subject/Teacher from scratch.
+    const boards = this.allowedPairs()
+      .filter((p) => p.batchId === slot.batch_id && p.subjectId === slot.subject_id)
+      .map((p) => p.board)
+      .sort();
+    const board = boards[0];
+
+    queueMicrotask(() => {
+      if (!board) {
+        this.formNote.set(
+          "This subject's offering for this batch has changed — please re-select Batch, Board, Level, Subject, and Teacher.",
+        );
+        return;
+      }
+      this.formCascade?.applyDeepLink({
+        batchId: slot.batch_id,
+        subjectId: slot.subject_id,
+        board,
+        periodValue: slot.teacher_id,
+      });
+    });
+  }
+
+  onFormSelectionChange(selection: TeacherFilterSelection<string> | null): void {
+    this.formSelection.set(selection);
   }
 
   submit(): void {
-    const subjectId = this.formSubjectId();
-    const teacherId = this.formTeacherId();
-    const batchId = this.formBatchId();
+    const selection = this.formSelection();
     const day = this.formDay();
-    const period = this.formPeriod();
     const start = this.formStartTime();
     const end = this.formEndTime();
 
-    if (!subjectId || !teacherId || !batchId || !day || !period || !start || !end) {
-      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Fill in every field before saving.' });
+    if (!selection || !selection.period || !day || !start || !end) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing info',
+        text: 'Complete Batch, Board, Level, Subject, Teacher Assignee, Day, and both times before saving.',
+      });
       return;
     }
+
+    const payload = {
+      level_id: selection.levelId,
+      subject_id: selection.subject.id,
+      teacher_id: selection.period.value,
+      batch_id: selection.batch.id,
+      day_of_week: day,
+      start_time: this.dateToTimeString(start),
+      end_time: this.dateToTimeString(end),
+    };
 
     this.submitting.set(true);
 
     if (this.dialogMode() === 'create') {
-      const levelId = this.formLevelId();
-      if (!levelId) {
-        this.submitting.set(false);
-        Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Level is required for a new slot.' });
-        return;
-      }
-      this.timetableService
-        .createSlot({
-          level_id: levelId, subject_id: subjectId, teacher_id: teacherId, batch_id: batchId,
-          day_of_week: day, period_number: period,
-          start_time: this.dateToTimeString(start), end_time: this.dateToTimeString(end),
-        })
-        .subscribe({
-          next: () => this.onSaved(),
-          error: (err) => this.onSaveError(err),
-        });
+      this.timetableService.createSlot(payload).subscribe({
+        next: () => this.onSaved(),
+        error: (err) => this.onSaveError(err),
+      });
     } else {
       const slotId = this.editingSlotId();
       if (!slotId) return;
-      this.timetableService
-        .updateSlot(slotId, {
-          subject_id: subjectId, teacher_id: teacherId, batch_id: batchId,
-          day_of_week: day, period_number: period,
-          start_time: this.dateToTimeString(start), end_time: this.dateToTimeString(end),
-        })
-        .subscribe({
-          next: () => this.onSaved(),
-          error: (err) => this.onSaveError(err),
-        });
+      this.timetableService.updateSlot(slotId, payload).subscribe({
+        next: () => this.onSaved(),
+        error: (err) => this.onSaveError(err),
+      });
     }
   }
 
@@ -204,7 +331,7 @@ export class CoordinatorTimetableComponent implements OnInit {
     Swal.fire({
       icon: 'warning',
       title: `Delete this slot?`,
-      text: `${slot.subject_name} — ${slot.day_of_week} period ${slot.period_number}`,
+      text: `${slot.subject_name} — ${slot.day_of_week} ${slot.start_time}–${slot.end_time}`,
       showCancelButton: true,
       confirmButtonText: 'Delete',
       confirmButtonColor: '#dc2626',

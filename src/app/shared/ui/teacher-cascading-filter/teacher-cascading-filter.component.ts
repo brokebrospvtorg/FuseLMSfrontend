@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, of } from 'rxjs';
@@ -157,13 +157,31 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
   selectedPeriodValue = signal<string | null>(null);
 
   // --- Stage 1: Batch — options are just the catalog batches this
-  // teacher has at least one allowed pair in, no async fetch needed. ---
-  batchOptions = computed<TeacherFilterOption<Batch>[]>(() => {
+  // teacher has at least one allowed pair in, no async fetch needed.
+  //
+  // BUG FIX: this was previously `computed(() => ...)`. computed() only
+  // re-runs when an actual Angular signal it read changes — `this.batches`
+  // and `this.allowedPairs` are plain @Input() properties, not signals,
+  // so reading them inside computed() creates no reactive dependency at
+  // all. The result: this evaluated ONCE (on whatever batches/allowedPairs
+  // happened to be at the very first read) and permanently cached that
+  // forever, never recomputing when the real @Input values arrived later.
+  // Harmless for an instance created only after data has already loaded
+  // (the search filter bar, gated behind an @else block) — but this
+  // component ALSO gets instantiated by <p-dialog>'s projected content at
+  // initial page load (PrimeNG keeps dialog content in the DOM, hidden via
+  // CSS, rather than deferring creation until visible=true), at which
+  // point batches/allowedPairs are still their empty starting arrays. That
+  // instance cached [] forever and never saw the real data arrive.
+  // A plain method re-evaluates on every change-detection cycle instead of
+  // memoizing, so it always reflects the current @Input values with no
+  // staleness risk — safe here since this component has no OnPush strategy.
+  batchOptions(): TeacherFilterOption<Batch>[] {
     const allowedBatchIds = new Set(this.allowedPairs.map((p) => p.batchId));
     return this.batches
       .filter((b) => allowedBatchIds.has(b.id))
       .map((b) => ({ label: b.name, value: b.id, data: b }));
-  });
+  }
 
   // --- Stage 2: Board (depends on Batch) ---
   readonly boards = new CascadingSelect<string, TeacherFilterOption<Board>>((batchId) =>
@@ -365,6 +383,90 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
       return;
     }
     this.selectionChange.emit({ ...ctx, period });
+  }
+
+  /**
+   * Programmatically drives the whole cascade to a specific
+   * (batch, board, subject[, period]) combination — used for deep-linking,
+   * e.g. from the Teacher Timetable's "Mark Attendance" button straight
+   * into a specific slot's roster instead of making the teacher re-pick
+   * every stage by hand.
+   *
+   * Deliberately does NOT call onBatchChange()/onBoardChange()/etc. — each
+   * of those kicks off its OWN loadFor(), which would double-fetch here
+   * (harmless in practice since Board/Level/Subject resolve synchronously
+   * via of(...), but wasteful, and would double-emit intermediate null
+   * selectionChange events along the way). Instead this chains
+   * loadFor(..., onLoaded) once per stage — the same "populate parent, set
+   * child only once its options have actually loaded" pattern
+   * CascadingSelect's own docstring describes for edit/patch mode,
+   * applied at every stage instead of just one. The final Period stage
+   * (Attendance's real per-day slots) genuinely is async — this is why
+   * the whole chain has to be callback-based rather than four sequential
+   * synchronous calls.
+   *
+   * If subjectId isn't in `subjects`, or the resolved combination isn't
+   * actually in `allowedPairs`, this silently does nothing — the caller
+   * (e.g. a deep link with a stale/tampered query param) gets left with
+   * the cascade exactly as it was, not landed in some half-set,
+   * inconsistent state. Use hasSelection() after calling this to know
+   * whether it actually landed.
+   */
+  applyDeepLink(target: { batchId: string; subjectId: string; board: Board; periodValue?: string | null }): void {
+    const subject = this.subjects.find((s) => s.id === target.subjectId);
+    const isAllowed = this.allowedPairs.some(
+      (p) => p.batchId === target.batchId && p.subjectId === target.subjectId && p.board === target.board,
+    );
+    if (!subject || !isAllowed) return;
+
+    this.selectedBatchId.set(target.batchId);
+    this.selectedBoard.set(null);
+    this.selectedLevelId.set(null);
+    this.selectedSubjectId.set(null);
+    this.selectedPeriodValue.set(null);
+
+    this.boards.loadFor(target.batchId, () => {
+      this.selectedBoard.set(target.board);
+
+      this.levelsSel.loadFor({ batchId: target.batchId, board: target.board }, () => {
+        this.selectedLevelId.set(subject.level_id);
+
+        this.subjectsSel.loadFor(
+          { batchId: target.batchId, board: target.board, levelId: subject.level_id },
+          () => {
+            this.selectedSubjectId.set(target.subjectId);
+            this.emitSubjectChange();
+
+            const ctx = this.currentSubjectContext(target.subjectId);
+            if (this.periodsEnabled && ctx) {
+              this.periods.loadFor(ctx, (periodOptions) => {
+                const match = target.periodValue
+                  ? periodOptions.find((o) => o.value === target.periodValue)
+                  : undefined;
+                if (match) this.selectedPeriodValue.set(match.value);
+                this.emitSelectionChange();
+              });
+            } else {
+              this.emitSelectionChange();
+            }
+          },
+        );
+      });
+    });
+  }
+
+  /** True once every enabled stage has a value — lets a caller (e.g. the
+   *  Attendance screen, after calling applyDeepLink()) know whether the
+   *  deep link actually landed fully, without duplicating the
+   *  periodsEnabled branching itself. */
+  hasSelection(): boolean {
+    return (
+      this.selectedBatchId() !== null &&
+      this.selectedBoard() !== null &&
+      this.selectedLevelId() !== null &&
+      this.selectedSubjectId() !== null &&
+      (!this.periodsEnabled || this.selectedPeriodValue() !== null)
+    );
   }
 
   /** Public reset — lets a parent screen collapse the whole cascade back

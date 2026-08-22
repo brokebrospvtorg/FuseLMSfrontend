@@ -12,22 +12,60 @@
   padding: 0.5rem 0;
 }
 
-.summary-toolbar {
+.summary-level {
+  color: var(--text-color-secondary, #64748b);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.summary-detail {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--surface-border, #e2e8f0);
+}
+
+.summary-detail__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.summary-detail__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.summary-detail__meta {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #64748b);
+}
+
+.summary-detail__counts {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.summary-count {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  gap: 0.35rem;
 
-  label {
-    font-size: 0.85rem;
-    font-weight: 500;
+  span {
+    font-size: 0.8rem;
     color: var(--text-color-secondary, #64748b);
   }
 }
 
-.summary-level {
-  color: var(--text-color-secondary, #64748b);
-  font-size: 0.85rem;
+.summary-count--total {
+  margin-left: 0.5rem;
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--surface-border, #e2e8f0);
 }
 
 .attendance-toolbar {

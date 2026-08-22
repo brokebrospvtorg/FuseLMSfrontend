@@ -1,0 +1,34 @@
+@if (roleSwitch.isDualRole()) {
+    <div
+      class="flex items-center bg-white/10 rounded-full p-0.5 text-xs font-medium"
+      role="group"
+      aria-label="Switch portal view">
+      <button
+        type="button"
+        (click)="select(ActivePortalRole.Coordinator)"
+        [attr.aria-pressed]="roleSwitch.activePortalRole() === ActivePortalRole.Coordinator"
+        [class]="roleSwitch.activePortalRole() === ActivePortalRole.Coordinator
+          ? 'bg-white text-navy shadow-sm'
+          : 'text-slate-300 hover:text-white'"
+        class="px-3 py-1.5 rounded-full transition-colors">
+        Coordinator
+      </button>
+      <button
+        type="button"
+        (click)="select(ActivePortalRole.Teacher)"
+        [attr.aria-pressed]="roleSwitch.activePortalRole() === ActivePortalRole.Teacher"
+        [class]="roleSwitch.activePortalRole() === ActivePortalRole.Teacher
+          ? 'bg-white text-navy shadow-sm'
+          : 'text-slate-300 hover:text-white'"
+        class="px-3 py-1.5 rounded-full transition-colors">
+        Teacher
+      </button>
+    </div>
+  } @else if (roleSwitch.assignmentsLoading()) {
+    <!-- Brief loading sliver so the header doesn't visibly jump once the
+         lookup resolves and the toggle above pops in for an eligible
+         Coordinator — intentionally not a spinner, this is a sub-second
+         background check on every portal page load, not a blocking one. -->
+    <div class="w-32 h-7 rounded-full bg-white/5"></div>
+  }
+  

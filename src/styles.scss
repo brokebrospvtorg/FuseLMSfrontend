@@ -28,3 +28,23 @@
   z-index: 9999;
 }
 
+// ---------------------------------------------------------------------------
+// SweetAlert2 stacking above PrimeNG dialogs
+//
+// SweetAlert2 renders its container as a direct child of <body>, but its
+// default z-index (~1060) sits below PrimeNG's p-dialog-mask, whose
+// zIndexService pushes dialogs progressively higher as more are opened
+// (e.g. a Student Edit Details modal). Result: a Swal.fire() triggered
+// from inside an open p-dialog appears behind that dialog's backdrop.
+//
+// Unlike the .p-overlay rule above, !important here is safe: SweetAlert2
+// is an unrelated library with its own stacking context, so this can't
+// fight PrimeNG's zIndexService the way a blanket .p-overlay override
+// would. This just needs to always win, full stop.
+.swal2-container {
+  z-index: 11000 !important;
+}
+.swal2-popup {
+  z-index: 11001 !important;
+}
+

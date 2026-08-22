@@ -21,6 +21,10 @@ export interface FeeVoucher {
    *  and the file viewer actually act on. Null when status is 'pending'
    *  (no proof uploaded yet). */
   latest_proof_id: string | null;
+  /** Display-only invoice code (e.g. "INV-2026-3F9A21C4") for the Generate
+   *  Fee Bill feature — computed by the backend at read time, not a real
+   *  stored column. */
+  voucher_number: string;
 }
 
 export interface FeeProof {

@@ -39,6 +39,14 @@
   margin: 0 0 0.75rem;
 }
 
+.manage-batch__section-subtitle {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-color-secondary, #64748b);
+  margin-bottom: 0.4rem;
+}
+
 .manage-batch__loading {
   display: flex;
   justify-content: center;

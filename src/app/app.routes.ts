@@ -2,7 +2,9 @@ import { Routes } from '@angular/router';
 import { PortalLayoutComponent, PortalNavItem } from './shared/layout/portal-layout/portal-layout.component';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
-import { teacherGuard } from './core/guards/teacher.guard';
+import { teacherPortalGuard } from './core/guards/teacher-portal.guard';
+import { mustChangePasswordGuard } from './core/guards/must-change-password.guard';
+import { changePasswordPageGuard } from './core/guards/change-password-page.guard';
 import { UserRole } from './core/models/enums';
 
 const teacherNav: PortalNavItem[] = [
@@ -26,6 +28,7 @@ const coordinatorNav: PortalNavItem[] = [
   { label: 'Mark Edit Requests', icon: 'grades', route: '/coordinator/mark-edit-requests' },
   { label: 'Classroom Requests', icon: 'lectures', route: '/coordinator/classroom-requests' },
   { label: 'Video Requests', icon: 'lectures', route: '/coordinator/youtube-requests' },
+  { label: 'Fee Structures', icon: 'fees', route: '/coordinator/fee-structures' },
   { label: 'Fee Proofs', icon: 'fees', route: '/coordinator/fees-review' },
   { label: 'Complaints', icon: 'complaints', route: '/coordinator/complaints' },
   { label: 'Information Registry', icon: 'registry', route: '/coordinator/registry' },
@@ -35,6 +38,7 @@ const adminNav: PortalNavItem[] = [
   { label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard', section: 'System Administration' },
   { label: 'Information Registry', icon: 'registry', route: '/admin/registry', section: 'Information Registry' },
   { label: 'Batches', icon: 'registry', route: '/admin/batches', section: 'Academics' },
+  { label: 'Subjects', icon: 'subject-requests', route: '/admin/subjects', section: 'Academics' },
   { label: 'Subject Requests', icon: 'subject-requests', route: '/admin/subject-requests', section: 'Academics' },
   { label: 'Timetable', icon: 'timetable', route: '/admin/timetable', section: 'Academics' },
   { label: 'Grade Overrides', icon: 'grades', route: '/admin/grades', section: 'Academics' },
@@ -48,6 +52,7 @@ const adminNav: PortalNavItem[] = [
   { label: 'Fee Proofs', icon: 'fees', route: '/admin/fees-review', section: 'Operations' },
   { label: 'Complaints', icon: 'complaints', route: '/admin/complaints', section: 'Operations' },
   { label: 'Notifications', icon: 'complaints', route: '/admin/notifications', section: 'Operations' },
+  { label: 'Password Requests', icon: 'password-requests', route: '/admin/password-requests', section: 'Operations' },
 ];
 
 const parentNav: PortalNavItem[] = [
@@ -79,10 +84,18 @@ export const routes: Routes = [
       import('./features/auth/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'change-password',
+    canActivate: [authGuard, changePasswordPageGuard],
+    loadComponent: () =>
+      import('./features/auth/change-password/change-password.component').then(
+        (m) => m.ChangePasswordComponent,
+      ),
+  },
+  {
     path: 'student',
     component: PortalLayoutComponent,
     data: { portalTitle: 'Student Portal', navItems: studentNav },
-    canActivate: [authGuard, roleGuard([UserRole.Student])],
+    canActivate: [authGuard, mustChangePasswordGuard, roleGuard([UserRole.Student])],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
@@ -149,7 +162,7 @@ export const routes: Routes = [
     path: 'teacher',
     component: PortalLayoutComponent,
     data: { portalTitle: 'Teacher Portal', navItems: teacherNav },
-    canActivate: [authGuard, teacherGuard],
+    canActivate: [authGuard, mustChangePasswordGuard, teacherPortalGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
@@ -198,7 +211,7 @@ export const routes: Routes = [
     path: 'coordinator',
     component: PortalLayoutComponent,
     data: { portalTitle: 'Coordinator Portal', navItems: coordinatorNav },
-    canActivate: [authGuard, roleGuard([UserRole.Coordinator])],
+    canActivate: [authGuard, mustChangePasswordGuard, roleGuard([UserRole.Coordinator])],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
@@ -279,6 +292,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'fee-structures',
+        loadComponent: () =>
+          import('./features/admin/fee-structures/admin-fee-structures.component').then(
+            (m) => m.AdminFeeStructuresComponent,
+          ),
+      },
+      {
         path: 'fees-review',
         loadComponent: () =>
           import('./features/admin-fees/admin-fee-review.component').then(
@@ -305,7 +325,7 @@ export const routes: Routes = [
     path: 'admin',
     component: PortalLayoutComponent,
     data: { portalTitle: 'Admin Portal', navItems: adminNav },
-    canActivate: [authGuard, roleGuard([UserRole.Admin])],
+    canActivate: [authGuard, mustChangePasswordGuard, roleGuard([UserRole.Admin])],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
@@ -327,6 +347,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/academic/academics-management/academics-management.component').then(
             (m) => m.AcademicsManagementComponent,
+          ),
+      },
+      {
+        path: 'subjects',
+        loadComponent: () =>
+          import('./features/admin/subjects/admin-subjects.component').then(
+            (m) => m.AdminSubjectsComponent,
           ),
       },
       {
@@ -388,8 +415,8 @@ export const routes: Routes = [
       {
         path: 'teacher-attendance',
         loadComponent: () =>
-          import('./features/coordinator/teacher-attendance/coordinator-teacher-attendance.component').then(
-            (m) => m.CoordinatorTeacherAttendanceComponent,
+          import('./features/admin/teacher-attendance/admin-teacher-attendance.component').then(
+            (m) => m.AdminTeacherAttendanceComponent,
           ),
       },
       {
@@ -420,13 +447,20 @@ export const routes: Routes = [
             (m) => m.AdminNotificationsComponent,
           ),
       },
+      {
+        path: 'password-requests',
+        loadComponent: () =>
+          import('./features/admin/password-requests/admin-password-requests.component').then(
+            (m) => m.AdminPasswordRequestsComponent,
+          ),
+      },
     ],
   },
   {
     path: 'parent',
     component: PortalLayoutComponent,
     data: { portalTitle: 'Parent Portal', navItems: parentNav },
-    canActivate: [authGuard, roleGuard([UserRole.Parent])],
+    canActivate: [authGuard, mustChangePasswordGuard, roleGuard([UserRole.Parent])],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {

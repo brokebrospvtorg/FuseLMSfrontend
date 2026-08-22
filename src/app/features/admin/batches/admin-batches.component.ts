@@ -90,16 +90,17 @@ export class AdminBatchesComponent implements OnInit {
   selectedBoardTab = signal<Board | 'all'>('all');
 
   /** GET /api/academic/batches (routers/academic.py's list_batches) now
-   *  returns the full 4-tier priority order itself — active batches with
-   *  enrolled students first (most-enrolled first within that group),
-   *  then active batches assigned to at least one board, then other
-   *  active batches, then inactive ones last, with newest-year-first as
-   *  the tiebreaker throughout. This signal is now a deliberate pass-
-   *  through, not a re-sort: re-sorting here with different logic than
-   *  the backend (the old `is_active DESC, year ASC` this used to do) is
-   *  exactly what made the list order wrong — the backend's order is the
-   *  one source of truth, honored as-is, for All Batches and every board
-   *  tab alike (they all read this same signal). */
+   *  returns the full order itself — ACTIVE batches first, sorted
+   *  chronologically (year ASC, e.g. 2025 Active before 2026 Active),
+   *  with inactive/completed batches always pushed to the bottom
+   *  (chronological within that group too). This signal is a deliberate
+   *  pass-through, not a re-sort: re-sorting here with different logic
+   *  than the backend is exactly what made the list order wrong before —
+   *  the backend's order is the one source of truth, honored as-is, for
+   *  All Batches and every board tab alike (British Council, Edexcel, LRN
+   *  all read this same signal, so they inherit the same ordering for
+   *  free — selecting a board tab only changes which board's "Active" tag
+   *  is shown per row, never the row order). */
   filteredBatches = computed(() => this.batches());
 
   /** Whether `batch` has at least one active offered subject under

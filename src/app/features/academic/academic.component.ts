@@ -69,25 +69,27 @@ export class AcademicComponent implements OnInit {
     monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri',
   };
 
-  /** Distinct period numbers present in the data, sorted — the grid's row count
-   *  adapts to however many periods actually exist rather than a hardcoded 8. */
-  gridPeriods = computed(() => {
-    const periods = new Set(this.timetable().map((t) => t.period_number));
-    return Array.from(periods).sort((a, b) => a - b);
+  /** Distinct start times present in the data, sorted chronologically —
+   *  the grid's row count adapts to however many time slots actually
+   *  exist rather than a hardcoded period count. Rows are keyed purely
+   *  by clock time now, not by a period_number label. */
+  gridTimes = computed(() => {
+    const times = new Set(this.timetable().map((t) => t.start_time));
+    return Array.from(times).sort((a, b) => a.localeCompare(b));
   });
 
-  /** slot lookup keyed "day|period" for O(1) cell rendering instead of
+  /** slot lookup keyed "day|start_time" for O(1) cell rendering instead of
    *  filtering the array on every cell in the template. */
   private gridLookup = computed(() => {
     const map = new Map<string, TimetableEntry>();
     for (const entry of this.timetable()) {
-      map.set(`${entry.day_of_week}|${entry.period_number}`, entry);
+      map.set(`${entry.day_of_week}|${entry.start_time}`, entry);
     }
     return map;
   });
 
-  slotFor(day: string, period: number): TimetableEntry | null {
-    return this.gridLookup().get(`${day}|${period}`) ?? null;
+  slotFor(day: string, startTime: string): TimetableEntry | null {
+    return this.gridLookup().get(`${day}|${startTime}`) ?? null;
   }
 
   // --- Subject Requests tab ---
