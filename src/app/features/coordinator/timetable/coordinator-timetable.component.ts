@@ -17,7 +17,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TimetableService } from '../../../core/services/timetable.service';
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { RegistryService } from '../../../core/services/registry.service';
-import { TimetableSlotDetail } from '../../../core/models/attendance.model';
+import { TimetableSlotDetail, CreateTimetableSlotRequest, UpdateTimetableSlotRequest } from '../../../core/models/attendance.model';
 import { Batch, Level, Subject } from '../../../core/models/academic.model';
 import { RegistryUser } from '../../../core/models/registry.model';
 import { loadOfferedPairs } from '../../../shared/utils/offered-pairs.util';
@@ -288,27 +288,44 @@ export class CoordinatorTimetableComponent implements OnInit {
       return;
     }
 
-    const payload = {
-      level_id: selection.levelId,
-      subject_id: selection.subject.id,
-      teacher_id: selection.period.value,
-      batch_id: selection.batch.id,
-      day_of_week: day,
-      start_time: this.dateToTimeString(start),
-      end_time: this.dateToTimeString(end),
-    };
-
     this.submitting.set(true);
 
     if (this.dialogMode() === 'create') {
-      this.timetableService.createSlot(payload).subscribe({
+      // board is REQUIRED here (TimetableSlotCreateCascading on the
+      // backend) — this used to be missing entirely, which is exactly
+      // what produced the 422 "board: Field required" error. It's not a
+      // stripped-disabled-control issue (this form has no
+      // FormGroup/FormControl at all, just signals) — it was purely
+      // omitted from this object literal.
+      const createPayload: CreateTimetableSlotRequest = {
+        level_id: selection.levelId,
+        subject_id: selection.subject.id,
+        teacher_id: selection.period.value,
+        batch_id: selection.batch.id,
+        board: selection.board,
+        day_of_week: day,
+        start_time: this.dateToTimeString(start),
+        end_time: this.dateToTimeString(end),
+      };
+      this.timetableService.createSlot(createPayload).subscribe({
         next: () => this.onSaved(),
         error: (err) => this.onSaveError(err),
       });
     } else {
       const slotId = this.editingSlotId();
       if (!slotId) return;
-      this.timetableService.updateSlot(slotId, payload).subscribe({
+      // No `board` here — TimetableSlotUpdate (backend) doesn't accept it,
+      // see UpdateTimetableSlotRequest's own comment.
+      const updatePayload: UpdateTimetableSlotRequest = {
+        level_id: selection.levelId,
+        subject_id: selection.subject.id,
+        teacher_id: selection.period.value,
+        batch_id: selection.batch.id,
+        day_of_week: day,
+        start_time: this.dateToTimeString(start),
+        end_time: this.dateToTimeString(end),
+      };
+      this.timetableService.updateSlot(slotId, updatePayload).subscribe({
         next: () => this.onSaved(),
         error: (err) => this.onSaveError(err),
       });

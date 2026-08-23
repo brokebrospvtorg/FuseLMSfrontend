@@ -166,12 +166,22 @@ export interface CreateTimetableSlotRequest {
   subject_id: string;
   teacher_id: string;
   batch_id: string;
+  // Required by the backend's TimetableSlotCreateCascading (POST
+  // /timetable/slots) — not a TimetableSlot column itself, it's used
+  // server-side to validate the Coordinator's cascade selection is
+  // actually one of this batch+subject's real active offering boards,
+  // then discarded before the row is built. Omitting it is a 422
+  // ("Field required"), not a silent default.
+  board: Board;
   day_of_week: string;
   start_time: string;
   end_time: string;
 }
 
-/** Every field optional — PATCH sends only what's changing. */
+/** Every field optional — PATCH sends only what's changing. No `board`
+ *  here: TimetableSlotUpdate (backend) doesn't accept it — board isn't a
+ *  TimetableSlot column, and an edit isn't re-validated against the
+ *  cascade the way a create is. */
 export interface UpdateTimetableSlotRequest {
   level_id?: string;
   subject_id?: string;
