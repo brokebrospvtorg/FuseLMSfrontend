@@ -1,0 +1,56 @@
+<p-dialog
+  header="Teacher Workload"
+  [visible]="visible"
+  (visibleChange)="onVisibleChange($event)"
+  [modal]="true"
+  position="right"
+  [style]="{ width: '28rem', height: '100%' }"
+  [contentStyle]="{ height: '100%', overflowY: 'auto' }"
+  styleClass="teacher-workload-dialog">
+
+  @if (teacher; as t) {
+    <div class="teacher-workload__header">
+      <h2 class="teacher-workload__title">{{ t.full_name }}</h2>
+      <p class="teacher-workload__email">{{ t.email }}</p>
+      <div class="teacher-workload__badges">
+        @if (t.teacher_code) {
+          <p-tag severity="secondary" [value]="t.teacher_code" />
+        }
+        @for (board of t.boards; track board) {
+          <p-tag severity="info" [value]="boardLabel(board)" />
+        }
+      </div>
+    </div>
+
+    <div class="teacher-workload__stats">
+      <div class="teacher-workload__stat">
+        <span class="teacher-workload__stat-value">{{ t.active_subjects_count }}</span>
+        <span class="teacher-workload__stat-label">Active Subjects</span>
+      </div>
+      <div class="teacher-workload__stat">
+        <span class="teacher-workload__stat-value">{{ t.active_batches_count }}</span>
+        <span class="teacher-workload__stat-label">Active Batches</span>
+      </div>
+    </div>
+
+    <div class="teacher-workload__section">
+      <h3 class="teacher-workload__section-title">Batches &amp; Subjects Currently Teaching</h3>
+      @if (assignmentsBySubject.length === 0) {
+        <p class="teacher-workload__empty">No active subject/batch assignments yet.</p>
+      } @else {
+        <ul class="teacher-workload__subject-list">
+          @for (row of assignmentsBySubject; track row.subject_name) {
+            <li class="teacher-workload__subject">
+              <div class="teacher-workload__subject-name">{{ row.subject_name }}</div>
+              <div class="teacher-workload__subject-batches">
+                @for (batchName of row.batch_names; track batchName) {
+                  <p-tag severity="success" [value]="batchName" />
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  }
+</p-dialog>

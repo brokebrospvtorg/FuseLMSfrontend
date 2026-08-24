@@ -1,0 +1,70 @@
+<div class="page">
+  <h1 class="page__title">Teachers</h1>
+  <p class="page__subtitle">
+    Every active teacher, with their qualified boards and current workload.
+    Click a row to see their exact batches and subjects.
+  </p>
+
+  <p-card>
+    @if (error()) {
+      <p-message severity="error" [text]="error()!" styleClass="page__banner" />
+    }
+
+    <div class="teachers__toolbar">
+      <input
+        pInputText
+        type="text"
+        placeholder="Search by name, email, or teacher code"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+        class="w-full md:w-24rem" />
+    </div>
+
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (filteredTeachers().length === 0) {
+      <p class="page__empty">No teachers match the current search.</p>
+    } @else {
+      <p-table [value]="filteredTeachers()" [rows]="10" [paginator]="filteredTeachers().length > 10" [rowsPerPageOptions]="[10, 25, 50]">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Name</th>
+            <th>Teacher Code</th>
+            <th>Email</th>
+            <th>Boards</th>
+            <th>Workload</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr class="teachers__row" (click)="openTeacherWorkload(row)" tabindex="0"
+              (keydown.enter)="openTeacherWorkload(row)" role="button"
+              [attr.aria-label]="'View workload for ' + row.full_name">
+            <td>{{ row.full_name }}</td>
+            <td>{{ row.teacher_code ?? '—' }}</td>
+            <td>{{ row.email }}</td>
+            <td>
+              @if (row.boards.length === 0) {
+                <p-tag severity="secondary" value="No boards yet" />
+              } @else {
+                @for (b of row.boards; track b) {
+                  <p-tag severity="info" [value]="boardLabel(b)" />
+                }
+              }
+            </td>
+            <td>
+              <span class="teachers__workload-count">
+                {{ row.active_subjects_count }} subject{{ row.active_subjects_count === 1 ? '' : 's' }}
+                · {{ row.active_batches_count }} batch{{ row.active_batches_count === 1 ? '' : 'es' }}
+              </span>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<app-teacher-workload-dialog
+  [visible]="detailOpen()"
+  [teacher]="selectedTeacher()"
+  (closed)="closeTeacherWorkload()" />

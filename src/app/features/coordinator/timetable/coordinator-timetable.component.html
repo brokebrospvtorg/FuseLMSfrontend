@@ -102,11 +102,11 @@
   </div>
   <div class="timetable-builder__form-field">
     <label>Start Time</label>
-    <p-datepicker [ngModel]="formStartTime()" (ngModelChange)="formStartTime.set($event)" timeOnly hourFormat="24" styleClass="w-full" />
+    <p-datepicker appendTo="body" [ngModel]="formStartTime()" (ngModelChange)="formStartTime.set($event)" timeOnly hourFormat="24" styleClass="w-full" />
   </div>
   <div class="timetable-builder__form-field">
     <label>End Time</label>
-    <p-datepicker [ngModel]="formEndTime()" (ngModelChange)="formEndTime.set($event)" timeOnly hourFormat="24" styleClass="w-full" />
+    <p-datepicker appendTo="body" [ngModel]="formEndTime()" (ngModelChange)="formEndTime.set($event)" timeOnly hourFormat="24" styleClass="w-full" />
   </div>
 
   <ng-template pTemplate="footer">

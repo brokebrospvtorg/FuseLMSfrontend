@@ -115,7 +115,10 @@
   </div>
   <div class="registry__form-field">
     <label for="new-phone">Phone Number</label>
-    <input id="new-phone" pInputText [ngModel]="newPhoneNumber()" (ngModelChange)="newPhoneNumber.set($event)" class="w-full" />
+    <input id="new-phone" pInputText placeholder="03001234567" [ngModel]="newPhoneNumber()" (ngModelChange)="newPhoneNumber.set($event)" class="w-full" />
+    @if (newPhoneNumber() && !isPhoneNumberValid(newPhoneNumber())) {
+      <small class="registry__field-error">Must be a valid Pakistani mobile number, e.g. 03001234567 or +923001234567.</small>
+    }
   </div>
 
   @if (newRole() === 'student') {
@@ -137,23 +140,49 @@
     </div>
     <div class="registry__form-field">
       <label for="new-gender">Gender</label>
-      <input id="new-gender" pInputText [ngModel]="newGender()" (ngModelChange)="newGender.set($event)" class="w-full" />
+      <p-select appendTo="body"
+        id="new-gender"
+        [options]="genderOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="newGender()"
+        (ngModelChange)="newGender.set($event)"
+        placeholder="Select gender"
+        styleClass="w-full">
+      </p-select>
     </div>
     <div class="registry__form-field">
       <label for="new-religion">Religion</label>
-      <input id="new-religion" pInputText [ngModel]="newReligion()" (ngModelChange)="newReligion.set($event)" class="w-full" />
+      <p-select appendTo="body"
+        id="new-religion"
+        [options]="religionOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="newReligion()"
+        (ngModelChange)="newReligion.set($event)"
+        placeholder="Select religion"
+        styleClass="w-full">
+      </p-select>
     </div>
     <div class="registry__form-field">
       <label for="new-nationality">Nationality</label>
-      <input id="new-nationality" pInputText [ngModel]="newNationality()" (ngModelChange)="newNationality.set($event)" class="w-full" />
+      <p-select appendTo="body"
+        id="new-nationality"
+        [options]="nationalityOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="newNationality()"
+        (ngModelChange)="newNationality.set($event)"
+        placeholder="Select nationality"
+        styleClass="w-full">
+      </p-select>
     </div>
     <div class="registry__form-field">
       <label for="new-cnic">CNIC #</label>
-      <input id="new-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
-    </div>
-    <div class="registry__form-field">
-      <label for="new-registration-id">Registration ID</label>
-      <input id="new-registration-id" pInputText [ngModel]="newRegistrationId()" (ngModelChange)="newRegistrationId.set($event)" class="w-full" />
+      <input id="new-cnic" pInputText placeholder="12345-1234567-1" [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+      @if (newCnic() && !isCnicValid(newCnic())) {
+        <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
+      }
     </div>
     <div class="registry__form-field">
       <label for="new-board">Board <span class="registry__required">*</span></label>
@@ -261,20 +290,28 @@
 
   @if (newRole() === 'teacher') {
     <div class="registry__form-field">
-      <label for="new-designation">Designation</label>
-      <input id="new-designation" pInputText [ngModel]="newDesignation()" (ngModelChange)="newDesignation.set($event)" class="w-full" />
-    </div>
-    <div class="registry__form-field">
       <label for="new-hire-date">Hire Date</label>
       <p-datepicker id="new-hire-date" [ngModel]="newHireDate()" (ngModelChange)="newHireDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
     </div>
     <div class="registry__form-field">
       <label for="new-teacher-gender">Gender</label>
-      <input id="new-teacher-gender" pInputText [ngModel]="newGender()" (ngModelChange)="newGender.set($event)" class="w-full" />
+      <p-select appendTo="body"
+        id="new-teacher-gender"
+        [options]="genderOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="newGender()"
+        (ngModelChange)="newGender.set($event)"
+        placeholder="Select gender"
+        styleClass="w-full">
+      </p-select>
     </div>
     <div class="registry__form-field">
       <label for="new-teacher-cnic">CNIC #</label>
-      <input id="new-teacher-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+      <input id="new-teacher-cnic" pInputText placeholder="12345-1234567-1" [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+      @if (newCnic() && !isCnicValid(newCnic())) {
+        <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
+      }
     </div>
     <div class="registry__form-field">
       <label>Teacher Code</label>
@@ -294,12 +331,31 @@
         styleClass="w-full">
       </p-multiSelect>
     </div>
+    <!-- Multi-Level Teacher Assignment: a Teacher can be qualified to
+         teach more than one academic level at once (e.g. O Level, AS
+         Level, and A Level Composite together) — required, at least one,
+         same treatment as Boards Taught above. Independent of the
+         optional initial Batch/Subject assignment below; sent to the
+         backend as level_ids (array of level UUIDs), not a single
+         level_id. -->
+    <div class="registry__form-field">
+      <label for="new-teacher-levels">Levels Taught <span class="registry__required">*</span></label>
+      <p-multiSelect appendTo="body"
+        id="new-teacher-levels"
+        [options]="levelOptions()"
+        [ngModel]="newTeacherLevelIds()"
+        (ngModelChange)="onNewTeacherLevelsChange($event)"
+        placeholder="Select the level(s) this teacher is qualified to teach"
+        display="chip"
+        styleClass="w-full">
+      </p-multiSelect>
+    </div>
 
-    <!-- Admin Teacher Creation, point 2: cascading Batch -> Level -> Subject
-         for an optional initial subject assignment. Leaving Batch unset
-         just creates the account with no assignment, same as before this
-         change — Assign Teacher from Admin Batches still works afterwards
-         either way. -->
+    <!-- Admin Teacher Creation, point 2: Batch -> Subject for an optional
+         initial subject assignment, filtered against the Levels Taught
+         selected above. Leaving Batch unset just creates the account with
+         no assignment, same as before this change — Assign Teacher from
+         Admin Batches still works afterwards either way. -->
     <div class="registry__form-field">
       <label for="new-teacher-batch">Initial Assignment — Batch (optional)</label>
       <p-select appendTo="body"
@@ -312,21 +368,7 @@
         styleClass="w-full">
       </p-select>
     </div>
-    @if (newTeacherBatchId()) {
-      <div class="registry__form-field">
-        <label for="new-teacher-level">Level</label>
-        <p-select appendTo="body"
-          id="new-teacher-level"
-          [options]="levelOptions()"
-          [ngModel]="newTeacherLevelId()"
-          (ngModelChange)="onNewTeacherLevelChange($event)"
-          placeholder="Select a level…"
-          [showClear]="true"
-          styleClass="w-full">
-        </p-select>
-      </div>
-    }
-    @if (newTeacherBatchId() && newTeacherLevelId()) {
+    @if (newTeacherBatchId() && newTeacherLevelIds().length > 0) {
       <div class="registry__form-field">
         <label for="new-teacher-subjects">Subject(s)</label>
         @if (newTeacherOfferedSubjectsLoading()) {
@@ -337,22 +379,27 @@
             [options]="newTeacherSubjectOptions()"
             [ngModel]="newTeacherSubjectIds()"
             (ngModelChange)="newTeacherSubjectIds.set($event)"
-            placeholder="Select subject(s) offered for this batch/level"
+            placeholder="Select subject(s) offered for this batch across the selected level(s)"
             display="chip"
             styleClass="w-full">
           </p-multiSelect>
           @if (newTeacherSubjectOptions().length === 0) {
-            <small class="registry__hint registry__hint--inline">No active subjects offered for this batch at this level yet.</small>
+            <small class="registry__hint registry__hint--inline">No active subjects offered for this batch at the selected level(s) yet.</small>
           }
         }
       </div>
+    } @else if (newTeacherBatchId() && newTeacherLevelIds().length === 0) {
+      <small class="registry__hint registry__hint--inline">Select at least one Level above to see available subjects for this batch.</small>
     }
   }
 
   @if (newRole() === 'parent') {
     <div class="registry__form-field">
       <label for="new-parent-cnic">CNIC #</label>
-      <input id="new-parent-cnic" pInputText [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+      <input id="new-parent-cnic" pInputText placeholder="12345-1234567-1" [ngModel]="newCnic()" (ngModelChange)="newCnic.set($event)" class="w-full" />
+      @if (newCnic() && !isCnicValid(newCnic())) {
+        <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
+      }
     </div>
     <div class="registry__form-field">
       <label>Parent Reg ID</label>
@@ -440,7 +487,10 @@
 
     <div class="registry__form-field">
       <label for="edit-phone">Phone Number</label>
-      <input id="edit-phone" pInputText [ngModel]="editPhoneNumber()" (ngModelChange)="editPhoneNumber.set($event)" class="w-full" />
+      <input id="edit-phone" pInputText placeholder="03001234567" [ngModel]="editPhoneNumber()" (ngModelChange)="editPhoneNumber.set($event)" class="w-full" />
+      @if (editPhoneNumber() && !isPhoneNumberValid(editPhoneNumber())) {
+        <small class="registry__field-error">Must be a valid Pakistani mobile number, e.g. 03001234567 or +923001234567.</small>
+      }
     </div>
 
     @if (user.role === 'student') {
@@ -469,27 +519,49 @@
       </div>
       <div class="registry__form-field">
         <label for="edit-gender">Gender</label>
-        <input id="edit-gender" pInputText [ngModel]="editGender()" (ngModelChange)="editGender.set($event)" class="w-full" />
+        <p-select appendTo="body"
+          id="edit-gender"
+          [options]="genderOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="editGender()"
+          (ngModelChange)="editGender.set($event)"
+          placeholder="Select gender"
+          styleClass="w-full">
+        </p-select>
       </div>
       <div class="registry__form-field">
         <label for="edit-religion">Religion</label>
-        <input id="edit-religion" pInputText [ngModel]="editReligion()" (ngModelChange)="editReligion.set($event)" class="w-full" />
+        <p-select appendTo="body"
+          id="edit-religion"
+          [options]="religionOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="editReligion()"
+          (ngModelChange)="editReligion.set($event)"
+          placeholder="Select religion"
+          styleClass="w-full">
+        </p-select>
       </div>
       <div class="registry__form-field">
         <label for="edit-nationality">Nationality</label>
-        <input id="edit-nationality" pInputText [ngModel]="editNationality()" (ngModelChange)="editNationality.set($event)" class="w-full" />
+        <p-select appendTo="body"
+          id="edit-nationality"
+          [options]="nationalityOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="editNationality()"
+          (ngModelChange)="editNationality.set($event)"
+          placeholder="Select nationality"
+          styleClass="w-full">
+        </p-select>
       </div>
       <div class="registry__form-field">
         <label for="edit-cnic">CNIC #</label>
-        <input id="edit-cnic" pInputText [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
-      </div>
-      <div class="registry__form-field">
-        <label for="edit-registration-id">Registration ID</label>
-        <!-- Read-Only Reg ID & Roll Number: same treatment as Roll Number
-             above — system-issued and locked from this dialog. -->
-        <input id="edit-registration-id" pInputText [ngModel]="editRegistrationId()" [readonly]="true"
-          class="w-full registry__field-locked" />
-        <p class="registry__hint registry__hint--inline">System-generated at enrollment — not editable here.</p>
+        <input id="edit-cnic" pInputText placeholder="12345-1234567-1" [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+        @if (editCnic() && !isCnicValid(editCnic())) {
+          <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
+        }
       </div>
       <div class="registry__form-field">
         <label for="edit-board">Board <span class="registry__required">*</span></label>
@@ -606,20 +678,28 @@
 
     @if (user.role === 'teacher') {
       <div class="registry__form-field">
-        <label for="edit-designation">Designation</label>
-        <input id="edit-designation" pInputText [ngModel]="editDesignation()" (ngModelChange)="editDesignation.set($event)" class="w-full" />
-      </div>
-      <div class="registry__form-field">
         <label for="edit-hire-date">Hire Date</label>
         <p-datepicker id="edit-hire-date" [ngModel]="editHireDate()" (ngModelChange)="editHireDate.set($event)" dateFormat="dd M yy" styleClass="w-full" />
       </div>
       <div class="registry__form-field">
         <label for="edit-teacher-gender">Gender</label>
-        <input id="edit-teacher-gender" pInputText [ngModel]="editGender()" (ngModelChange)="editGender.set($event)" class="w-full" />
+        <p-select appendTo="body"
+          id="edit-teacher-gender"
+          [options]="genderOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="editGender()"
+          (ngModelChange)="editGender.set($event)"
+          placeholder="Select gender"
+          styleClass="w-full">
+        </p-select>
       </div>
       <div class="registry__form-field">
         <label for="edit-teacher-cnic">CNIC #</label>
-        <input id="edit-teacher-cnic" pInputText [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+        <input id="edit-teacher-cnic" pInputText placeholder="12345-1234567-1" [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+        @if (editCnic() && !isCnicValid(editCnic())) {
+          <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
+        }
       </div>
       <div class="registry__form-field">
         <label for="edit-teacher-code">Teacher Code</label>
@@ -662,7 +742,10 @@
     @if (user.role === 'parent') {
       <div class="registry__form-field">
         <label for="edit-parent-cnic">CNIC #</label>
-        <input id="edit-parent-cnic" pInputText [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+        <input id="edit-parent-cnic" pInputText placeholder="12345-1234567-1" [ngModel]="editCnic()" (ngModelChange)="editCnic.set($event)" class="w-full" />
+        @if (editCnic() && !isCnicValid(editCnic())) {
+          <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
+        }
       </div>
       <div class="registry__form-field">
         <label for="edit-parent-registration-id">Registration ID</label>

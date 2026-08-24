@@ -1,0 +1,24 @@
+.teachers__toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.teachers__row {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--surface-50, #f8f9fb);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #101d3c;
+    outline-offset: -2px;
+  }
+}
+
+.teachers__workload-count {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #667085);
+  white-space: nowrap;
+}

@@ -62,6 +62,11 @@ export interface CreateUserRequest {
   // Teacher-only, REQUIRED (at least one) when role === 'teacher': the
   // board(s) this teacher is qualified to teach.
   boards?: Board[] | null;
+  // Multi-Level Teacher Assignment: the academic level(s) — e.g. O
+  // Level, AS Level, A Level Composite — this teacher is qualified to
+  // teach. Teacher-only, REQUIRED (at least one) when role === 'teacher'.
+  // Sent as an array of level UUIDs, not a single level_id.
+  level_ids?: string[] | null;
   // Parent Link Flow (Student creation only): explicit choice between
   // linking an existing Parent now ('existing', parent_id required) or
   // deferring it ('later' — Link Parent from the Registry row action

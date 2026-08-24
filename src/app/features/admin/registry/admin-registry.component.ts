@@ -58,6 +58,36 @@ const ASSIGNABLE_ROLE_OPTIONS: { label: string; value: AssignableRole }[] = [
 // that would just fail.
 const COORDINATOR_ASSIGNABLE_ROLE_OPTIONS = ASSIGNABLE_ROLE_OPTIONS.filter((o) => o.value !== 'coordinator');
 
+// Strict format validators (client-side mirror of the backend's own
+// regex checks) — Phone Number must be a Pakistani mobile number in
+// either +92 or 0-prefixed form (e.g. +923001234567 / 03001234567);
+// CNIC must be the standard 13-digit dashed format (e.g. 12345-1234567-1).
+// Both fields stay optional (blank is fine — see the "|| null" mapping
+// in submitAddUser/submitEditDetails below); the pattern only applies
+// once something has actually been typed in.
+const PHONE_NUMBER_PATTERN = /^(\+92|0)3\d{9}$/;
+const CNIC_PATTERN = /^\d{5}-\d{7}-\d{1}$/;
+
+// Fixed option sets for the Gender / Religion / Nationality dropdowns —
+// replaces the old free-text inputs so these fields can only ever hold
+// one of the exact values the backend expects.
+const GENDER_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Male', value: 'Male' },
+  { label: 'Female', value: 'Female' },
+  { label: 'Other', value: 'Other' },
+];
+const RELIGION_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Islam', value: 'Islam' },
+  { label: 'Christianity', value: 'Christianity' },
+  { label: 'Hinduism', value: 'Hinduism' },
+  { label: 'Sikhism', value: 'Sikhism' },
+  { label: 'Other', value: 'Other' },
+];
+const NATIONALITY_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Pakistani', value: 'Pakistani' },
+  { label: 'Other', value: 'Other' },
+];
+
 @Component({
   selector: 'app-admin-registry',
   standalone: true,
@@ -118,8 +148,10 @@ export class AdminRegistryComponent implements OnInit {
   newReligion = signal('');
   newNationality = signal('');
   newCnic = signal('');
+  // Registration ID is now only ever entered for a Parent — the Student
+  // form's Registration ID control has been removed entirely (it's
+  // system-generated at enrollment, same as Roll Number).
   newRegistrationId = signal('');
-  newDesignation = signal('');
   newHireDate = signal<Date | null>(null);
   // Admin Teacher Creation, point 1: Teacher Code is no longer entered
   // here at all — it's server-generated (INK-T-XXXX) the moment the
@@ -131,6 +163,9 @@ export class AdminRegistryComponent implements OnInit {
   newBoard = signal<Board | null>(null);
   newBoards = signal<Board[]>([]);
   boardOptions = BOARD_OPTIONS;
+  genderOptions = GENDER_OPTIONS;
+  religionOptions = RELIGION_OPTIONS;
+  nationalityOptions = NATIONALITY_OPTIONS;
   // Password Management: Admin/Coordinator can optionally set the account's
   // initial password directly instead of the default email-activation-token
   // path. Off by default so unmodified behaviour (pending + activation
@@ -151,7 +186,7 @@ export class AdminRegistryComponent implements OnInit {
   // tied to "the" current batch the way a Student's active enrollment is.
   // Level is the global 4-level catalog (academicLevels, loaded once in
   // ngOnInit); Subject options are whatever's actually offered+active for
-  // the chosen Batch, filtered down to the chosen Level — same
+  // the chosen Batch, filtered down to the chosen Level(s) — same
   // "offered-subjects, never the raw catalog" rule as everywhere else in
   // this component (see levelSubjects' own docstring above). Entirely
   // optional: leaving Batch unset just creates the Teacher account with no
@@ -162,13 +197,22 @@ export class AdminRegistryComponent implements OnInit {
     this.allBatches().map((b) => ({ label: b.name, value: b.id })),
   );
   newTeacherBatchId = signal<string | null>(null);
-  newTeacherLevelId = signal<string | null>(null);
+  // Multi-Level Teacher Assignment: a Teacher can now be qualified to
+  // teach more than one academic level at once (e.g. O Level, AS Level,
+  // and A Level Composite together) — this is a required, teacher-wide
+  // qualification (same "required, at least one" treatment as
+  // newBoards/Boards Taught below), independent of whether an initial
+  // Batch/Subject assignment is made. Sent to the backend as `level_ids`
+  // (an array of level UUIDs) rather than the old single `level_id`.
+  newTeacherLevelIds = signal<string[]>([]);
   newTeacherOfferedSubjects = signal<BatchSubject[]>([]);
   newTeacherOfferedSubjectsLoading = signal(false);
   newTeacherSubjectIds = signal<string[]>([]);
+  // Subject options now pool every offered subject across every one of
+  // the teacher's selected levels, not just a single level.
   newTeacherSubjectOptions = computed(() =>
     this.newTeacherOfferedSubjects()
-      .filter((s) => s.level_id === this.newTeacherLevelId())
+      .filter((s) => this.newTeacherLevelIds().includes(s.level_id))
       .map((s) => ({ label: s.subject_name, value: s.subject_id })),
   );
 
@@ -327,8 +371,10 @@ export class AdminRegistryComponent implements OnInit {
   editReligion = signal('');
   editNationality = signal('');
   editCnic = signal('');
+  // Registration ID is now only ever edited for a Parent — the Student
+  // form's Registration ID control has been removed entirely (it was
+  // already read-only/system-generated here).
   editRegistrationId = signal('');
-  editDesignation = signal('');
   editHireDate = signal<Date | null>(null);
   editTeacherCode = signal('');
   editBoard = signal<Board | null>(null);
@@ -403,17 +449,19 @@ export class AdminRegistryComponent implements OnInit {
     });
   }
 
-  /** Batch stage handler for the Add Teacher cascade: resets every stage
-   *  below it and fetches this batch's offered (active) subjects across
-   *  all boards — Level/Subject narrowing happens client-side from there,
-   *  same "offered-subjects, never the raw catalog" rule as
-   *  loadLevelSubjects above. No board filter here because the actual
-   *  assignment endpoint (assignTeacherToBatch) resolves the usable board
-   *  itself from whatever's actually active for the chosen batch/subject —
-   *  this cascade only needs Batch -> Level -> Subject, per spec. */
+  /** Batch handler for the Add Teacher initial-assignment cascade: resets
+   *  the Subject stage below it and fetches this batch's offered (active)
+   *  subjects across all boards — Subject narrowing happens client-side
+   *  from there, against whichever Level(s) the teacher is qualified for
+   *  (newTeacherLevelIds, set independently below — a teacher's Level
+   *  qualification doesn't reset just because a different Batch is picked
+   *  for the optional initial assignment). No board filter here because
+   *  the actual assignment endpoint (assignTeacherToBatch) resolves the
+   *  usable board itself from whatever's actually active for the chosen
+   *  batch/subject — this cascade only needs Batch -> Subject, filtered by
+   *  the teacher's selected Level(s). */
   onNewTeacherBatchChange(batchId: string | null): void {
     this.newTeacherBatchId.set(batchId);
-    this.newTeacherLevelId.set(null);
     this.newTeacherSubjectIds.set([]);
     this.newTeacherOfferedSubjects.set([]);
     if (!batchId) return;
@@ -427,12 +475,16 @@ export class AdminRegistryComponent implements OnInit {
     });
   }
 
-  /** Level stage handler for the Add Teacher cascade — purely narrows
-   *  newTeacherSubjectOptions (computed above) to this level; no refetch
-   *  needed since newTeacherOfferedSubjects already holds every offered
-   *  subject for the chosen batch across all levels. */
-  onNewTeacherLevelChange(levelId: string | null): void {
-    this.newTeacherLevelId.set(levelId);
+  /** Multi-Level Teacher Assignment: handler for the Levels Taught
+   *  multi-select — purely narrows newTeacherSubjectOptions (computed
+   *  above) to whichever level(s) are now selected; no refetch needed
+   *  since newTeacherOfferedSubjects already holds every offered subject
+   *  for the chosen batch across all levels. Clears any already-picked
+   *  Subjects whenever the level set changes, since a subject picked
+   *  against a level that's just been deselected would otherwise silently
+   *  ride along in the submission. */
+  onNewTeacherLevelsChange(levelIds: string[]): void {
+    this.newTeacherLevelIds.set(levelIds);
     this.newTeacherSubjectIds.set([]);
   }
 
@@ -460,7 +512,9 @@ export class AdminRegistryComponent implements OnInit {
 
   /** Level stage handler for the Add Student cascade — purely narrows
    *  newStudentSubjectOptions (computed above) to this level; no refetch
-   *  needed, same reasoning as onNewTeacherLevelChange. */
+   *  needed, same "narrow client-side, no refetch" reasoning as
+   *  onNewTeacherLevelsChange above (Student keeps a single-select Level
+   *  stage — only the Teacher form moved to multi-level). */
   onNewStudentLevelChange(levelId: string | null): void {
     this.newStudentLevelId.set(levelId);
     this.newStudentSubjectIds.set([]);
@@ -609,6 +663,23 @@ export class AdminRegistryComponent implements OnInit {
   }
 
   // ---------------------------------------------------------------------
+  // Field-level format validation (Phone Number / CNIC). Both fields stay
+  // optional — an empty value is always valid — but once something is
+  // typed in, it must match the strict pattern. Used both for the inline
+  // template error messages and as a submit-time gate in
+  // submitAddUser()/submitEditDetails() below.
+  // ---------------------------------------------------------------------
+  isPhoneNumberValid(value: string): boolean {
+    const trimmed = value.trim();
+    return !trimmed || PHONE_NUMBER_PATTERN.test(trimmed);
+  }
+
+  isCnicValid(value: string): boolean {
+    const trimmed = value.trim();
+    return !trimmed || CNIC_PATTERN.test(trimmed);
+  }
+
+  // ---------------------------------------------------------------------
   // Add User
   // ---------------------------------------------------------------------
   openAddDialog(): void {
@@ -624,7 +695,6 @@ export class AdminRegistryComponent implements OnInit {
     this.newNationality.set('');
     this.newCnic.set('');
     this.newRegistrationId.set('');
-    this.newDesignation.set('');
     this.newHireDate.set(null);
     this.newBoard.set(null);
     this.newBoards.set([]);
@@ -634,9 +704,9 @@ export class AdminRegistryComponent implements OnInit {
     this.newSetInitialPassword.set(false);
     this.newInitialPassword.set('');
     this.newInitialPasswordConfirm.set('');
-    // Add Teacher cascade (Batch -> Level -> Subject) — reset every stage.
+    // Add Teacher cascade (Batch -> Subject, filtered by Levels Taught) — reset every stage.
     this.newTeacherBatchId.set(null);
-    this.newTeacherLevelId.set(null);
+    this.newTeacherLevelIds.set([]);
     this.newTeacherSubjectIds.set([]);
     this.newTeacherOfferedSubjects.set([]);
     // Add Student Cascading Scope (Batch -> Level -> Subject) — reset
@@ -669,6 +739,17 @@ export class AdminRegistryComponent implements OnInit {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Full name, email, and role are all required.' });
       return;
     }
+    // Strict format validation — Phone Number and CNIC stay optional, but
+    // once typed in, must match the required pattern (mirrors the
+    // backend's own validators) rather than round-tripping to a 422.
+    if (!this.isPhoneNumberValid(this.newPhoneNumber())) {
+      Swal.fire({ icon: 'warning', title: 'Invalid phone number', text: 'Phone Number must be a valid Pakistani mobile number, e.g. 03001234567 or +923001234567.' });
+      return;
+    }
+    if (!this.isCnicValid(this.newCnic())) {
+      Swal.fire({ icon: 'warning', title: 'Invalid CNIC', text: 'CNIC must be in the format 12345-1234567-1.' });
+      return;
+    }
     // schema_update_11: Board is required on the Student form (single) and
     // the Teacher form (at least one) — matches the backend's
     // UserCreate._require_board_for_role validator exactly, so a bad
@@ -679,6 +760,13 @@ export class AdminRegistryComponent implements OnInit {
     }
     if (role === 'teacher' && this.newBoards().length === 0) {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Board a Teacher is qualified to teach.' });
+      return;
+    }
+    // Multi-Level Teacher Assignment: a Teacher must be qualified for at
+    // least one academic level (e.g. O Level, AS Level, A Level Composite)
+    // — same "required, at least one" treatment as Boards Taught above.
+    if (role === 'teacher' && this.newTeacherLevelIds().length === 0) {
+      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Level this Teacher is qualified to teach.' });
       return;
     }
     // Parent Link Flow: "Link Existing Parent" requires an actual parent
@@ -758,14 +846,21 @@ export class AdminRegistryComponent implements OnInit {
         religion: role === 'student' ? this.newReligion() || null : null,
         nationality: role === 'student' ? this.newNationality() || null : null,
         cnic: role === 'student' || role === 'teacher' || role === 'parent' ? this.newCnic() || null : null,
-        registration_id: role === 'student' || role === 'parent' ? this.newRegistrationId() || null : null,
+        // Registration ID is only ever sent for a Parent now — the
+        // Student form no longer has a control for it (system-generated,
+        // same as Roll Number).
+        registration_id: role === 'parent' ? this.newRegistrationId() || null : null,
         board: role === 'student' ? this.newBoard() : null,
-        designation: role === 'teacher' ? this.newDesignation() || null : null,
+        // Designation control has been removed entirely from the Teacher
+        // form — no longer sent on create.
         hire_date: role === 'teacher' && this.newHireDate() ? this.toIsoDate(this.newHireDate()!) : null,
         // No teacher_code here — Admin Teacher Creation point 1: the
         // server always generates it (INK-T-XXXX); CreateUserRequest
         // doesn't even have a field for it any more.
         boards: role === 'teacher' ? this.newBoards() : null,
+        // Multi-Level Teacher Assignment: the level(s) this teacher is
+        // qualified to teach, sent as an array of level UUIDs.
+        level_ids: role === 'teacher' ? this.newTeacherLevelIds() : null,
         // Parent Link Flow: parent_link_mode is the explicit signal the
         // backend validates against; parent_id/relationship_label are only
         // meaningful (and only sent) when the mode is 'existing'.
@@ -1018,8 +1113,9 @@ export class AdminRegistryComponent implements OnInit {
         this.editReligion.set(detail.student_profile?.religion ?? '');
         this.editNationality.set(detail.student_profile?.nationality ?? '');
         this.editCnic.set(detail.student_profile?.cnic ?? detail.teacher_profile?.cnic ?? detail.parent_profile?.cnic ?? '');
-        this.editRegistrationId.set(detail.student_profile?.registration_id ?? detail.parent_profile?.registration_id ?? '');
-        this.editDesignation.set(detail.teacher_profile?.designation ?? '');
+        // Registration ID is only ever prefilled for a Parent now — the
+        // Student form no longer has a control for it.
+        this.editRegistrationId.set(detail.parent_profile?.registration_id ?? '');
         this.editHireDate.set(this.fromIsoDate(detail.teacher_profile?.hire_date));
         this.editTeacherCode.set(detail.teacher_profile?.teacher_code ?? '');
         this.editBoard.set(detail.student_profile?.board ?? null);
@@ -1063,6 +1159,16 @@ export class AdminRegistryComponent implements OnInit {
     const user = this.editDetailsUser();
     if (!user) return;
 
+    // Strict format validation — same rule as Add User: optional, but must
+    // match the required pattern once typed in.
+    if (!this.isPhoneNumberValid(this.editPhoneNumber())) {
+      Swal.fire({ icon: 'warning', title: 'Invalid phone number', text: 'Phone Number must be a valid Pakistani mobile number, e.g. 03001234567 or +923001234567.' });
+      return;
+    }
+    if (!this.isCnicValid(this.editCnic())) {
+      Swal.fire({ icon: 'warning', title: 'Invalid CNIC', text: 'CNIC must be in the format 12345-1234567-1.' });
+      return;
+    }
     // schema_update_11: same required-Board rule as Add User — a Student
     // edit always resends the (required) board, a Teacher edit always
     // resends at least one board.
@@ -1094,9 +1200,12 @@ export class AdminRegistryComponent implements OnInit {
         religion: user.role === 'student' ? this.editReligion() || null : undefined,
         nationality: user.role === 'student' ? this.editNationality() || null : undefined,
         cnic: this.editCnic() || null,
-        registration_id: user.role === 'student' || user.role === 'parent' ? this.editRegistrationId() || null : undefined,
+        // Registration ID is only ever sent for a Parent now — the
+        // Student form no longer has a control for it.
+        registration_id: user.role === 'parent' ? this.editRegistrationId() || null : undefined,
         board: user.role === 'student' ? this.editBoard() : undefined,
-        designation: user.role === 'teacher' ? this.editDesignation() || null : undefined,
+        // Designation control has been removed entirely from the Teacher
+        // form — no longer sent on update.
         hire_date: user.role === 'teacher' && this.editHireDate() ? this.toIsoDate(this.editHireDate()!) : undefined,
         teacher_code: user.role === 'teacher' ? this.editTeacherCode() || null : undefined,
         boards: user.role === 'teacher' ? this.editBoards() : undefined,

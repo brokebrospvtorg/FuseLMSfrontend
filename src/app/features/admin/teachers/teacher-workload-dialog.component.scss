@@ -1,0 +1,93 @@
+.teacher-workload__header {
+  margin-bottom: 1.25rem;
+}
+
+.teacher-workload__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.teacher-workload__email {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #667085);
+  margin: 0 0 0.6rem;
+}
+
+.teacher-workload__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.teacher-workload__stats {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.teacher-workload__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--surface-100, #f4f6f9);
+}
+
+.teacher-workload__stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.teacher-workload__stat-label {
+  font-size: 0.78rem;
+  color: var(--text-color-secondary, #667085);
+}
+
+.teacher-workload__section {
+  margin-bottom: 1.5rem;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.teacher-workload__section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.teacher-workload__empty {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #667085);
+  margin: 0;
+}
+
+.teacher-workload__subject-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.teacher-workload__subject {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--surface-200, #e5e7eb);
+}
+
+.teacher-workload__subject-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+
+.teacher-workload__subject-batches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}

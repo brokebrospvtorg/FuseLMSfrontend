@@ -19,6 +19,7 @@ const teacherNav: PortalNavItem[] = [
 const coordinatorNav: PortalNavItem[] = [
   { label: 'Dashboard', icon: 'dashboard', route: '/coordinator/dashboard' },
   { label: 'Batches', icon: 'registry', route: '/coordinator/batches' },
+  { label: 'Teachers', icon: 'teachers', route: '/coordinator/teachers' },
   { label: 'Subject Requests', icon: 'subject-requests', route: '/coordinator/subject-requests' },
   { label: 'Teacher Attendance', icon: 'attendance', route: '/coordinator/teacher-attendance' },
   { label: 'Student Attendance', icon: 'attendance', route: '/coordinator/student-attendance' },
@@ -38,6 +39,7 @@ const adminNav: PortalNavItem[] = [
   { label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard', section: 'System Administration' },
   { label: 'Information Registry', icon: 'registry', route: '/admin/registry', section: 'Information Registry' },
   { label: 'Batches', icon: 'registry', route: '/admin/batches', section: 'Academics' },
+  { label: 'Teachers', icon: 'teachers', route: '/admin/teachers', section: 'Academics' },
   { label: 'Subjects', icon: 'subject-requests', route: '/admin/subjects', section: 'Academics' },
   { label: 'Subject Requests', icon: 'subject-requests', route: '/admin/subject-requests', section: 'Academics' },
   { label: 'Timetable', icon: 'timetable', route: '/admin/timetable', section: 'Academics' },
@@ -229,6 +231,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'teachers',
+        loadComponent: () =>
+          import('./features/admin/teachers/admin-teachers.component').then(
+            (m) => m.AdminTeachersComponent,
+          ),
+      },
+      {
         path: 'subject-requests',
         loadComponent: () =>
           import('./features/coordinator/subject-requests/coordinator-subject-requests.component').then(
@@ -347,6 +356,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/academic/academics-management/academics-management.component').then(
             (m) => m.AcademicsManagementComponent,
+          ),
+      },
+      {
+        path: 'teachers',
+        loadComponent: () =>
+          import('./features/admin/teachers/admin-teachers.component').then(
+            (m) => m.AdminTeachersComponent,
           ),
       },
       {
