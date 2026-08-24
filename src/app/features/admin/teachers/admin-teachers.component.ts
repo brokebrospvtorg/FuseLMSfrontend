@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 
 import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
@@ -11,7 +12,9 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
 
 import { TeacherService } from '../../../core/services/teacher.service';
+import { UserService } from '../../../core/services/user.service';
 import { TeacherWorkloadSummary } from '../../../core/models/teacher.model';
+import { UserRole } from '../../../core/models/enums';
 import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 import { TeacherWorkloadDialogComponent } from './teacher-workload-dialog.component';
 import { ManageTeacherDialogComponent } from './manage-teacher-dialog.component';
@@ -25,6 +28,30 @@ import { ManageTeacherDialogComponent } from './manage-teacher-dialog.component'
  * (see app.routes.ts), same reuse pattern already used for
  * Batches/Timetable/Student Attendance across the two portals — the
  * backend endpoint itself is Admin/Coordinator only (require_roles).
+ *
+ * Strictly-Teacher filtering (frontend-only):
+ * GET /api/teachers/workload-summary is deliberately dual-role-inclusive
+ * server-side — a Coordinator who still holds a teacher_profiles row is
+ * included on purpose (see get_teacher_workload_summary's own docstring
+ * in app/routers/teachers.py), because other screens (the Coordinator
+ * Timetable Builder's Teacher Assignee dropdown, the Dual-Role Switcher)
+ * need that. This screen wants the opposite: ONLY users whose current
+ * role is literally 'teacher', Coordinators excluded outright.
+ *
+ * TeacherWorkloadSummaryOut doesn't carry a `role` field at all — it was
+ * never part of that response shape — so a plain `row.role === 'coordinator'`
+ * filter on the workload-summary array is a silent no-op (row.role is
+ * always undefined). Since the backend contract isn't changing, this
+ * cross-references a second, already-existing call — GET
+ * /api/users?role=teacher (UserService.getUsersByRole, used the same way
+ * by manage-batch-dialog.component.ts) — whose UserOut rows DO carry a
+ * real `role` column value (that endpoint is also dual-role-inclusive by
+ * design, but each row's own `role` still tells the truth about who's
+ * currently a Coordinator). loadTeachers() below builds the set of ids
+ * whose role is strictly 'teacher' from that call, and filters the
+ * workload-summary rows down to just those ids before they ever reach
+ * `teachers()` — so search, the drawer, and Manage all only ever see
+ * strictly-Teacher rows, with no change to either backend endpoint.
  *
  * Clicking a row opens the read-only Teacher Workload drawer
  * (TeacherWorkloadDialogComponent) with that teacher's assigned boards
@@ -59,8 +86,9 @@ export class AdminTeachersComponent implements OnInit {
 
   boardOptions = BOARD_OPTIONS;
 
-  /** Client-side filter over the already-loaded list — matches on name,
-   *  email, or teacher code, same "search by name or email" convention as
+  /** Client-side filter over the already-loaded (and already
+   *  strictly-Teacher-filtered) list — matches on name, email, or
+   *  teacher code, same "search by name or email" convention as
    *  admin-registry.component.ts's user directory. */
   filteredTeachers = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -80,7 +108,10 @@ export class AdminTeachersComponent implements OnInit {
   manageOpen = signal(false);
   managingTeacher = signal<TeacherWorkloadSummary | null>(null);
 
-  constructor(private teacherService: TeacherService) {}
+  constructor(
+    private teacherService: TeacherService,
+    private userService: UserService,
+  ) {}
 
   ngOnInit(): void {
     this.loadTeachers();
@@ -89,9 +120,21 @@ export class AdminTeachersComponent implements OnInit {
   loadTeachers(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.teacherService.getWorkloadSummary().subscribe({
-      next: (teachers) => {
-        this.teachers.set(teachers);
+    forkJoin({
+      workload: this.teacherService.getWorkloadSummary(),
+      users: this.userService.getUsersByRole(UserRole.Teacher),
+    }).subscribe({
+      next: ({ workload, users }) => {
+        // See this component's own docstring above for why this
+        // cross-reference is needed: workload-summary carries no `role`
+        // field, and GET /api/users?role=teacher is itself dual-role-
+        // inclusive — so only the rows from `users` whose OWN role is
+        // strictly 'teacher' count here, everything else (a Coordinator
+        // who still has a teacher_profiles row) is dropped.
+        const strictTeacherIds = new Set(
+          users.filter((u) => u.role === UserRole.Teacher).map((u) => u.id),
+        );
+        this.teachers.set(workload.filter((t) => strictTeacherIds.has(t.id)));
         this.loading.set(false);
       },
       error: (err) => {
