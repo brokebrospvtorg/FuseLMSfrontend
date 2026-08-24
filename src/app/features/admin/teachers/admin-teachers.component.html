@@ -2,7 +2,8 @@
   <h1 class="page__title">Teachers</h1>
   <p class="page__subtitle">
     Every active teacher, with their qualified boards and current workload.
-    Click a row to see their exact batches and subjects.
+    Click a row to see their exact batches and subjects, or use Manage to
+    add or remove an assignment.
   </p>
 
   <p-card>
@@ -33,6 +34,7 @@
             <th>Email</th>
             <th>Boards</th>
             <th>Workload</th>
+            <th style="width: 7rem"></th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-row>
@@ -57,6 +59,14 @@
                 · {{ row.active_batches_count }} batch{{ row.active_batches_count === 1 ? '' : 'es' }}
               </span>
             </td>
+            <td>
+              <p-button
+                label="Manage"
+                icon="pi pi-cog"
+                size="small"
+                [text]="true"
+                (onClick)="openManageTeacher(row, $event)" />
+            </td>
           </tr>
         </ng-template>
       </p-table>
@@ -68,3 +78,9 @@
   [visible]="detailOpen()"
   [teacher]="selectedTeacher()"
   (closed)="closeTeacherWorkload()" />
+
+<app-manage-teacher-dialog
+  [visible]="manageOpen()"
+  [teacher]="managingTeacher()"
+  (closed)="closeManageTeacher()"
+  (saved)="onTeacherWorkloadSaved()" />

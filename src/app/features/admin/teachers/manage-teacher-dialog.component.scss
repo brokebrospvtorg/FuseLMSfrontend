@@ -1,0 +1,61 @@
+.manage-teacher__header {
+  margin-bottom: 1.25rem;
+}
+
+.manage-teacher__email {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #667085);
+  margin: 0 0 0.6rem;
+}
+
+.manage-teacher__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.manage-teacher__section {
+  margin-bottom: 1.75rem;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.manage-teacher__section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+
+.manage-teacher__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-color-secondary, #667085);
+  }
+}
+
+.manage-teacher__hint {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #667085);
+  margin: 0 0 0.75rem;
+}
+
+.manage-teacher__hint-inline {
+  font-size: 0.78rem;
+  color: var(--text-color-secondary, #667085);
+}
+
+.manage-teacher__loading {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.manage-teacher__table {
+  margin-bottom: 0.5rem;
+}

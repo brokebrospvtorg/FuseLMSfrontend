@@ -14,6 +14,12 @@ export interface TeacherWorkloadLevel {
  * Mirrors app/schemas/teacher.py::TeacherWorkloadAssignmentOut — one
  * active (non-deleted) teacher_subject_assignments row, joined with
  * subject/batch display names.
+ *
+ * Note: this shape does NOT carry the assignment's own `id` — it's the
+ * Teachers list/detail-drawer's read-only view. Manage Teacher's "Current
+ * Assignments" table (which needs an id to call the DELETE endpoint)
+ * resolves ids separately via AcademicsStaffService.getTeacherAssignmentsFor()
+ * — see ManageTeacherDialogComponent.loadAssignments().
  */
 export interface TeacherWorkloadAssignment {
   subject_id: string;
@@ -41,4 +47,15 @@ export interface TeacherWorkloadSummary {
   assignments: TeacherWorkloadAssignment[];
   active_subjects_count: number;
   active_batches_count: number;
+}
+
+/**
+ * Mirrors app/schemas/teacher.py::TeacherAssignmentCreateRequest — body for
+ * POST /api/teachers/{teacher_id}/assignments (Workload Management "Add
+ * Assignment" form in ManageTeacherDialogComponent). teacher_id itself
+ * comes from the URL path, not this body — see TeacherService.assignToTeacher.
+ */
+export interface TeacherAssignmentCreatePayload {
+  subject_id: string;
+  batch_id: string;
 }

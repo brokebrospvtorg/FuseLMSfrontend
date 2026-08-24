@@ -1,0 +1,115 @@
+<p-dialog
+  [header]="teacher ? ('Manage: ' + teacher.full_name) : 'Manage Teacher'"
+  [visible]="visible"
+  (visibleChange)="onVisibleChange($event)"
+  [modal]="true"
+  [style]="{ width: '40rem' }"
+  [contentStyle]="{ maxHeight: '80vh', overflowY: 'auto' }"
+  styleClass="manage-teacher-dialog">
+
+  @if (teacher; as t) {
+    <div class="manage-teacher__header">
+      <p class="manage-teacher__email">{{ t.email }}</p>
+      <div class="manage-teacher__badges">
+        @if (t.teacher_code) {
+          <p-tag severity="secondary" [value]="t.teacher_code" />
+        }
+        @for (board of t.boards; track board) {
+          <p-tag severity="info" [value]="boardLabel(board)" />
+        }
+      </div>
+    </div>
+
+    <!-- --- Current Assignments --- -->
+    <div class="manage-teacher__section">
+      <h3 class="manage-teacher__section-title">Current Assignments</h3>
+
+      @if (loadingAssignments()) {
+        <div class="manage-teacher__loading">
+          <p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" />
+        </div>
+      } @else if (assignmentRows().length === 0) {
+        <p class="manage-teacher__hint">No active batch/subject assignments yet — add one below.</p>
+      } @else {
+        <p-table [value]="assignmentRows()" styleClass="manage-teacher__table" [rows]="5"
+                 [paginator]="assignmentRows().length > 5">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Board</th>
+              <th>Batch</th>
+              <th>Subject</th>
+              <th style="width: 6rem"></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr>
+              <td><p-tag severity="info" [value]="boardLabel(row.board)" /></td>
+              <td>{{ row.batch_name }}</td>
+              <td>{{ row.subject_name }}</td>
+              <td>
+                <p-button
+                  label="Remove"
+                  icon="pi pi-trash"
+                  size="small"
+                  severity="danger"
+                  [text]="true"
+                  [loading]="removingId() === row.id"
+                  [disabled]="removingId() !== null && removingId() !== row.id"
+                  (onClick)="remove(row)" />
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    </div>
+
+    <!-- --- Add Assignment --- -->
+    <div class="manage-teacher__section">
+      <h3 class="manage-teacher__section-title">Add Assignment</h3>
+
+      <div class="manage-teacher__field">
+        <label for="manage-teacher-batch">Batch</label>
+        <p-select appendTo="body"
+          id="manage-teacher-batch"
+          [options]="batches()"
+          optionLabel="name"
+          optionValue="id"
+          [ngModel]="selectedBatchId()"
+          (ngModelChange)="onBatchChange($event)"
+          placeholder="Select a batch"
+          [loading]="loadingBatches()"
+          styleClass="w-full" />
+      </div>
+
+      @if (selectedBatchId()) {
+        <div class="manage-teacher__field">
+          <label for="manage-teacher-subject">Subject</label>
+          <p-select appendTo="body"
+            id="manage-teacher-subject"
+            [options]="availableSubjects()"
+            optionLabel="subject_name"
+            optionValue="subject_id"
+            [ngModel]="selectedSubjectId()"
+            (ngModelChange)="selectedSubjectId.set($event)"
+            placeholder="Select a subject"
+            [loading]="loadingOfferedSubjects()"
+            styleClass="w-full" />
+          @if (!loadingOfferedSubjects() && availableSubjects().length === 0) {
+            <span class="manage-teacher__hint-inline">
+              No subjects available to assign for this batch — either none are offered yet, or
+              {{ t.full_name }} is already assigned to all of them.
+            </span>
+          }
+        </div>
+      }
+
+      <p-button
+        label="Assign"
+        icon="pi pi-plus"
+        size="small"
+        [loading]="assigning()"
+        [disabled]="!selectedBatchId() || !selectedSubjectId()"
+        (onClick)="assign()" />
+    </div>
+  }
+</p-dialog>

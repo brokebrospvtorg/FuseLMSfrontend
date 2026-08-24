@@ -19,6 +19,7 @@ import { TeacherAssignment } from '../../../core/models/academics-staff.model';
 import { User } from '../../../core/models/user.model';
 import { UserRole, Board } from '../../../core/models/enums';
 import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
+import { isAssignableTeacher } from '../../../shared/utils/active-teacher.util';
 
 /**
  * Admin/Coordinator: Manage Subjects &amp; Teachers for one Batch.
@@ -103,6 +104,16 @@ export class ManageBatchDialogComponent implements OnChanges {
 
   teachers = signal<User[]>([]);
   loadingTeachers = signal(false);
+
+  /** "Assign Teacher" picker source. Deleted teachers already never reach
+   *  `teachers()` (GET /api/users?role=teacher filters deleted_at
+   *  server-side) — this additionally drops SUSPENDED teachers, who still
+   *  exist but shouldn't be assignable to new work. `assignedTeacherNames`
+   *  below deliberately keeps reading off the unfiltered `teachers()` so
+   *  an already-assigned-but-now-suspended teacher's name still resolves
+   *  in the "Currently Assigned" chips — this filter only narrows the
+   *  *pickable* list. */
+  assignableTeachers = computed(() => this.teachers().filter(isAssignableTeacher));
 
   // --- cascading selection state ---
   // schema_update_15: Board is now a third axis alongside Level — a batch

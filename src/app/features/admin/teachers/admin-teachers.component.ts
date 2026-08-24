@@ -6,6 +6,7 @@ import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
+import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
 
@@ -13,6 +14,7 @@ import { TeacherService } from '../../../core/services/teacher.service';
 import { TeacherWorkloadSummary } from '../../../core/models/teacher.model';
 import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 import { TeacherWorkloadDialogComponent } from './teacher-workload-dialog.component';
+import { ManageTeacherDialogComponent } from './manage-teacher-dialog.component';
 
 /**
  * Admin/Coordinator: Teachers.
@@ -24,11 +26,13 @@ import { TeacherWorkloadDialogComponent } from './teacher-workload-dialog.compon
  * Batches/Timetable/Student Attendance across the two portals — the
  * backend endpoint itself is Admin/Coordinator only (require_roles).
  *
- * Clicking a row opens the Teacher Workload drawer
+ * Clicking a row opens the read-only Teacher Workload drawer
  * (TeacherWorkloadDialogComponent) with that teacher's assigned boards
- * and the exact batches/subjects they're currently teaching. Unlike the
- * Batch Summary drawer, no second request is made on click — the
- * workload-summary response already carries everything the drawer needs.
+ * and the exact batches/subjects they're currently teaching. The
+ * "Manage" action in the Actions column instead opens
+ * ManageTeacherDialogComponent — a read/write view that can add or
+ * remove batch/subject assignments — stopPropagation'd so it doesn't
+ * also trigger the row's own click-to-view handler.
  *
  * Note: the API response (TeacherWorkloadSummary) still carries a
  * `levels` field — the backend continues to compute and return it — this
@@ -40,7 +44,8 @@ import { TeacherWorkloadDialogComponent } from './teacher-workload-dialog.compon
   standalone: true,
   imports: [
     CommonModule, FormsModule, CardModule, TableModule, InputTextModule,
-    TagModule, ProgressSpinnerModule, MessageModule, TeacherWorkloadDialogComponent,
+    TagModule, ButtonModule, ProgressSpinnerModule, MessageModule,
+    TeacherWorkloadDialogComponent, ManageTeacherDialogComponent,
   ],
   templateUrl: './admin-teachers.component.html',
   styleUrl: './admin-teachers.component.scss',
@@ -67,9 +72,13 @@ export class AdminTeachersComponent implements OnInit {
     );
   });
 
-  // --- Teacher Workload drawer (clickable row) ---
+  // --- Teacher Workload drawer (read-only, clickable row) ---
   detailOpen = signal(false);
   selectedTeacher = signal<TeacherWorkloadSummary | null>(null);
+
+  // --- Manage Teacher dialog (read/write, "Manage" action) ---
+  manageOpen = signal(false);
+  managingTeacher = signal<TeacherWorkloadSummary | null>(null);
 
   constructor(private teacherService: TeacherService) {}
 
@@ -97,8 +106,8 @@ export class AdminTeachersComponent implements OnInit {
     return this.boardOptions.find((o) => o.value.toLowerCase() === boardLower)?.label ?? board;
   }
 
-  /** Row click handler — opens the Teacher Workload drawer for this
-   *  teacher, using the row's own already-loaded data. */
+  /** Row click handler — opens the read-only Teacher Workload drawer for
+   *  this teacher, using the row's own already-loaded data. */
   openTeacherWorkload(teacher: TeacherWorkloadSummary): void {
     this.selectedTeacher.set(teacher);
     this.detailOpen.set(true);
@@ -107,5 +116,25 @@ export class AdminTeachersComponent implements OnInit {
   closeTeacherWorkload(): void {
     this.detailOpen.set(false);
     this.selectedTeacher.set(null);
+  }
+
+  /** "Manage" button handler — stops propagation so it doesn't also fire
+   *  the row's openTeacherWorkload click handler. */
+  openManageTeacher(teacher: TeacherWorkloadSummary, event: Event): void {
+    event.stopPropagation();
+    this.managingTeacher.set(teacher);
+    this.manageOpen.set(true);
+  }
+
+  closeManageTeacher(): void {
+    this.manageOpen.set(false);
+    this.managingTeacher.set(null);
+  }
+
+  /** ManageTeacherDialogComponent's `saved` output — an assignment was
+   *  added or removed, so boards/workload counts on the list may now be
+   *  stale. Reload rather than patch client-side. */
+  onTeacherWorkloadSaved(): void {
+    this.loadTeachers();
   }
 }

@@ -1446,7 +1446,13 @@ export class AdminRegistryComponent implements OnInit {
     }).then((result) => {
       if (!result.isConfirmed) return;
       this.registryService.deleteUser(user.id).subscribe({
-        next: () => this.loadUsers(),
+        // Instant drop: update the signal directly from the confirmed
+        // response instead of waiting on a full loadUsers() round-trip —
+        // filteredUsers() (a computed() over `users`) re-derives
+        // immediately, so the row (and, if this was a Teacher, every
+        // dropdown/registry view reading off this same list) disappears
+        // the moment deletion is confirmed, not on the next refresh.
+        next: () => this.users.update((list) => list.filter((u) => u.id !== user.id)),
         error: (err) => {
           Swal.fire({
             icon: 'error',

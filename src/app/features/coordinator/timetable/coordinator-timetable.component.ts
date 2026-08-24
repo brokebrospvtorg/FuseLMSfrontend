@@ -21,6 +21,7 @@ import { TimetableSlotDetail, CreateTimetableSlotRequest, UpdateTimetableSlotReq
 import { Batch, Level, Subject } from '../../../core/models/academic.model';
 import { RegistryUser } from '../../../core/models/registry.model';
 import { loadOfferedPairs } from '../../../shared/utils/offered-pairs.util';
+import { isAssignableTeacher } from '../../../shared/utils/active-teacher.util';
 import {
   TeacherCascadingFilterComponent, TeacherFilterPair, TeacherFilterOption,
   TeacherFilterSelection, TeacherFilterSubjectContext,
@@ -206,7 +207,13 @@ export class CoordinatorTimetableComponent implements OnInit {
         for (const a of assignments) {
           if (seen.has(a.teacher_id)) continue;
           const teacher = teachersById.get(a.teacher_id);
-          if (!teacher) continue;
+          // teachersById is sourced from GET /api/users?role=teacher, which
+          // already excludes deleted teachers server-side — !teacher here
+          // just guards a stale/racy assignment row. isAssignableTeacher
+          // additionally drops a SUSPENDED teacher: their assignment row
+          // still exists, but they shouldn't be pickable as a NEW slot's
+          // Teacher Assignee.
+          if (!teacher || !isAssignableTeacher(teacher)) continue;
           seen.add(a.teacher_id);
           options.push({ label: teacher.full_name, value: teacher.id, data: teacher.id });
         }
