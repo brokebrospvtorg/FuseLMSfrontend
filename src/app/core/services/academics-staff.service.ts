@@ -66,8 +66,17 @@ export class AcademicsStaffService {
     return this.http.get<Subject[]>(`${this.academicUrl}/subjects`, { params, withCredentials: true });
   }
 
-  getBatches(): Observable<Batch[]> {
-    return this.http.get<Batch[]>(`${this.academicUrl}/batches`, { withCredentials: true });
+  /** activeOnly (default false) passes through to the backend's
+   *  active_only query param — leave it unset for callers that need
+   *  every batch (Admin Batches screen, Add Teacher cascade); pass true
+   *  for pickers that should only ever offer a currently-active batch
+   *  (Add Student "Initial Enrollment" cascade). */
+  getBatches(activeOnly = false): Observable<Batch[]> {
+    let params = new HttpParams();
+    if (activeOnly) {
+      params = params.set('active_only', 'true');
+    }
+    return this.http.get<Batch[]>(`${this.academicUrl}/batches`, { params, withCredentials: true });
   }
 
   /** schema_update_16 — POST /academic/subjects. Admin/Coordinator only

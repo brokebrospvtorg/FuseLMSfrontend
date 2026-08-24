@@ -243,7 +243,7 @@
       <label for="new-student-batch">Initial Enrollment — Batch (optional)</label>
       <p-select appendTo="body"
         id="new-student-batch"
-        [options]="newTeacherBatchOptions()"
+        [options]="newStudentBatchOptions()"
         [ngModel]="newStudentBatchId()"
         (ngModelChange)="onNewStudentBatchChange($event)"
         placeholder="Select a batch…"

@@ -218,9 +218,16 @@ export class AdminRegistryComponent implements OnInit {
 
   // --- Add Student: Cascading Scope (Batch -> Level -> Subject), optional
   // initial enrollment. Same three-stage shape as the Add Teacher cascade
-  // just above — reuses allBatches/newTeacherBatchOptions' sibling pattern
-  // with its own dedicated Batch dropdown so a Student's initial batch
-  // pick is independent of whatever's selected in the Teacher form. ---
+  // just above, with its own dedicated Batch dropdown so a Student's
+  // initial batch pick is independent of whatever's selected in the
+  // Teacher form. UNLIKE the Add Teacher cascade, this one is sourced
+  // from activeBatches (GET /batches?active_only=true), not allBatches —
+  // a new Student shouldn't be enrollable into a batch that's already
+  // been marked inactive/completed. See loadActiveBatches() below. ---
+  activeBatches = signal<Batch[]>([]);
+  newStudentBatchOptions = computed(() =>
+    this.activeBatches().map((b) => ({ label: b.name, value: b.id })),
+  );
   newStudentBatchId = signal<string | null>(null);
   newStudentLevelId = signal<string | null>(null);
   newStudentOfferedSubjects = signal<BatchSubject[]>([]);
@@ -394,6 +401,7 @@ export class AdminRegistryComponent implements OnInit {
     this.loadAcademicLevels();
     this.loadCurrentBatch();
     this.loadAllBatches();
+    this.loadActiveBatches();
 
     // Admin Dashboard's "Add New User" Quick Action deep-links here with
     // ?action=add-user so the dialog opens immediately instead of making
@@ -446,6 +454,15 @@ export class AdminRegistryComponent implements OnInit {
   loadAllBatches(): void {
     this.academicsStaffService.getBatches().subscribe({
       next: (batches) => this.allBatches.set(batches),
+    });
+  }
+
+  /** Source for the Add Student cascade's Batch stage — active batches
+   *  only (backend-filtered via active_only=true), so the "Initial
+   *  Enrollment" dropdown never offers an inactive/completed batch. */
+  loadActiveBatches(): void {
+    this.academicsStaffService.getBatches(true).subscribe({
+      next: (batches) => this.activeBatches.set(batches),
     });
   }
 
