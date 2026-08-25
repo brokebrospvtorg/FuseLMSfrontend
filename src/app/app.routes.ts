@@ -14,25 +14,25 @@ const teacherNav: PortalNavItem[] = [
   { label: 'Timetable', icon: 'timetable', route: '/teacher/timetable' },
   { label: 'Lectures & Notes', icon: 'lectures', route: '/teacher/lectures-notes' },
   { label: 'Feedback', icon: 'complaints', route: '/teacher/feedback' },
+  { label: 'Notifications', icon: 'notifications', route: '/teacher/notifications' },
 ];
 
 const coordinatorNav: PortalNavItem[] = [
   { label: 'Dashboard', icon: 'dashboard', route: '/coordinator/dashboard' },
-  { label: 'Batches', icon: 'registry', route: '/coordinator/batches' },
-  { label: 'Teachers', icon: 'teachers', route: '/coordinator/teachers' },
-  { label: 'Subject Requests', icon: 'subject-requests', route: '/coordinator/subject-requests' },
-  { label: 'Teacher Attendance', icon: 'attendance', route: '/coordinator/teacher-attendance' },
-  { label: 'Student Attendance', icon: 'attendance', route: '/coordinator/student-attendance' },
-  { label: 'Timetable', icon: 'timetable', route: '/coordinator/timetable' },
-  { label: 'Grade Overrides', icon: 'grades', route: '/coordinator/grades' },
-  { label: 'Marks & Assessments', icon: 'grades', route: '/coordinator/marks-management' },
-  { label: 'Mark Edit Requests', icon: 'grades', route: '/coordinator/mark-edit-requests' },
-  { label: 'Classroom Requests', icon: 'lectures', route: '/coordinator/classroom-requests' },
-  { label: 'Video Requests', icon: 'lectures', route: '/coordinator/youtube-requests' },
-  { label: 'Fee Structures', icon: 'fees', route: '/coordinator/fee-structures' },
-  { label: 'Fee Proofs', icon: 'fees', route: '/coordinator/fees-review' },
-  { label: 'Complaints', icon: 'complaints', route: '/coordinator/complaints' },
+  // Academics group — Batches and Teachers kept as the first, adjacent pair
+  // (same convention as adminNav's 'Academics' section below) since they're
+  // the two most-used management screens for this role.
+  { label: 'Batches', icon: 'registry', route: '/coordinator/batches', section: 'Academics' },
+  { label: 'Teachers', icon: 'teachers', route: '/coordinator/teachers', section: 'Academics' },
+  { label: 'Subjects', icon: 'subject-requests', route: '/coordinator/subjects', section: 'Academics' },
+  { label: 'Timetable', icon: 'timetable', route: '/coordinator/timetable', section: 'Academics' },
+  { label: 'Marks & Assessments', icon: 'grades', route: '/coordinator/marks-assessments', section: 'Academics' },
+  { label: 'Notes & Lectures', icon: 'lectures', route: '/coordinator/lectures-notes', section: 'Academics' },
+  { label: 'Attendance', icon: 'attendance', route: '/coordinator/attendance', section: 'Operations' },
+  { label: 'Fee Management', icon: 'fees', route: '/coordinator/fee-management', section: 'Operations' },
+  { label: 'Complaints', icon: 'complaints', route: '/coordinator/complaints', section: 'Operations' },
   { label: 'Information Registry', icon: 'registry', route: '/coordinator/registry' },
+  { label: 'Notifications', icon: 'notifications', route: '/coordinator/notifications' },
 ];
 
 const adminNav: PortalNavItem[] = [
@@ -41,19 +41,18 @@ const adminNav: PortalNavItem[] = [
   { label: 'Batches', icon: 'registry', route: '/admin/batches', section: 'Academics' },
   { label: 'Teachers', icon: 'teachers', route: '/admin/teachers', section: 'Academics' },
   { label: 'Subjects', icon: 'subject-requests', route: '/admin/subjects', section: 'Academics' },
-  { label: 'Subject Requests', icon: 'subject-requests', route: '/admin/subject-requests', section: 'Academics' },
   { label: 'Timetable', icon: 'timetable', route: '/admin/timetable', section: 'Academics' },
-  { label: 'Grade Overrides', icon: 'grades', route: '/admin/grades', section: 'Academics' },
-  { label: 'Marks & Assessments', icon: 'grades', route: '/admin/marks-management', section: 'Academics' },
-  { label: 'Mark Edit Requests', icon: 'grades', route: '/admin/mark-edit-requests', section: 'Academics' },
-  { label: 'Classroom Requests', icon: 'lectures', route: '/admin/classroom-requests', section: 'Academics' },
-  { label: 'Video Requests', icon: 'lectures', route: '/admin/youtube-requests', section: 'Academics' },
-  { label: 'Teacher Attendance', icon: 'attendance', route: '/admin/teacher-attendance', section: 'Operations' },
-  { label: 'Student Attendance', icon: 'attendance', route: '/admin/student-attendance', section: 'Operations' },
-  { label: 'Fee Structures', icon: 'fees', route: '/admin/fee-structures', section: 'Operations' },
-  { label: 'Fee Proofs', icon: 'fees', route: '/admin/fees-review', section: 'Operations' },
+  { label: 'Marks & Assessments', icon: 'grades', route: '/admin/marks-assessments', section: 'Academics' },
+  { label: 'Notes & Lectures', icon: 'lectures', route: '/admin/lectures-notes', section: 'Academics' },
+  { label: 'Attendance', icon: 'attendance', route: '/admin/attendance', section: 'Operations' },
+  { label: 'Fee Management', icon: 'fees', route: '/admin/fee-management', section: 'Operations' },
   { label: 'Complaints', icon: 'complaints', route: '/admin/complaints', section: 'Operations' },
-  { label: 'Notifications', icon: 'complaints', route: '/admin/notifications', section: 'Operations' },
+  // Route unchanged — AdminNotificationsComponent now embeds the same
+  // unified <app-notifications> list every other role's sidebar link
+  // points to (see NotificationsComponent), above its existing broadcast
+  // composer, so this one entry covers both "view my notifications" and
+  // "send a notification" instead of splitting into two nav items.
+  { label: 'Notifications', icon: 'notifications', route: '/admin/notifications', section: 'Operations' },
   { label: 'Password Requests', icon: 'password-requests', route: '/admin/password-requests', section: 'Operations' },
 ];
 
@@ -65,6 +64,7 @@ const parentNav: PortalNavItem[] = [
   { label: 'Subject Requests', icon: 'subject-requests', route: '/parent/subject-requests' },
   { label: 'Fee Ledger', icon: 'fees', route: '/parent/fees' },
   { label: 'Complaints', icon: 'complaints', route: '/parent/complaints' },
+  { label: 'Notifications', icon: 'notifications', route: '/parent/notifications' },
 ];
 
 const studentNav: PortalNavItem[] = [
@@ -76,6 +76,7 @@ const studentNav: PortalNavItem[] = [
   { label: 'Fee System', icon: 'fees', route: '/student/fees' },
   { label: 'LMS & Study Resources', icon: 'materials', route: '/student/materials' },
   { label: 'Lectures', icon: 'lectures', route: '/student/lectures' },
+  { label: 'Notifications', icon: 'notifications', route: '/student/notifications' },
 ];
 
 export const routes: Routes = [
@@ -136,8 +137,8 @@ export const routes: Routes = [
       {
         path: 'notifications',
         loadComponent: () =>
-          import('./features/communication/communication.component').then(
-            (m) => m.CommunicationComponent,
+          import('./features/notifications/notifications.component').then(
+            (m) => m.NotificationsComponent,
           ),
       },
       {
@@ -207,6 +208,13 @@ export const routes: Routes = [
             (m) => m.TeacherFeedbackComponent,
           ),
       },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/notifications/notifications.component').then(
+            (m) => m.NotificationsComponent,
+          ),
+      },
     ],
   },
   {
@@ -238,26 +246,23 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'subject-requests',
+        path: 'subjects',
         loadComponent: () =>
-          import('./features/coordinator/subject-requests/coordinator-subject-requests.component').then(
-            (m) => m.CoordinatorSubjectRequestsComponent,
+          import('./features/subjects-management/subjects-management.component').then(
+            (m) => m.SubjectsManagementComponent,
           ),
       },
+      { path: 'subject-requests', redirectTo: 'subjects', pathMatch: 'full' },
       {
-        path: 'teacher-attendance',
+        path: 'attendance',
+        data: { role: 'coordinator' },
         loadComponent: () =>
-          import('./features/coordinator/teacher-attendance/coordinator-teacher-attendance.component').then(
-            (m) => m.CoordinatorTeacherAttendanceComponent,
+          import('./features/attendance-management/attendance-management.component').then(
+            (m) => m.AttendanceManagementComponent,
           ),
       },
-      {
-        path: 'student-attendance',
-        loadComponent: () =>
-          import('./features/coordinator/student-attendance/coordinator-student-attendance.component').then(
-            (m) => m.CoordinatorStudentAttendanceComponent,
-          ),
-      },
+      { path: 'teacher-attendance', redirectTo: 'attendance', pathMatch: 'full' },
+      { path: 'student-attendance', redirectTo: 'attendance', pathMatch: 'full' },
       {
         path: 'timetable',
         loadComponent: () =>
@@ -266,54 +271,35 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'grades',
+        path: 'marks-assessments',
         loadComponent: () =>
-          import('./features/coordinator/grades/coordinator-grades.component').then(
-            (m) => m.CoordinatorMarkOverrideComponent,
+          import('./features/marks-assessments/marks-assessments.component').then(
+            (m) => m.MarksAssessmentsComponent,
           ),
       },
+      { path: 'grades', redirectTo: 'marks-assessments', pathMatch: 'full' },
+      { path: 'marks-management', redirectTo: 'marks-assessments', pathMatch: 'full' },
+      { path: 'mark-edit-requests', redirectTo: 'marks-assessments', pathMatch: 'full' },
       {
-        path: 'marks-management',
+        path: 'lectures-notes',
         loadComponent: () =>
-          import('./features/coordinator/marks-management/coordinator-marks-management.component').then(
-            (m) => m.CoordinatorMarksManagementComponent,
+          import('./features/notes-lectures/notes-lectures.component').then(
+            (m) => m.NotesLecturesComponent,
           ),
       },
+      { path: 'classroom-requests', redirectTo: 'lectures-notes', pathMatch: 'full' },
+      { path: 'youtube-requests', redirectTo: 'lectures-notes', pathMatch: 'full' },
       {
-        path: 'mark-edit-requests',
+        path: 'fee-management',
         loadComponent: () =>
-          import('./features/coordinator/mark-edit-requests/coordinator-mark-edit-requests.component').then(
-            (m) => m.CoordinatorMarkEditRequestsComponent,
+          import('./features/fee-management/fee-management.component').then(
+            (m) => m.FeeManagementComponent,
           ),
       },
-      {
-        path: 'classroom-requests',
-        loadComponent: () =>
-          import('./features/coordinator/classroom-requests/coordinator-classroom-requests.component').then(
-            (m) => m.CoordinatorClassroomRequestsComponent,
-          ),
-      },
-      {
-        path: 'youtube-requests',
-        loadComponent: () =>
-          import('./features/coordinator/youtube-requests/coordinator-youtube-requests.component').then(
-            (m) => m.CoordinatorYoutubeRequestsComponent,
-          ),
-      },
-      {
-        path: 'fee-structures',
-        loadComponent: () =>
-          import('./features/admin/fee-structures/admin-fee-structures.component').then(
-            (m) => m.AdminFeeStructuresComponent,
-          ),
-      },
-      {
-        path: 'fees-review',
-        loadComponent: () =>
-          import('./features/admin-fees/admin-fee-review.component').then(
-            (m) => m.AdminFeeReviewComponent,
-          ),
-      },
+      // Old direct links to either half of the merged page above still
+      // resolve, redirected to the matching tab.
+      { path: 'fee-structures', redirectTo: 'fee-management', pathMatch: 'full' },
+      { path: 'fees-review', redirectTo: 'fee-management', pathMatch: 'full' },
       {
         path: 'complaints',
         loadComponent: () =>
@@ -326,6 +312,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/registry/admin-registry.component').then(
             (m) => m.AdminRegistryComponent,
+          ),
+      },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/notifications/notifications.component').then(
+            (m) => m.NotificationsComponent,
           ),
       },
     ],
@@ -368,17 +361,11 @@ export const routes: Routes = [
       {
         path: 'subjects',
         loadComponent: () =>
-          import('./features/admin/subjects/admin-subjects.component').then(
-            (m) => m.AdminSubjectsComponent,
+          import('./features/subjects-management/subjects-management.component').then(
+            (m) => m.SubjectsManagementComponent,
           ),
       },
-      {
-        path: 'subject-requests',
-        loadComponent: () =>
-          import('./features/coordinator/subject-requests/coordinator-subject-requests.component').then(
-            (m) => m.CoordinatorSubjectRequestsComponent,
-          ),
-      },
+      { path: 'subject-requests', redirectTo: 'subjects', pathMatch: 'full' },
       {
         path: 'timetable',
         loadComponent: () =>
@@ -387,61 +374,34 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'grades',
+        path: 'marks-assessments',
         loadComponent: () =>
-          import('./features/coordinator/grades/coordinator-grades.component').then(
-            (m) => m.CoordinatorMarkOverrideComponent,
+          import('./features/marks-assessments/marks-assessments.component').then(
+            (m) => m.MarksAssessmentsComponent,
           ),
       },
+      { path: 'grades', redirectTo: 'marks-assessments', pathMatch: 'full' },
+      { path: 'marks-management', redirectTo: 'marks-assessments', pathMatch: 'full' },
+      { path: 'mark-edit-requests', redirectTo: 'marks-assessments', pathMatch: 'full' },
       {
-        path: 'marks-management',
+        path: 'lectures-notes',
         loadComponent: () =>
-          import('./features/coordinator/marks-management/coordinator-marks-management.component').then(
-            (m) => m.CoordinatorMarksManagementComponent,
+          import('./features/notes-lectures/notes-lectures.component').then(
+            (m) => m.NotesLecturesComponent,
           ),
       },
+      { path: 'classroom-requests', redirectTo: 'lectures-notes', pathMatch: 'full' },
+      { path: 'youtube-requests', redirectTo: 'lectures-notes', pathMatch: 'full' },
       {
-        path: 'mark-edit-requests',
+        path: 'attendance',
+        data: { role: 'admin' },
         loadComponent: () =>
-          import('./features/coordinator/mark-edit-requests/coordinator-mark-edit-requests.component').then(
-            (m) => m.CoordinatorMarkEditRequestsComponent,
+          import('./features/attendance-management/attendance-management.component').then(
+            (m) => m.AttendanceManagementComponent,
           ),
       },
-      {
-        path: 'classroom-requests',
-        loadComponent: () =>
-          import('./features/coordinator/classroom-requests/coordinator-classroom-requests.component').then(
-            (m) => m.CoordinatorClassroomRequestsComponent,
-          ),
-      },
-      {
-        path: 'youtube-requests',
-        loadComponent: () =>
-          import('./features/coordinator/youtube-requests/coordinator-youtube-requests.component').then(
-            (m) => m.CoordinatorYoutubeRequestsComponent,
-          ),
-      },
-      {
-        path: 'fees-review',
-        loadComponent: () =>
-          import('./features/admin-fees/admin-fee-review.component').then(
-            (m) => m.AdminFeeReviewComponent,
-          ),
-      },
-      {
-        path: 'teacher-attendance',
-        loadComponent: () =>
-          import('./features/admin/teacher-attendance/admin-teacher-attendance.component').then(
-            (m) => m.AdminTeacherAttendanceComponent,
-          ),
-      },
-      {
-        path: 'student-attendance',
-        loadComponent: () =>
-          import('./features/coordinator/student-attendance/coordinator-student-attendance.component').then(
-            (m) => m.CoordinatorStudentAttendanceComponent,
-          ),
-      },
+      { path: 'teacher-attendance', redirectTo: 'attendance', pathMatch: 'full' },
+      { path: 'student-attendance', redirectTo: 'attendance', pathMatch: 'full' },
       {
         path: 'complaints',
         loadComponent: () =>
@@ -450,12 +410,14 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'fee-structures',
+        path: 'fee-management',
         loadComponent: () =>
-          import('./features/admin/fee-structures/admin-fee-structures.component').then(
-            (m) => m.AdminFeeStructuresComponent,
+          import('./features/fee-management/fee-management.component').then(
+            (m) => m.FeeManagementComponent,
           ),
       },
+      { path: 'fee-structures', redirectTo: 'fee-management', pathMatch: 'full' },
+      { path: 'fees-review', redirectTo: 'fee-management', pathMatch: 'full' },
       {
         path: 'notifications',
         loadComponent: () =>
@@ -524,6 +486,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/parent/complaints/parent-complaints.component').then(
             (m) => m.ParentComplaintsComponent,
+          ),
+      },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/notifications/notifications.component').then(
+            (m) => m.NotificationsComponent,
           ),
       },
     ],

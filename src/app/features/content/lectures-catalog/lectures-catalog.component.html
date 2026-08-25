@@ -1,29 +1,92 @@
 <div class="page">
-  <h1 class="page__title">Lectures</h1>
-  <p class="page__subtitle">Recorded lectures for your enrolled subjects.</p>
-
   @if (loading()) {
+    <h1 class="page__title">Lectures</h1>
     <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
   } @else if (error()) {
+    <h1 class="page__title">Lectures</h1>
     <p-message severity="error" [text]="error()!" />
-  } @else if (lectures().length === 0) {
-    <p-card>
-      <p class="page__empty">No lectures uploaded yet for your enrolled subjects.</p>
-    </p-card>
+  } @else if (!selectedSubjectId()) {
+
+    <!-- Subject Selection -->
+    <h1 class="page__title">Lectures</h1>
+    <p class="page__subtitle">Choose a subject to see its lectures and helping materials.</p>
+
+    @if (subjects().length === 0) {
+      <p-card>
+        <p class="page__empty">No lectures or helping materials uploaded yet for your enrolled subjects.</p>
+      </p-card>
+    } @else {
+      <div class="subject-grid">
+        @for (subject of subjects(); track subject.subject_id) {
+          <button type="button" class="subject-card" (click)="selectSubject(subject.subject_id)">
+            <span class="subject-card__name">{{ subject.subject_name }}</span>
+            <span class="subject-card__counts">
+              <span>{{ subject.lectureCount }} lecture{{ subject.lectureCount === 1 ? '' : 's' }}</span>
+              <span>{{ subject.materialCount }} material{{ subject.materialCount === 1 ? '' : 's' }}</span>
+            </span>
+          </button>
+        }
+      </div>
+    }
+
   } @else {
-    <div class="lecture-grid">
-      @for (lecture of lectures(); track lecture.id) {
-        <div class="lecture-card">
-          <div class="lecture-card__embed">
-            <app-youtube-player [videoId]="lecture.youtube_video_id" [title]="lecture.title" />
-          </div>
-          <p class="lecture-card__subject">{{ lecture.subject_name }}</p>
-          <p class="lecture-card__title">{{ lecture.title }}</p>
-          @if (lecture.description) {
-            <p class="lecture-card__description">{{ lecture.description }}</p>
-          }
-        </div>
-      }
+
+    <!-- Filtered View -->
+    <div class="page__header-row">
+      <p-button
+        label="Back to Subjects"
+        icon="pi pi-arrow-left"
+        [text]="true"
+        (onClick)="backToSubjects()">
+      </p-button>
     </div>
+    <h1 class="page__title">{{ selectedSubject()?.subject_name }}</h1>
+    <p class="page__subtitle">Lectures and helping materials for this subject.</p>
+
+    <h2 class="section-heading">Lectures</h2>
+    @if (filteredLectures().length === 0) {
+      <p-card>
+        <p class="page__empty">No lectures uploaded yet for this subject.</p>
+      </p-card>
+    } @else {
+      <div class="lecture-grid">
+        @for (lecture of filteredLectures(); track lecture.id) {
+          <div class="lecture-card">
+            <div class="lecture-card__embed">
+              <app-youtube-player [videoId]="lecture.youtube_video_id" [title]="lecture.title" />
+            </div>
+            <p class="lecture-card__title">{{ lecture.title }}</p>
+            @if (lecture.description) {
+              <p class="lecture-card__description">{{ lecture.description }}</p>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <h2 class="section-heading">Helping Materials</h2>
+    @if (filteredMaterials().length === 0) {
+      <p-card>
+        <p class="page__empty">No helping materials uploaded yet for this subject.</p>
+      </p-card>
+    } @else {
+      <div class="material-list">
+        @for (material of filteredMaterials(); track material.id) {
+          <div class="material-row">
+            <div class="material-row__info">
+              <p-tag [value]="materialTypeLabel(material.material_type)" severity="secondary" />
+              <span class="material-row__title">{{ material.title }}</span>
+              @if (material.description) {
+                <span class="material-row__description">{{ material.description }}</span>
+              }
+            </div>
+            <a [href]="material.gcr_link" target="_blank" rel="noopener" class="material-row__link">
+              <p-button label="Open" icon="pi pi-external-link" [text]="true" />
+            </a>
+          </div>
+        }
+      </div>
+    }
+
   }
 </div>

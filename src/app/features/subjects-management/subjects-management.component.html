@@ -1,0 +1,18 @@
+<div class="page subjects-management">
+  <h1 class="page__title">Subjects</h1>
+
+  <p-card>
+    <p-tabView [activeIndex]="activeTabIndex" (activeIndexChange)="onTabIndexChange($event)">
+      <p-tabPanel header="Subjects Catalog" leftIcon="pi pi-book">
+        <!-- Mounts only once opened — neither tab's data is fetched
+             until it's actually active. Shows Edit/Activate/Delete only
+             to an Admin viewer; Coordinator sees list + Add Subject. -->
+        <app-admin-subjects />
+      </p-tabPanel>
+
+      <p-tabPanel header="Subject Requests" leftIcon="pi pi-inbox">
+        <app-coordinator-subject-requests />
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

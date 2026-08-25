@@ -1,0 +1,18 @@
+<div class="page fee-management">
+  <h1 class="page__title">Fee Management</h1>
+
+  <p-card>
+    <p-tabView [activeIndex]="activeTabIndex" (activeIndexChange)="onTabIndexChange($event)">
+      <p-tabPanel header="Fee Structure" leftIcon="pi pi-sitemap">
+        <!-- Mounts only while this tab is active/has been activated, so the
+             structures list isn't fetched until the user actually opens
+             this tab. -->
+        <app-admin-fee-structures />
+      </p-tabPanel>
+
+      <p-tabPanel header="Fee Proofs" leftIcon="pi pi-file-check">
+        <app-admin-fee-review />
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

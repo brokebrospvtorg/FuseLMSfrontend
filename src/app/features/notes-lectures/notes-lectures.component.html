@@ -1,0 +1,17 @@
+<div class="page notes-lectures">
+  <h1 class="page__title">Notes &amp; Lectures</h1>
+
+  <p-card>
+    <p-tabView [activeIndex]="activeTabIndex" (activeIndexChange)="onTabIndexChange($event)">
+      <p-tabPanel header="Classroom Requests" leftIcon="pi pi-desktop">
+        <!-- Mounts only once opened — neither queue is fetched until
+             its tab is actually active. -->
+        <app-coordinator-classroom-requests />
+      </p-tabPanel>
+
+      <p-tabPanel header="Video Requests" leftIcon="pi pi-video">
+        <app-coordinator-youtube-requests />
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

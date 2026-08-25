@@ -1,0 +1,21 @@
+<div class="page marks-assessments">
+  <h1 class="page__title">Marks &amp; Assessments</h1>
+
+  <p-card>
+    <p-tabView [activeIndex]="activeTabIndex" (activeIndexChange)="onTabIndexChange($event)">
+      <p-tabPanel header="Assessments & Marks" leftIcon="pi pi-pencil">
+        <!-- Mounts only once opened — assessment picker/roster isn't
+             fetched until this tab is actually active. -->
+        <app-coordinator-marks-management />
+      </p-tabPanel>
+
+      <p-tabPanel header="Mark Edit Requests" leftIcon="pi pi-inbox">
+        <app-coordinator-mark-edit-requests />
+      </p-tabPanel>
+
+      <p-tabPanel header="Grade/Mark Overrides" leftIcon="pi pi-shield">
+        <app-coordinator-mark-override />
+      </p-tabPanel>
+    </p-tabView>
+  </p-card>
+</div>

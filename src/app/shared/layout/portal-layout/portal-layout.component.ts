@@ -11,7 +11,7 @@
   export type NavIconKey =
     | 'dashboard' | 'attendance' | 'timetable'
     | 'grades' | 'complaints' | 'fees' | 'materials' | 'lectures' | 'registry'
-    | 'subject-requests' | 'password-requests' | 'teachers';
+    | 'subject-requests' | 'password-requests' | 'teachers' | 'notifications';
   
   export interface PortalNavItem {
     label: string;

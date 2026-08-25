@@ -1,0 +1,53 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+.notif-page__badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.6rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  background: #101d3c;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.notif-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notif-page__item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eef0f5;
+  font-size: 0.9rem;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.notif-page__item--unread {
+  font-weight: 600;
+  color: #101d3c;
+}
+
+.notif-page__message {
+  flex: 1;
+}
+
+.notif-page__date {
+  color: #8b93a7;
+  font-size: 0.8rem;
+}

@@ -1,0 +1,32 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+// AdminFeeStructuresComponent and AdminFeeReviewComponent are reused
+// unmodified inside each tab panel, and each renders its own page-level
+// header (e.g. "Fee Structures" / "Fee Proofs") since that's how they
+// look when routed to directly elsewhere. Inside this shell that header
+// would just repeat the p-tabView tab label right above the panel
+// content, so it's hidden here rather than forked into a header-less
+// variant of either component.
+::ng-deep .fee-management {
+  // Descendant (not direct-child) selectors on purpose: the projected
+  // <app-admin-fee-structures>/<app-admin-fee-review> host elements sit
+  // between .p-tabview-panel and each component's own root div, so a
+  // ">" combinator wouldn't reach through them.
+
+  // AdminFeeStructuresComponent's title + description — the "Add Fee"
+  // button that lives in the same header row is left alone, it's the
+  // one bit of that header that isn't just a redundant label.
+  .p-tabview-panel .fee-structures__header > div:first-child {
+    display: none;
+  }
+
+  // AdminFeeReviewComponent's own <h1 class="page__title">Fee Proof
+  // Review</h1> — purely a label, nothing else lives in it.
+  .p-tabview-panel .page__title {
+    display: none;
+  }
+}

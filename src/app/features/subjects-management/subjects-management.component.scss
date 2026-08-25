@@ -1,0 +1,27 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+// AdminSubjectsComponent's own header row (title + subtitle + "Add
+// Subject" button) and CoordinatorSubjectRequestsComponent's own
+// <h1 class="page__title"> both repeat the p-tabView tab label right
+// above the panel content, so the redundant label bits are hidden here.
+// The "Add Subject" button in AdminSubjectsComponent's header is left
+// alone — it's the one functional control in that header row.
+// Descendant (not direct-child) selectors on purpose: the projected
+// <app-admin-subjects>/<app-coordinator-subject-requests> host elements
+// sit between .p-tabview-panel and each component's own root element,
+// so a ">" combinator wouldn't reach through them.
+::ng-deep .subjects-management {
+  .p-tabview-panel {
+    .admin-subjects__header > div:first-child {
+      display: none;
+    }
+
+    .page__title {
+      display: none;
+    }
+  }
+}

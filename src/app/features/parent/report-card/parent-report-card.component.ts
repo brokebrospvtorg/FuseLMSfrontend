@@ -66,7 +66,16 @@ export class ParentReportCardComponent implements OnInit {
     this.transcriptError.set(null);
     this.parentService.getChildReportCard(child.student_id).subscribe({
       next: (data) => {
-        this.transcript.set(data);
+        // Defensive normalization: guarantees `assessments` is always an
+        // array before it ever reaches the template's `.length` check /
+        // p-table binding, even if a subject somehow comes back from the
+        // API without one. ParentSubjectTranscriptOut defaults assessments
+        // to [] server-side, so this is a belt-and-suspenders guard, not a
+        // sign the backend is expected to omit it.
+        this.transcript.set((data ?? []).map((subject) => ({
+          ...subject,
+          assessments: subject.assessments ?? [],
+        })));
         this.transcriptLoading.set(false);
       },
       error: () => {

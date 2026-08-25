@@ -39,6 +39,14 @@
   gap: 0.25rem;
 }
 
+// Coordinator view of the Actions column — edit/activate/delete are
+// admin-only server-side, so there's nothing actionable to show here.
+.admin-subjects__view-only {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary, #64748b);
+  font-style: italic;
+}
+
 .admin-subjects__field {
   display: flex;
   flex-direction: column;

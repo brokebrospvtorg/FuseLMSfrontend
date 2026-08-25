@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -13,6 +13,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { Subject } from '../../../core/models/academic.model';
 import { AddSubjectDialogComponent } from './add-subject-dialog.component';
 
@@ -21,12 +22,24 @@ import { AddSubjectDialogComponent } from './add-subject-dialog.component';
  *
  * Distinct from AdminSubjectCatalogComponent (the read-only-ish catalog
  * tab embedded inside Academics Management, which only offers list + Add
- * Subject): this is its own sidebar entry (`/admin/subjects`) and adds the
- * three admin-only mutations the task calls for — edit name/code,
- * activate/deactivate, and dependency-checked delete — backed by
- * app/routers/subjects.py's PUT/PATCH/DELETE endpoints. The Add Subject
- * flow itself is NOT duplicated here; it reuses AddSubjectDialogComponent
- * as-is, since create already fully works via academic.py's POST.
+ * Subject): this adds the three admin-only mutations the task calls for —
+ * edit name/code, activate/deactivate, and dependency-checked delete —
+ * backed by app/routers/subjects.py's PUT/PATCH/DELETE endpoints, which
+ * are gated server-side to role="admin" only. The Add Subject flow itself
+ * is NOT duplicated here; it reuses AddSubjectDialogComponent as-is,
+ * since create already fully works via academic.py's POST for both
+ * admin and coordinator.
+ *
+ * Reused inside the merged "Subjects" page's "Subjects Catalog" tab
+ * (see SubjectsManagementComponent) for BOTH the Admin and Coordinator
+ * portals — GET/POST on /api/academic/subjects already allow both roles,
+ * so the list and Add Subject work unchanged for a Coordinator. The
+ * Edit/Activate-Deactivate/Delete actions do NOT (admin-only server-side),
+ * so `isAdmin` gates those three in the template — same pattern as
+ * AdminRegistryComponent.isAdmin — rather than a Coordinator seeing
+ * buttons that 403 on click. The methods behind those buttons also
+ * short-circuit on `!isAdmin()` as a second line of defense in case a
+ * caller ever wires them up some other way.
  *
  * Same signals + FormsModule pattern as every other admin screen in this
  * codebase (AddSubjectDialogComponent, AdminBatchesComponent, ...), and
@@ -49,6 +62,12 @@ export class AdminSubjectsComponent implements OnInit {
   loading = signal(false);
   error = signal<string | null>(null);
 
+  // Gates Edit / Activate-Deactivate / Delete — the three mutations that
+  // are admin-only server-side (see PUT/PATCH/DELETE in
+  // app/routers/subjects.py). List + Add Subject stay available to both
+  // roles, so they're never gated on this.
+  isAdmin = computed(() => this.authService.currentUser()?.role === 'admin');
+
   // --- Add Subject (delegates entirely to the existing dialog) ---
   addDialogVisible = signal(false);
 
@@ -64,7 +83,10 @@ export class AdminSubjectsComponent implements OnInit {
   // not the whole table.
   statusUpdatingId = signal<string | null>(null);
 
-  constructor(private academicsStaffService: AcademicsStaffService) {}
+  constructor(
+    private academicsStaffService: AcademicsStaffService,
+    private authService: AuthService,
+  ) {}
 
   ngOnInit(): void {
     this.loadSubjects();
@@ -100,6 +122,7 @@ export class AdminSubjectsComponent implements OnInit {
 
   // --- Edit Subject (name/code) ---
   openEditSubject(subject: Subject): void {
+    if (!this.isAdmin()) return;
     this.editingSubject.set(subject);
     this.editName.set(subject.name);
     this.editCode.set(subject.code);
@@ -121,7 +144,7 @@ export class AdminSubjectsComponent implements OnInit {
 
   saveEdit(): void {
     const subject = this.editingSubject();
-    if (!subject || !this.canSaveEdit()) return;
+    if (!subject || !this.canSaveEdit() || !this.isAdmin()) return;
 
     this.editSaving.set(true);
     this.academicsStaffService
@@ -163,6 +186,7 @@ export class AdminSubjectsComponent implements OnInit {
 
   // --- Activate / Deactivate ---
   toggleStatus(subject: Subject): void {
+    if (!this.isAdmin()) return;
     const nextActive = !subject.is_active;
     this.statusUpdatingId.set(subject.id);
     this.academicsStaffService.setSubjectStatus(subject.id, { is_active: nextActive }).subscribe({
@@ -183,6 +207,7 @@ export class AdminSubjectsComponent implements OnInit {
 
   // --- Delete (dependency-checked) ---
   deleteSubject(subject: Subject): void {
+    if (!this.isAdmin()) return;
     Swal.fire({
       icon: 'warning',
       title: `Delete ${subject.name}?`,

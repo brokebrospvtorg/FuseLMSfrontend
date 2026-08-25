@@ -2,7 +2,13 @@
   <div class="admin-subjects__header">
     <div>
       <h2 class="admin-subjects__title">Subjects</h2>
-      <p class="admin-subjects__subtitle">Manage the Cambridge subject catalog — add, edit, activate/deactivate, or delete.</p>
+      <p class="admin-subjects__subtitle">
+        @if (isAdmin()) {
+          Manage the Cambridge subject catalog — add, edit, activate/deactivate, or delete.
+        } @else {
+          Browse the Cambridge subject catalog and add new subjects. Editing, activating/deactivating, and deleting are admin-only.
+        }
+      </p>
     </div>
     <p-button label="Add Subject" icon="pi pi-plus" size="small" (onClick)="openAddSubject()" />
   </div>
@@ -43,20 +49,27 @@
                 [value]="subject.is_active ? 'Active' : 'Inactive'" />
             </td>
             <td>
-              <div class="admin-subjects__actions">
-                <p-button icon="pi pi-pencil" size="small" severity="secondary" [text]="true"
-                  title="Edit name/code" (onClick)="openEditSubject(subject)" />
-                <p-button
-                  [icon]="subject.is_active ? 'pi pi-ban' : 'pi pi-check-circle'"
-                  size="small"
-                  [severity]="subject.is_active ? 'warn' : 'success'"
-                  [text]="true"
-                  [loading]="statusUpdatingId() === subject.id"
-                  [title]="subject.is_active ? 'Deactivate' : 'Activate'"
-                  (onClick)="toggleStatus(subject)" />
-                <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true"
-                  title="Delete" (onClick)="deleteSubject(subject)" />
-              </div>
+              @if (isAdmin()) {
+                <div class="admin-subjects__actions">
+                  <p-button icon="pi pi-pencil" size="small" severity="secondary" [text]="true"
+                    title="Edit name/code" (onClick)="openEditSubject(subject)" />
+                  <p-button
+                    [icon]="subject.is_active ? 'pi pi-ban' : 'pi pi-check-circle'"
+                    size="small"
+                    [severity]="subject.is_active ? 'warn' : 'success'"
+                    [text]="true"
+                    [loading]="statusUpdatingId() === subject.id"
+                    [title]="subject.is_active ? 'Deactivate' : 'Activate'"
+                    (onClick)="toggleStatus(subject)" />
+                  <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true"
+                    title="Delete" (onClick)="deleteSubject(subject)" />
+                </div>
+              } @else {
+                <!-- Coordinator: view-only for these three — edit,
+                     activate/deactivate, and delete are admin-only
+                     server-side (app/routers/subjects.py). -->
+                <span class="admin-subjects__view-only">View only</span>
+              }
             </td>
           </tr>
         </ng-template>

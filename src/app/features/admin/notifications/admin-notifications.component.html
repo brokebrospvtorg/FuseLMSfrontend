@@ -1,25 +1,29 @@
-<div class="p-6 flex flex-col gap-5 max-w-2xl">
+<div class="p-6 flex flex-col gap-8 max-w-2xl">
+  <app-notifications></app-notifications>
+
   <div>
-    <h1 class="text-xl font-bold text-navy">Broadcast Notification</h1>
-    <p class="text-sm text-slate-500">Send an in-app announcement to everyone, or a specific role. Auto-purged after 30 days like every other notification.</p>
+    <div>
+      <h1 class="text-xl font-bold text-navy">Broadcast Notification</h1>
+      <p class="text-sm text-slate-500">Send an in-app announcement to everyone, or a specific role. Auto-purged after 30 days like every other notification.</p>
+    </div>
+
+    <p-card>
+      <div class="broadcast__field">
+        <label>Send to</label>
+        <p-select appendTo="body"
+          [options]="roleOptions"
+          [ngModel]="targetRole()"
+          (ngModelChange)="targetRole.set($event)"
+          styleClass="w-full md:w-16rem" />
+      </div>
+      <div class="broadcast__field">
+        <label>Message</label>
+        <textarea pTextarea rows="5" [ngModel]="message()" (ngModelChange)="message.set($event)" class="w-full"></textarea>
+      </div>
+
+      <div class="broadcast__actions">
+        <p-button label="Send Broadcast" [loading]="sending()" (onClick)="send()" />
+      </div>
+    </p-card>
   </div>
-
-  <p-card>
-    <div class="broadcast__field">
-      <label>Send to</label>
-      <p-select appendTo="body"
-        [options]="roleOptions"
-        [ngModel]="targetRole()"
-        (ngModelChange)="targetRole.set($event)"
-        styleClass="w-full md:w-16rem" />
-    </div>
-    <div class="broadcast__field">
-      <label>Message</label>
-      <textarea pTextarea rows="5" [ngModel]="message()" (ngModelChange)="message.set($event)" class="w-full"></textarea>
-    </div>
-
-    <div class="broadcast__actions">
-      <p-button label="Send Broadcast" [loading]="sending()" (onClick)="send()" />
-    </div>
-  </p-card>
 </div>

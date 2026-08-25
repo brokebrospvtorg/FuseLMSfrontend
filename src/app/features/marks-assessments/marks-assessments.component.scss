@@ -1,0 +1,22 @@
+@use '../../shared/styles/page';
+
+:host {
+  display: block;
+}
+
+// Each of the three composed components renders its own page-level
+// <h1 class="page__title"> (and, for two of them, a
+// <p class="page__subtitle">) since that's how they look when routed
+// to directly elsewhere. Inside this shell that would just repeat the
+// p-tabView tab label right above the panel content, so it's hidden
+// here rather than forked into header-less variants of any of them.
+// Descendant (not direct-child) selectors on purpose: the projected
+// <app-coordinator-*> host elements sit between .p-tabview-panel and
+// each component's own root div, so a ">" combinator wouldn't reach
+// through them.
+::ng-deep .marks-assessments {
+  .p-tabview-panel .page__title,
+  .p-tabview-panel .page__subtitle {
+    display: none;
+  }
+}

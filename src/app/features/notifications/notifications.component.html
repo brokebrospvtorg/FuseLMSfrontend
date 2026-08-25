@@ -1,0 +1,31 @@
+<div class="page">
+  <h1 class="page__title">
+    Notifications
+    @if (unreadCount > 0) {
+      <span class="notif-page__badge">{{ unreadCount }} unread</span>
+    }
+  </h1>
+
+  <p-card>
+    @if (loading()) {
+      <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
+    } @else if (error()) {
+      <p-message severity="error" [text]="error()!" />
+    } @else if (notifications().length === 0) {
+      <p class="page__empty">You're all caught up — no notifications.</p>
+    } @else {
+      <ul class="notif-page__list">
+        @for (n of notifications(); track n.id) {
+          <li class="notif-page__item" [class.notif-page__item--unread]="!n.read_at">
+            <span class="notif-page__message">{{ n.message }}</span>
+            <span class="notif-page__date">{{ n.created_at | date: 'short' }}</span>
+            @if (!n.read_at) {
+              <button pButton type="button" label="Mark read" class="p-button-text p-button-sm"
+                      (click)="markRead(n.id)"></button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </p-card>
+</div>

@@ -9,6 +9,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { ButtonModule } from 'primeng/button';
 
 import { CommunicationService } from '../../../core/services/communication.service';
+import { NotificationsComponent } from '../../notifications/notifications.component';
 
 const ROLE_OPTIONS = [
   { label: 'Everyone', value: null },
@@ -27,11 +28,24 @@ const ROLE_OPTIONS = [
  * delivery is still explicitly deferred (send_email stays a console-log
  * stub), and blasting an announcement through that stub to potentially
  * the whole school isn't useful yet.
+ *
+ * Also embeds the same <app-notifications> "My Notifications" list every
+ * other portal's sidebar links to, so an Admin's own received
+ * notifications aren't stranded behind a page that only lets them send —
+ * one "Notifications" nav entry still covers both, same as before.
  */
 @Component({
   selector: 'app-admin-notifications',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardModule, SelectModule, TextareaModule, ButtonModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    CardModule,
+    SelectModule,
+    TextareaModule,
+    ButtonModule,
+    NotificationsComponent,
+  ],
   templateUrl: './admin-notifications.component.html',
   styleUrl: './admin-notifications.component.scss',
 })

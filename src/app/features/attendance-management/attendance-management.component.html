@@ -1,0 +1,14 @@
+<p-card>
+  <p-tabView>
+    <p-tabPanel header="Student Attendance">
+      <app-coordinator-student-attendance />
+    </p-tabPanel>
+    <p-tabPanel header="Teacher Attendance">
+      @if (role === 'admin') {
+        <app-admin-teacher-attendance />
+      } @else {
+        <app-coordinator-teacher-attendance />
+      }
+    </p-tabPanel>
+  </p-tabView>
+</p-card>
