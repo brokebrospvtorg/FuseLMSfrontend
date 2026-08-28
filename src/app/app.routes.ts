@@ -497,5 +497,15 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: 'login' },
+  {
+    // Custom 404 — replaces the previous silent `redirectTo: 'login'`.
+    // Must stay last (Angular's router matches '**' only after every
+    // other route above has failed to match) and unguarded, since it has
+    // to render for any invalid URL whether or not the visitor is
+    // logged in — see not-found.component.ts for how it resolves the
+    // "take me back" destination per auth state.
+    path: '**',
+    loadComponent: () =>
+      import('./features/system/not-found/not-found.component').then((m) => m.NotFoundComponent),
+  },
 ];

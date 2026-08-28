@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 
 import { AuthService } from '../../../core/services/auth.service';
 import { getRoleHome } from '../../../shared/utils/role-home';
+import { evaluatePasswordStrength } from '../../../shared/utils/password-strength.util';
 
 /**
  * FORCE PASSWORD CHANGE ON FIRST LOGIN — the forced destination.
@@ -33,6 +34,12 @@ export class ChangePasswordComponent {
   showPasswords = signal(false);
   submitting = signal(false);
 
+  // Live strength meter — recomputes whenever newPassword() changes.
+  // Same 5 criteria the backend's validate_password_strength enforces
+  // (app/schemas/common.py), so what the bar shows lines up with what
+  // will actually be accepted on submit.
+  passwordStrength = computed(() => evaluatePasswordStrength(this.newPassword()));
+
   constructor(
     private auth: AuthService,
     private router: Router,
@@ -51,8 +58,13 @@ export class ChangePasswordComponent {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Enter your current (temporary) password.', confirmButtonColor: '#101d3c' });
       return;
     }
-    if (next.length < 8) {
-      Swal.fire({ icon: 'warning', title: 'Password too short', text: 'New password must be at least 8 characters.', confirmButtonColor: '#101d3c' });
+    if (this.passwordStrength().score < 5) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Password too weak',
+        text: 'New password must be at least 8 characters and include an uppercase letter, a lowercase letter, a digit, and a special character.',
+        confirmButtonColor: '#101d3c',
+      });
       return;
     }
     if (next !== confirm) {

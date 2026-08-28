@@ -1,6 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
 import {
@@ -8,6 +8,8 @@ import {
 } from '../models/auth.model';
 
 const SESSION_STORAGE_KEY = 'fuse_current_user';
+const CSRF_STORAGE_KEY = 'fuse_csrf_token';
+const CSRF_HEADER_NAME = 'X-CSRF-Token';
 
 /**
  * Holds auth state as a signal so any component/guard can read
@@ -49,15 +51,35 @@ export class AuthService {
    */
   hasVerifiedSession = false;
 
+  /**
+   * CSRF token (double-submit cookie pattern). The backend also sets a
+   * matching csrf_token cookie, but it's on the Railway domain — JS on
+   * this Vercel-hosted page can't read it via document.cookie, so instead
+   * the backend echoes the same value back in the X-CSRF-Token *response*
+   * header on /login and /me. csrfInterceptor reads it from here and
+   * attaches it to every state-changing request; the backend then checks
+   * that header against its cookie on receipt. Cached in sessionStorage
+   * for the same reason CurrentUser is (survives a hard refresh without
+   * an extra round-trip before the first mutating request can fire) — it's
+   * meaningless to an attacker without the paired HttpOnly-adjacent cookie,
+   * so this is not sensitive the way the session token itself is.
+   */
+  private readonly _csrfToken = signal<string | null>(this.readCachedCsrfToken());
+  readonly csrfToken = this._csrfToken.asReadonly();
+
   constructor(private http: HttpClient) {}
 
   login(payload: LoginRequest): Observable<CurrentUser> {
     return this.http
-      .post<CurrentUser>(`${this.baseUrl}/login`, payload, { withCredentials: true })
-      .pipe(tap((user) => {
-        this.setUser(user);
-        this.hasVerifiedSession = true;
-      }));
+      .post<CurrentUser>(`${this.baseUrl}/login`, payload, { withCredentials: true, observe: 'response' })
+      .pipe(
+        tap((res) => this.captureCsrfToken(res.headers.get(CSRF_HEADER_NAME))),
+        map((res) => res.body as CurrentUser),
+        tap((user) => {
+          this.setUser(user);
+          this.hasVerifiedSession = true;
+        }),
+      );
   }
 
   logout(): Observable<void> {
@@ -69,17 +91,33 @@ export class AuthService {
   /** Call on app bootstrap (or from authGuard) to check for an existing valid session cookie. */
   fetchCurrentUser(): Observable<CurrentUser> {
     return this.http
-      .get<CurrentUser>(`${this.baseUrl}/me`, { withCredentials: true })
-      .pipe(tap((user) => {
-        this.setUser(user);
-        this.hasVerifiedSession = true;
-      }));
+      .get<CurrentUser>(`${this.baseUrl}/me`, { withCredentials: true, observe: 'response' })
+      .pipe(
+        tap((res) => this.captureCsrfToken(res.headers.get(CSRF_HEADER_NAME))),
+        map((res) => res.body as CurrentUser),
+        tap((user) => {
+          this.setUser(user);
+          this.hasVerifiedSession = true;
+        }),
+      );
   }
 
   clearLocalState(): void {
     this._currentUser.set(null);
+    this._csrfToken.set(null);
     this.hasVerifiedSession = false;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(CSRF_STORAGE_KEY);
+  }
+
+  private captureCsrfToken(token: string | null): void {
+    if (!token) return; // e.g. a non-2xx path where the header wasn't set
+    this._csrfToken.set(token);
+    sessionStorage.setItem(CSRF_STORAGE_KEY, token);
+  }
+
+  private readCachedCsrfToken(): string | null {
+    return sessionStorage.getItem(CSRF_STORAGE_KEY);
   }
 
   /** Self-service change for a LOGGED-IN user who knows their current

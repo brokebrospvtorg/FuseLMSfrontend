@@ -831,14 +831,50 @@
       <label for="reset-password-new">New Password</label>
       <input id="reset-password-new" pInputText type="password"
              [ngModel]="resetPasswordValue()" (ngModelChange)="resetPasswordValue.set($event)" class="w-full" />
+
+      @if (resetPasswordValue()) {
+        <!-- Strength meter bar -->
+        <div class="mt-1.5">
+          <div class="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all duration-300 ease-out"
+              [style.width.%]="resetPasswordStrength().percent"
+              [style.background-color]="resetPasswordStrength().color">
+            </div>
+          </div>
+          <div class="flex items-center justify-between mt-1">
+            <span class="text-xs font-semibold" [style.color]="resetPasswordStrength().color">
+              {{ resetPasswordStrength().label }}
+            </span>
+            <span class="text-xs text-slate-400">{{ resetPasswordStrength().score }}/5</span>
+          </div>
+        </div>
+
+        <!-- Criteria checklist -->
+        <ul class="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5 text-xs">
+          <li [class]="resetPasswordStrength().criteria.minLength ? 'text-green-600' : 'text-slate-400'">
+            {{ resetPasswordStrength().criteria.minLength ? '✓' : '○' }} 8+ characters
+          </li>
+          <li [class]="resetPasswordStrength().criteria.uppercase ? 'text-green-600' : 'text-slate-400'">
+            {{ resetPasswordStrength().criteria.uppercase ? '✓' : '○' }} Uppercase letter
+          </li>
+          <li [class]="resetPasswordStrength().criteria.lowercase ? 'text-green-600' : 'text-slate-400'">
+            {{ resetPasswordStrength().criteria.lowercase ? '✓' : '○' }} Lowercase letter
+          </li>
+          <li [class]="resetPasswordStrength().criteria.digit ? 'text-green-600' : 'text-slate-400'">
+            {{ resetPasswordStrength().criteria.digit ? '✓' : '○' }} Digit
+          </li>
+          <li [class]="resetPasswordStrength().criteria.specialChar ? 'text-green-600' : 'text-slate-400'">
+            {{ resetPasswordStrength().criteria.specialChar ? '✓' : '○' }} Special character
+          </li>
+        </ul>
+      }
     </div>
     <div class="registry__form-field">
       <label for="reset-password-confirm">Confirm Password</label>
       <input id="reset-password-confirm" pInputText type="password"
              [ngModel]="resetPasswordConfirmValue()" (ngModelChange)="resetPasswordConfirmValue.set($event)" class="w-full" />
-      @if (resetPasswordValue() && resetPasswordValue().length < 8) {
-        <small class="registry__field-error">Must be at least 8 characters.</small>
-      } @else if (resetPasswordConfirmValue() && resetPasswordValue() !== resetPasswordConfirmValue()) {
+      @if (resetPasswordConfirmValue() && resetPasswordValue() !== resetPasswordConfirmValue()) {
         <small class="registry__field-error">Passwords don't match.</small>
       }
     </div>

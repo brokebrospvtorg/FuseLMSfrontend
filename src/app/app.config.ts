@@ -7,6 +7,7 @@ import Aura from '@primeng/themes/aura';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { csrfInterceptor } from './core/interceptors/csrf.interceptor';
 
 // 1. Ek InjectionToken define karein taake baki services ise use kar sakein
 export const API_URL = new InjectionToken<string>('API_URL');
@@ -17,7 +18,11 @@ export const appConfig: ApplicationConfig = {
     { provide: API_URL, useValue: 'https://fuselmsback-production.up.railway.app' },
 
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    // csrfInterceptor must run before authInterceptor: it needs to attach
+    // the token to the outgoing request; authInterceptor only reacts to
+    // 401s on the way back, so order between them doesn't affect that half,
+    // but keeping the "attach" step first reads more naturally top-to-bottom.
+    provideHttpClient(withInterceptors([csrfInterceptor, authInterceptor])),
     
     provideAnimationsAsync(),
     providePrimeNG({

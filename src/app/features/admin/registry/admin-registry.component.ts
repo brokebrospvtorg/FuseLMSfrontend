@@ -28,6 +28,7 @@ import {
   StudentEnrollmentRegistryEntry,
 } from '../../../core/models/registry.model';
 import { Batch, Level, Subject, BatchSubject } from '../../../core/models/academic.model';
+import { evaluatePasswordStrength } from '../../../shared/utils/password-strength.util';
 import { Board } from '../../../core/models/enums';
 import { BOARD_OPTIONS } from '../batches/admin-batches.component';
 
@@ -805,8 +806,12 @@ export class AdminRegistryComponent implements OnInit {
     let initialPassword: string | null = null;
     if (role !== 'teacher' && this.newSetInitialPassword()) {
       initialPassword = this.newInitialPassword();
-      if (initialPassword.length < 8) {
-        Swal.fire({ icon: 'warning', title: 'Password too short', text: 'Initial password must be at least 8 characters.' });
+      if (evaluatePasswordStrength(initialPassword).score < 5) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Password too weak',
+          text: 'Initial password must be at least 8 characters and include an uppercase letter, a lowercase letter, a digit, and a special character.',
+        });
         return;
       }
       if (initialPassword !== this.newInitialPasswordConfirm()) {
@@ -1481,6 +1486,11 @@ export class AdminRegistryComponent implements OnInit {
   resetPasswordValue = signal('');
   resetPasswordConfirmValue = signal('');
 
+  // Live strength meter for the value being typed into the dialog above —
+  // same 5 criteria as the backend's validate_password_strength
+  // (app/schemas/common.py).
+  resetPasswordStrength = computed(() => evaluatePasswordStrength(this.resetPasswordValue()));
+
   canResetPassword(user: RegistryUser): boolean {
     if (user.id === this.currentUserId()) return false;
     if (user.role === 'admin' || user.role === 'coordinator') return this.isAdmin();
@@ -1499,8 +1509,12 @@ export class AdminRegistryComponent implements OnInit {
     if (!user) return;
 
     const newPassword = this.resetPasswordValue();
-    if (newPassword.length < 8) {
-      Swal.fire({ icon: 'warning', title: 'Password too short', text: 'New password must be at least 8 characters.' });
+    if (this.resetPasswordStrength().score < 5) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Password too weak',
+        text: 'New password must be at least 8 characters and include an uppercase letter, a lowercase letter, a digit, and a special character.',
+      });
       return;
     }
     if (newPassword !== this.resetPasswordConfirmValue()) {

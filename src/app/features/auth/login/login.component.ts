@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import Swal from 'sweetalert2';
 
@@ -10,12 +10,28 @@ import { getRoleHome } from '../../../shared/utils/role-home';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule], // FormsModule removed — no more [(ngModel)]
   templateUrl: './login.component.html',
 })
 export class LoginComponent {
-  identifier = signal('');
-  password = signal('');
+  // --- Reactive Form ---------------------------------------------------
+  // Strongly typed FormGroup (Angular 14+ "Typed Forms"): each FormControl
+  // declares its value type, so `loginForm.value.identifier` is `string`,
+  // not `any`. `nonNullable: true` means .reset() puts it back to '' 
+  // instead of null, which keeps the type as `string` (not `string | null`)
+  // and matches what the old signal-based version always assumed.
+  loginForm = new FormGroup({
+    identifier: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    password: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+  });
+
+  // UI-only state (not form data) — these stay as signals exactly as before.
   showPassword = signal(false);
   loading = signal(false);
 
@@ -24,23 +40,37 @@ export class LoginComponent {
     private auth: AuthService,
   ) {}
 
+  // Convenience getters so the template can read `identifier.invalid` /
+  // `identifier.touched` etc. without repeating `loginForm.controls...`.
+  get identifier() {
+    return this.loginForm.controls.identifier;
+  }
+  get password() {
+    return this.loginForm.controls.password;
+  }
+
   onSubmit(): void {
-    if (!this.identifier().trim() || !this.password().trim()) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Missing details',
-        text: 'Please enter both your email and password.',
-        confirmButtonColor: '#101d3c',
-      });
+    // markAllAsTouched() flips every control's `touched` state to true so
+    // validation messages appear immediately on a submit attempt, even for
+    // fields the user never focused/blurred. Without this, an untouched
+    // invalid control stays silent until the user happens to interact
+    // with it — which reads as "the button did nothing".
+    if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
       return;
     }
 
     this.loading.set(true);
 
+    // .value only contains identifier/password by construction, and both
+    // are guaranteed `string` (never null) because of `nonNullable: true`
+    // above — no more manual `.trim()` guarding against undefined.
+    const { identifier, password } = this.loginForm.getRawValue();
+
     this.auth
       .login({
-        email: this.identifier().trim(),
-        password: this.password(),
+        email: identifier.trim(),
+        password,
       })
       .subscribe({
         next: (user) => {

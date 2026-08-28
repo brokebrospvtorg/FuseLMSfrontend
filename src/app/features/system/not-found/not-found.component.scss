@@ -1,0 +1,14 @@
+.not-found {
+  &__code {
+    font-size: 6.5rem;
+    letter-spacing: 0.02em;
+    // Subtle depth on the big "404" so it doesn't sit flat against the
+    // dark radial background — matches the drop-shadow already used on
+    // the logo/card elsewhere in the auth screens.
+    text-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+
+    @media (min-width: 768px) {
+      font-size: 8.5rem;
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -8,6 +8,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
 
 import { AuthService } from '../../../core/services/auth.service';
+import { evaluatePasswordStrength } from '../../utils/password-strength.util';
 
 /**
  * Self-service "Change Password" — POST /api/auth/change-password. Mounted
@@ -32,6 +33,10 @@ export class ChangePasswordDialogComponent {
   newPassword = signal('');
   confirmPassword = signal('');
 
+  // Live strength meter — same criteria as the backend's
+  // validate_password_strength (app/schemas/common.py).
+  passwordStrength = computed(() => evaluatePasswordStrength(this.newPassword()));
+
   constructor(private auth: AuthService) {}
 
   show(): void {
@@ -50,8 +55,12 @@ export class ChangePasswordDialogComponent {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Enter your current password.' });
       return;
     }
-    if (next.length < 8) {
-      Swal.fire({ icon: 'warning', title: 'Password too short', text: 'New password must be at least 8 characters.' });
+    if (this.passwordStrength().score < 5) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Password too weak',
+        text: 'New password must be at least 8 characters and include an uppercase letter, a lowercase letter, a digit, and a special character.',
+      });
       return;
     }
     if (next !== confirm) {
