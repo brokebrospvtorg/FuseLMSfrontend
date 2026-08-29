@@ -1,36 +1,40 @@
-/**
- * Single source of truth for app-wide config that differs between
- * local dev and production (currently just the API base URL).
- *
- * Runtime hostname check instead of Angular's environment.ts/
- * environment.prod.ts file-replacement pattern — this is a one-time
- * single-deployment app, not a multi-environment SaaS, so the extra
- * fileReplacements build-config wiring isn't worth the ceremony. This way
- * the SAME build works correctly whether it's running via `ng serve` on
- * localhost or deployed on Vercel — no separate prod build step to forget.
- *
- */
-// PRODUCTION_API_BASE_URL used to point straight at the Railway origin
-// (https://fuselmsback-production.up.railway.app/api). That made every
-// request cross-site from the browser's point of view (Vercel domain !=
-// Railway domain), which meant the auth/CSRF cookies were third-party
-// cookies — and WebKit (Safari + Chrome-on-iOS both use it) blocks or
-// evicts those by default under Intelligent Tracking Prevention. That's
-// what caused the immediate logout-back-to-/login loop on iPhone: the
-// login response set the cookie, but the browser refused to keep it, so
-// the very next request came back 401.
-//
-// Fix: route through a same-origin path instead. vercel.json rewrites
-// /api/:path* to the Railway backend at the edge, so the browser only
-// ever talks to its own domain and the cookie is first-party. See
-// vercel.json at the repo root.
-const PRODUCTION_API_BASE_URL = '/api';
-const LOCAL_API_BASE_URL = 'http://localhost:8000/api';
+import { ApplicationConfig } from '@angular/core';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { providePrimeNG } from 'primeng/config';
+import Aura from '@primeng/themes/aura';
 
-const isLocalHost =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+import { routes } from './app.routes';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { csrfInterceptor } from './core/interceptors/csrf.interceptor';
 
-export const APP_CONFIG = {
-  apiBaseUrl: isLocalHost ? LOCAL_API_BASE_URL : PRODUCTION_API_BASE_URL,
-} as const;
+// NOTE: there used to be a second, separate API_URL InjectionToken here,
+// hardcoded to the Railway origin. Nothing actually injected it (every
+// real service reads APP_CONFIG.apiBaseUrl instead — see
+// core/config/app-config.ts), so it wasn't live, but a hardcoded
+// cross-site origin sitting in providers is exactly the kind of thing
+// that gets wired into a new service later and quietly reintroduces the
+// iOS cookie-blocking bug. Removed. If something new needs the API base
+// URL, inject APP_CONFIG from core/config/app-config.ts.
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(routes, withComponentInputBinding()),
+    // csrfInterceptor must run before authInterceptor: it needs to attach
+    // the token to the outgoing request; authInterceptor only reacts to
+    // 401s on the way back, so order between them doesn't affect that half,
+    // but keeping the "attach" step first reads more naturally top-to-bottom.
+    provideHttpClient(withInterceptors([csrfInterceptor, authInterceptor])),
+    
+    provideAnimationsAsync(),
+    providePrimeNG({
+      theme: {
+        preset: Aura,
+        options: {
+          darkModeSelector: false,
+        },
+      },
+    }),
+  ],
+};
