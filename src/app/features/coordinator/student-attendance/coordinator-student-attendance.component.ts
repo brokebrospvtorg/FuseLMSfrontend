@@ -49,9 +49,9 @@ interface PeriodOption {
  * Cascading Dropdowns rewrite: the old "pick a batch, then pick from one
  * long flat dropdown of every class/period" picker is gone. Selection is
  * now the same enforced chain used everywhere else in the app —
- * [Batch] -> [Board] -> [Level/Class] -> [Subject] -> [Period/Date] — via
- * the shared `<app-teacher-cascading-filter>` widget (Batch/Board/Level/
- * Subject stages) plus a Date field and a Period dropdown scoped to that
+ * [Batch] -> [Level/Class] -> [Subject] -> [Period/Date] — via
+ * the shared `<app-teacher-cascading-filter>` widget (Batch/Level/
+ * Subject stages; Board removed) plus a Date field and a Period dropdown scoped to that
  * date's weekday (the widget's own Period stage is Teacher-scoped and
  * "today only", so the Coordinator's Date+Period pair is driven locally
  * instead — see onSubjectContextChange/onDateChange below). There never
@@ -89,7 +89,7 @@ export class CoordinatorStudentAttendanceComponent implements OnInit {
   pickerLoading = signal(true);
   pickerError = signal<string | null>(null);
 
-  // Batch -> Board -> Level -> Subject stage; the chain stops at Subject —
+  // Batch -> Level -> Subject stage; the chain stops at Subject —
   // Period/Date are handled locally below, since Period here depends on a
   // Date the shared widget has no concept of.
   subjectContext = signal<TeacherFilterSubjectContext | null>(null);
@@ -142,7 +142,7 @@ export class CoordinatorStudentAttendanceComponent implements OnInit {
                 this.pickerLoading.set(false);
               },
               error: () => {
-                this.pickerError.set('Could not load the batch/board/subject offerings right now.');
+                this.pickerError.set('Could not load the batch/subject offerings right now.');
                 this.pickerLoading.set(false);
               },
             });
@@ -160,7 +160,7 @@ export class CoordinatorStudentAttendanceComponent implements OnInit {
     });
   }
 
-  /** Fires whenever the Batch -> Board -> Level -> Subject chain resolves
+  /** Fires whenever the Batch -> Level -> Subject chain resolves
    *  (or stops resolving). Resets the Period/Date stage below it every
    *  time, same "auto-reset on parent change" rule the rest of the
    *  cascade already follows. */

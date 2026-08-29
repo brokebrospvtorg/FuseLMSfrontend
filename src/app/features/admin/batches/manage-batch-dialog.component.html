@@ -9,23 +9,6 @@
 
   @if (batch) {
     <div class="manage-batch__field">
-      <label for="manage-batch-board">Board</label>
-      <p-select appendTo="body"
-        id="manage-batch-board"
-        [options]="boardOptions"
-        optionLabel="label"
-        optionValue="value"
-        [ngModel]="selectedBoard()"
-        (ngModelChange)="onBoardChange($event)"
-        placeholder="Select a board"
-        styleClass="w-full" />
-      <span class="manage-batch__hint-inline">
-        This batch isn't limited to one board — pick which board you're offering subjects or
-        assigning a teacher under. "Currently Offered" below always shows all boards.
-      </span>
-    </div>
-
-    <div class="manage-batch__field">
       <label for="manage-batch-level">Academic Level</label>
       <p-select appendTo="body"
         id="manage-batch-level"
@@ -39,12 +22,12 @@
         styleClass="w-full" />
     </div>
 
-    @if (!selectedBoard() || !selectedLevelId()) {
-      <p class="manage-batch__hint">Pick a board and a level to offer subjects or assign a teacher.</p>
+    @if (!selectedLevelId()) {
+      <p class="manage-batch__hint">Pick a level to offer subjects or assign a teacher.</p>
     } @else {
       <!-- --- Offer Subjects --- -->
       <div class="manage-batch__section">
-        <h3 class="manage-batch__section-title">Offer Subjects ({{ selectedBoard() }})</h3>
+        <h3 class="manage-batch__section-title">Offer Subjects</h3>
         <div class="manage-batch__field">
           <label for="manage-batch-subjects">Subject(s)</label>
           <p-multiSelect appendTo="body"
@@ -74,12 +57,12 @@
 
       <!-- --- Assign Teacher --- -->
       <div class="manage-batch__section">
-        <h3 class="manage-batch__section-title">Assign Teacher to Subject ({{ selectedBoard() }})</h3>
+        <h3 class="manage-batch__section-title">Assign Teacher to Subject</h3>
 
         @if (!loadingOffered() && offeredSubjectsForLevel().length === 0) {
           <p class="manage-batch__hint">
-            No subjects are offered for this level under {{ selectedBoard() }} yet — offer at least
-            one above before assigning a teacher.
+            No subjects are offered for this level yet — offer at least one above before assigning
+            a teacher.
           </p>
         } @else {
           <div class="manage-batch__field">
@@ -153,8 +136,8 @@
         <p class="manage-batch__hint">No subjects offered yet.</p>
       } @else {
         <div class="manage-batch__chips">
-          @for (subject of offeredSubjects(); track subject.subject_id + ':' + subject.board) {
-            <p-tag severity="secondary" [value]="subject.subject_name + ' (' + subject.level_name + ' — ' + subject.board + ')'" />
+          @for (subject of offeredSubjects(); track subject.subject_id) {
+            <p-tag severity="secondary" [value]="subject.subject_name + ' (' + subject.level_name + ')'" />
           }
         </div>
       }

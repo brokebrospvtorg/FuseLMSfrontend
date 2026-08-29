@@ -17,10 +17,12 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TooltipModule } from 'primeng/tooltip';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
-import { Batch, BatchSubject } from '../../../core/models/academic.model';
+import { Batch, Level, Subject } from '../../../core/models/academic.model';
 import { AssessmentFull, AuditLogEntry } from '../../../core/models/academics-staff.model';
-import { Board } from '../../../core/models/enums';
-import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
+import { loadOfferedPairs } from '../../../shared/utils/offered-pairs.util';
+import {
+  TeacherCascadingFilterComponent, TeacherFilterPair, TeacherFilterSubjectContext,
+} from '../../../shared/ui/teacher-cascading-filter/teacher-cascading-filter.component';
 
 /** One roster row joined with its current Mark (if any) for the selected
  *  assessment. `draftMarks` is the value bound to the inline editor;
@@ -46,20 +48,19 @@ interface MarkOverrideRow {
  * the backend recomputes the student's pooled percentage/letter grade
  * automatically after every override.
  *
- * Cascading selection flow, each stage narrowing the next and clearing
- * everything downstream on change:
- *   Batch -> Board (offered in that batch) -> Level (offered in that
- *   batch, under that board) -> Subject (offered at that level, in that
- *   batch, under that board) -> Assessment/Test (created for that
+ * Cascading selection flow, via the shared <app-teacher-cascading-filter>
+ * widget (Board removed — same "never widen past an active offering"
+ * cascade the Coordinator's Student Attendance and Admin's Teacher
+ * Attendance screens use):
+ *   Batch -> Level -> Subject -> Assessment/Test (created for that
  *   subject + batch) -> marks table for the selected assessment's
  *   roster.
  *
- * Board is a mandatory stage, not cosmetic: `offeredSubjects` holds one
- * row per (level, subject, board) offering (schema_update_15 — the same
- * subject can be offered more than once for a batch, once per board), so
- * skipping straight from Batch to Level the way this screen used to
- * would silently collapse multiple boards' offerings of the same
- * subject into a single ambiguous Level/Subject option.
+ * `allowedPairs` is sourced from every batch's ACTIVE offered-subjects
+ * (loadOfferedPairs — one pair per batch+subject combination, no board
+ * fan-out) rather than a teacher's own assignments, matching the
+ * Coordinator-wide (not single-teacher-scoped) authorization this screen
+ * needs.
  */
 @Component({
   selector: 'app-coordinator-mark-override',
@@ -67,71 +68,28 @@ interface MarkOverrideRow {
   imports: [
     CommonModule, FormsModule, CardModule, TableModule, SelectModule, ButtonModule,
     DialogModule, InputTextModule, InputNumberModule, TextareaModule, TagModule,
-    ProgressSpinnerModule, TooltipModule,
+    ProgressSpinnerModule, TooltipModule, TeacherCascadingFilterComponent,
   ],
   templateUrl: './coordinator-grades.component.html',
   styleUrl: './coordinator-grades.component.scss',
 })
 export class CoordinatorMarkOverrideComponent implements OnInit {
-  // --- Stage 1: Batch ---
+  // --- Cascade catalog data (coordinator-wide — every batch+subject with
+  // an active offering, not scoped to one teacher's own assignments). ---
   batches = signal<Batch[]>([]);
-  batchesLoading = signal(true);
-  selectedBatchId = signal<string | null>(null);
-  // Only batches the Admin/Coordinator has left open for work (batch.is_active
-  // — a stored toggle, "is this batch open for admin/coordinator work",
-  // independent of is_current) should be pickable for a marks correction.
-  // Previously showed every batch ever generated, including years-ahead
-  // template batches nothing has been offered on yet and old closed ones.
-  batchOptions = computed(() =>
-    this.batches()
-      .filter((b) => b.is_active)
-      .map((b) => ({ label: b.name, value: b.id })),
-  );
+  subjects = signal<Subject[]>([]);
+  levels = signal<Level[]>([]);
+  allowedPairs = signal<TeacherFilterPair[]>([]);
+  pickerLoading = signal(true);
+  pickerError = signal<string | null>(null);
 
-  // --- Stage 2, 3 & 4 source data: everything offered in the selected
-  // batch, one row per (level, subject, board) offering — same shape the
-  // Admin "offered subjects" pickers already use, so Board + Level +
-  // Subject all derive from a single request instead of three separate
-  // endpoints. ---
-  offeredSubjects = signal<BatchSubject[]>([]);
-  offeredSubjectsLoading = signal(false);
+  // Batch -> Level -> Subject stage. Chain stops at Subject
+  // (periodsEnabled=false) — Assessment/Test is this screen's own extra
+  // stage below Subject, not something the shared widget knows about.
+  subjectContext = signal<TeacherFilterSubjectContext | null>(null);
 
-  // --- Stage 2: Board (depends on Batch) — options are only the boards
-  // actually offered in the selected batch (derived from offeredSubjects
-  // itself), not the full static BOARD_OPTIONS list, so a board with
-  // nothing offered under it in this batch never becomes a dead end. ---
-  selectedBoard = signal<Board | null>(null);
-  boardOptions = computed(() => {
-    const boardsPresent = new Set<Board>(this.offeredSubjects().map((s) => s.board));
-    return BOARD_OPTIONS.filter((opt) => boardsPresent.has(opt.value));
-  });
-
-  // --- Stage 3: Level (depends on Batch + Board) ---
-  selectedLevelId = signal<string | null>(null);
-  levelOptions = computed(() => {
-    const board = this.selectedBoard();
-    if (!board) return [];
-    const seen = new Map<string, string>();
-    for (const s of this.offeredSubjects()) {
-      if (s.board !== board) continue;
-      if (!seen.has(s.level_id)) seen.set(s.level_id, s.level_name);
-    }
-    return Array.from(seen.entries()).map(([value, label]) => ({ label, value }));
-  });
-
-  // --- Stage 4: Subject (depends on Batch + Board + Level) ---
-  selectedSubjectId = signal<string | null>(null);
-  subjectOptions = computed(() => {
-    const board = this.selectedBoard();
-    const levelId = this.selectedLevelId();
-    if (!board || !levelId) return [];
-    return this.offeredSubjects()
-      .filter((s) => s.board === board && s.level_id === levelId)
-      .map((s) => ({ label: s.subject_name, value: s.subject_id }));
-  });
-
-  // --- Stage 5: Assessment / Test, filtered by Subject (+ the Batch
-  // already selected in stage 1) ---
+  // --- Stage below Subject: Assessment / Test, filtered by Subject
+  // (+ the Batch already selected via the cascade) ---
   assessments = signal<AssessmentFull[]>([]);
   assessmentsLoading = signal(false);
   selectedAssessmentId = signal<string | null>(null);
@@ -168,60 +126,47 @@ export class CoordinatorMarkOverrideComponent implements OnInit {
   constructor(private staffService: AcademicsStaffService) {}
 
   ngOnInit(): void {
-    this.batchesLoading.set(true);
+    this.pickerLoading.set(true);
+    this.staffService.getSubjects().subscribe((s) => this.subjects.set(s));
+    this.staffService.getLevels().subscribe((l) => this.levels.set(l));
     this.staffService.getBatches().subscribe({
       next: (batches) => {
         this.batches.set(batches);
-        this.batchesLoading.set(false);
+        loadOfferedPairs(this.staffService, batches).subscribe({
+          next: (pairs) => {
+            this.allowedPairs.set(pairs);
+            this.pickerLoading.set(false);
+          },
+          error: () => {
+            this.pickerError.set('Could not load the batch/subject offerings right now.');
+            this.pickerLoading.set(false);
+          },
+        });
       },
-      error: () => this.batchesLoading.set(false),
+      error: () => {
+        this.pickerError.set('Could not load batches right now.');
+        this.pickerLoading.set(false);
+      },
     });
   }
 
-  // --- Cascade handlers: each stage resets every stage downstream of it ---
+  // --- Cascade handler: fires whenever the Batch -> Level -> Subject
+  // chain resolves (or stops resolving) — resets everything below it. ---
 
-  onBatchChange(batchId: string | null): void {
-    this.selectedBatchId.set(batchId);
-    this.offeredSubjects.set([]);
-    this.resetBoardAndBelow();
-
-    if (!batchId) return;
-    this.offeredSubjectsLoading.set(true);
-    this.staffService.getOfferedSubjects(batchId).subscribe({
-      next: (offered) => {
-        this.offeredSubjects.set(offered);
-        this.offeredSubjectsLoading.set(false);
-      },
-      error: () => this.offeredSubjectsLoading.set(false),
-    });
-  }
-
-  onBoardChange(board: Board | null): void {
-    this.selectedBoard.set(board);
-    this.resetLevelAndBelow();
-  }
-
-  onLevelChange(levelId: string | null): void {
-    this.selectedLevelId.set(levelId);
-    this.resetSubjectAndBelow();
-  }
-
-  onSubjectChange(subjectId: string | null): void {
-    this.selectedSubjectId.set(subjectId);
+  onSubjectContextChange(ctx: TeacherFilterSubjectContext | null): void {
+    this.subjectContext.set(ctx);
     this.resetAssessmentAndBelow();
 
-    const batchId = this.selectedBatchId();
-    if (!subjectId || !batchId) return;
-
+    if (!ctx) return;
     this.assessmentsLoading.set(true);
-    this.staffService.getAssessments(subjectId, batchId).subscribe({
+    this.staffService.getAssessments(ctx.subject.id, ctx.batch.id).subscribe({
       next: (data) => {
         this.assessments.set(data);
         this.assessmentsLoading.set(false);
       },
       error: () => this.assessmentsLoading.set(false),
     });
-    this.loadAuditHistory(subjectId, batchId);
+    this.loadAuditHistory(ctx.subject.id, ctx.batch.id);
   }
 
   onAssessmentChange(assessmentId: string | null): void {
@@ -229,26 +174,10 @@ export class CoordinatorMarkOverrideComponent implements OnInit {
     this.roster.set([]);
     this.studentSearch.set('');
 
-    const subjectId = this.selectedSubjectId();
-    const batchId = this.selectedBatchId();
-    if (!assessmentId || !subjectId || !batchId) return;
+    const ctx = this.subjectContext();
+    if (!assessmentId || !ctx) return;
 
-    this.loadRosterAndMarks(assessmentId, subjectId, batchId);
-  }
-
-  private resetBoardAndBelow(): void {
-    this.selectedBoard.set(null);
-    this.resetLevelAndBelow();
-  }
-
-  private resetLevelAndBelow(): void {
-    this.selectedLevelId.set(null);
-    this.resetSubjectAndBelow();
-  }
-
-  private resetSubjectAndBelow(): void {
-    this.selectedSubjectId.set(null);
-    this.resetAssessmentAndBelow();
+    this.loadRosterAndMarks(assessmentId, ctx.subject.id, ctx.batch.id);
   }
 
   private resetAssessmentAndBelow(): void {
@@ -347,9 +276,8 @@ export class CoordinatorMarkOverrideComponent implements OnInit {
           showConfirmButton: false,
         });
 
-        const subjectId = this.selectedSubjectId();
-        const batchId = this.selectedBatchId();
-        if (subjectId && batchId) this.loadAuditHistory(subjectId, batchId);
+        const ctx = this.subjectContext();
+        if (ctx) this.loadAuditHistory(ctx.subject.id, ctx.batch.id);
       },
       error: (err) => {
         this.submittingOverride.set(false);

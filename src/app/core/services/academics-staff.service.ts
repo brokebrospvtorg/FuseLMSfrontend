@@ -129,10 +129,10 @@ export class AcademicsStaffService {
     return this.http.post<Batch>(`${this.academicUrl}/batches`, payload, { withCredentials: true });
   }
 
-  /** PUT /academic/batches/{batch_id} — currently the only editable field
-   *  is `board` (see UpdateBatchPayload). This is what lets Admin move a
-   *  batch that was created under the wrong board — or that needs
-   *  reassigning later — instead of it being stuck there permanently. */
+  /** PUT /academic/batches/{batch_id} — corrects a batch's exam session
+   *  and/or target year after creation (see UpdateBatchPayload; `board`
+   *  used to be the only editable field here, removed along with the
+   *  Board entity). */
   updateBatch(batchId: string, payload: UpdateBatchPayload): Observable<Batch> {
     return this.http.put<Batch>(`${this.academicUrl}/batches/${batchId}`, payload, { withCredentials: true });
   }
@@ -228,9 +228,8 @@ export class AcademicsStaffService {
    * Cascading-dropdown support for the Coordinator's Interactive Timetable
    * Builder: GET /academic/teacher-assignments already accepts
    * subject_id/batch_id filters (added for exactly this pattern — see that
-   * endpoint's own docstring) and fans out one row per active board, same
-   * treatment as every other offering-backed list here. Used to populate
-   * the Teacher Assignee stage with only teachers actually assigned to
+   * endpoint's own docstring). Used to populate the Teacher Assignee
+   * stage with only teachers actually assigned to
    * teach the cascade's selected Subject within its selected Batch,
    * instead of every teacher in the registry.
    */

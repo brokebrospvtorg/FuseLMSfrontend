@@ -14,7 +14,7 @@
   } @else {
     <p-card>
       <!-- Day-Wise View (No Calendar): cascading dropdowns in enforced
-           order — Batch -> Board -> Level/Class -> Subject, via the shared
+           order — Batch -> Level/Class -> Subject, via the shared
            cascade widget — followed by Period/Date, resolved locally since
            the period list depends on the date's weekday. -->
       <app-teacher-cascading-filter
@@ -57,7 +57,7 @@
     </p-card>
 
     @if (!selectedSlotId()) {
-      <p class="text-slate-400 italic py-4">Pick a batch, board, level, subject, and period/date to load its roster.</p>
+      <p class="text-slate-400 italic py-4">Pick a batch, level, subject, and period/date to load its roster.</p>
     } @else if (loading()) {
       <div class="flex justify-center py-10">
         <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />

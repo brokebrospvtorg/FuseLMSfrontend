@@ -13,29 +13,12 @@
   </div>
 
   <div class="cascading-filter__field">
-    <label>{{ boardLabel }}</label>
-    <p-select appendTo="body"
-      [options]="boards.options()"
-      optionLabel="label"
-      optionValue="value"
-      [placeholder]="boards.disabled() ? 'Select a batch first' : 'Select a board'"
-      [disabled]="boards.disabled()"
-      [ngModel]="selectedBoard()"
-      (ngModelChange)="onBoardChange($event)"
-      styleClass="w-full">
-    </p-select>
-    @if (boards.loading()) {
-      <p-progressSpinner styleClass="cascading-filter__spinner" strokeWidth="6" />
-    }
-  </div>
-
-  <div class="cascading-filter__field">
     <label>{{ levelLabel }}</label>
     <p-select appendTo="body"
       [options]="levelsSel.options()"
       optionLabel="label"
       optionValue="value"
-      [placeholder]="levelsSel.disabled() ? 'Select a board first' : 'Select a level'"
+      [placeholder]="levelsSel.disabled() ? 'Select a batch first' : 'Select a level'"
       [disabled]="levelsSel.disabled()"
       [ngModel]="selectedLevelId()"
       (ngModelChange)="onLevelChange($event)"

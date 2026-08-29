@@ -18,16 +18,11 @@
     <div class="batch-summary__header">
       <h2 class="batch-summary__title">{{ summary.batch_name }}</h2>
       <div class="batch-summary__badges">
-        <p-tag severity="info" [value]="'Created under: ' + summary.board" />
         @if (summary.is_current) {
           <p-tag severity="success" value="Current" />
         }
       </div>
     </div>
-    <p class="text-sm text-slate-500 -mt-2">
-      This batch isn't limited to the board above — see "Manage" on the Batches list for what's
-      actually offered under each board.
-    </p>
 
     <div class="batch-summary__stats">
       <div class="batch-summary__stat">

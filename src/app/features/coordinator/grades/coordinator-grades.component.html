@@ -5,65 +5,40 @@
     subject is recalculated automatically — this does not set a letter grade directly.
   </p>
 
-  <p-card>
-    @if (batchesLoading()) {
+  @if (pickerLoading()) {
+    <p-card>
       <div class="page__loading"><p-progressSpinner styleClass="w-3rem h-3rem" strokeWidth="4" /></div>
-    } @else {
-      <!-- Cascading Selection Flow: Batch -> Board -> Level -> Subject -> Assessment -->
+    </p-card>
+  } @else if (pickerError()) {
+    <p-card>
+      <p class="page__empty">{{ pickerError() }}</p>
+    </p-card>
+  } @else {
+    <p-card>
+      <!-- Cascading Selection Flow: Batch -> Level -> Subject -> Assessment -->
+      <app-teacher-cascading-filter
+        [batches]="batches()"
+        [subjects]="subjects()"
+        [levels]="levels()"
+        [allowedPairs]="allowedPairs()"
+        [periodsEnabled]="false"
+        (subjectChange)="onSubjectContextChange($event)">
+      </app-teacher-cascading-filter>
+
       <div class="mark-override__filters">
-        <p-select appendTo="body"
-          [options]="batchOptions()"
-          [ngModel]="selectedBatchId()"
-          (ngModelChange)="onBatchChange($event)"
-          placeholder="1. Select Batch"
-          [showClear]="true"
-          styleClass="w-full md:w-15rem">
-        </p-select>
-
-        <p-select appendTo="body"
-          [options]="boardOptions()"
-          [ngModel]="selectedBoard()"
-          (ngModelChange)="onBoardChange($event)"
-          placeholder="2. Select Board"
-          [showClear]="true"
-          [disabled]="!selectedBatchId()"
-          [loading]="offeredSubjectsLoading()"
-          styleClass="w-full md:w-15rem">
-        </p-select>
-
-        <p-select appendTo="body"
-          [options]="levelOptions()"
-          [ngModel]="selectedLevelId()"
-          (ngModelChange)="onLevelChange($event)"
-          placeholder="3. Select Level"
-          [showClear]="true"
-          [disabled]="!selectedBoard()"
-          styleClass="w-full md:w-15rem">
-        </p-select>
-
-        <p-select appendTo="body"
-          [options]="subjectOptions()"
-          [ngModel]="selectedSubjectId()"
-          (ngModelChange)="onSubjectChange($event)"
-          placeholder="4. Select Subject"
-          [showClear]="true"
-          [disabled]="!selectedLevelId()"
-          styleClass="w-full md:w-15rem">
-        </p-select>
-
         <p-select appendTo="body"
           [options]="assessmentOptions()"
           [ngModel]="selectedAssessmentId()"
           (ngModelChange)="onAssessmentChange($event)"
-          placeholder="5. Select Assessment / Test"
+          placeholder="Select Assessment / Test"
           [showClear]="true"
-          [disabled]="!selectedSubjectId()"
+          [disabled]="!subjectContext()"
           [loading]="assessmentsLoading()"
           styleClass="w-full md:w-16rem">
         </p-select>
       </div>
 
-      @if (selectedSubjectId() && !selectedAssessmentId() && !assessmentsLoading() && assessments().length === 0) {
+      @if (subjectContext() && !selectedAssessmentId() && !assessmentsLoading() && assessments().length === 0) {
         <p class="page__empty">No assessments exist yet for this subject and batch.</p>
       }
 
@@ -135,35 +110,35 @@
           }
         </div>
       }
-    }
-  </p-card>
-
-  @if (selectedSubjectId() && selectedBatchId()) {
-    <p-card styleClass="mt-4">
-      <h2 class="mark-override__audit-title">Recent Overrides</h2>
-      @if (auditLoading()) {
-        <div class="page__loading"><p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" /></div>
-      } @else if (auditHistory().length === 0) {
-        <p class="page__empty">No overrides recorded yet for this subject/batch.</p>
-      } @else {
-        <p-table [value]="auditHistory()">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>When</th>
-              <th>New Marks</th>
-              <th>Reason</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-entry>
-            <tr>
-              <td>{{ entry.created_at | date: 'medium' }}</td>
-              <td>{{ entry.new_value?.marks_obtained ?? '—' }}</td>
-              <td>{{ entry.new_value?.reason ?? '—' }}</td>
-            </tr>
-          </ng-template>
-        </p-table>
-      }
     </p-card>
+
+    @if (subjectContext()) {
+      <p-card styleClass="mt-4">
+        <h2 class="mark-override__audit-title">Recent Overrides</h2>
+        @if (auditLoading()) {
+          <div class="page__loading"><p-progressSpinner styleClass="w-2rem h-2rem" strokeWidth="4" /></div>
+        } @else if (auditHistory().length === 0) {
+          <p class="page__empty">No overrides recorded yet for this subject/batch.</p>
+        } @else {
+          <p-table [value]="auditHistory()">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>When</th>
+                <th>New Marks</th>
+                <th>Reason</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-entry>
+              <tr>
+                <td>{{ entry.created_at | date: 'medium' }}</td>
+                <td>{{ entry.new_value?.marks_obtained ?? '—' }}</td>
+                <td>{{ entry.new_value?.reason ?? '—' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </p-card>
+    }
   }
 </div>
 

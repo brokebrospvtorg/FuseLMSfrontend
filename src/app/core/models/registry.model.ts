@@ -1,4 +1,4 @@
-import { UserRole, UserStatus, Board } from './enums';
+import { UserRole, UserStatus } from './enums';
 import { StudentProfile, TeacherProfile, ParentProfile } from './user.model';
 
 /** Mirrors backend UserOut (see app/schemas/user.py). */
@@ -51,17 +51,11 @@ export interface CreateUserRequest {
   // to the Parent Reg ID auto-assigned when role === 'parent' — that one
   // has no field here at all, same reasoning as roll_number above).
   registration_id?: string | null;
-  // Student-only, REQUIRED when role === 'student': the exam board this
-  // student is registered under.
-  board?: Board | null;
   designation?: string | null;
   hire_date?: string | null;
   // Admin Teacher Creation: no teacher_code field here at all (compare
   // UpdateUserRequest below, which still has one) — Teacher Code is
   // always server-generated (INK-T-XXXX) on create, never client-supplied.
-  // Teacher-only, REQUIRED (at least one) when role === 'teacher': the
-  // board(s) this teacher is qualified to teach.
-  boards?: Board[] | null;
   // Multi-Level Teacher Assignment: the academic level(s) — e.g. O
   // Level, AS Level, A Level Composite — this teacher is qualified to
   // teach. Teacher-only, REQUIRED (at least one) when role === 'teacher'.
@@ -110,17 +104,9 @@ export interface UpdateUserRequest {
   nationality?: string | null;
   cnic?: string | null;
   registration_id?: string | null;
-  // Student-only: exam board. Omit to leave unchanged; the Student edit
-  // form always sends it since it's a required field on that form.
-  board?: Board | null;
   designation?: string | null;
   hire_date?: string | null;
   teacher_code?: string | null;
-  /** Teacher-only: full replacement of the boards this teacher is
-   *  qualified to teach — send the complete desired list, not a delta,
-   *  same convention as `subject_ids` below. Omit to leave unchanged; an
-   *  empty list is invalid (a teacher must be qualified for at least one). */
-  boards?: Board[] | null;
   /** Student academic level + subject assignment (Admin User Management).
    *  Both optional/role-agnostic here, same convention as the rest of this
    *  interface — only applied server-side when the target user is a

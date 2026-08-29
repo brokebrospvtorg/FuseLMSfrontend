@@ -184,19 +184,6 @@
         <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
       }
     </div>
-    <div class="registry__form-field">
-      <label for="new-board">Board <span class="registry__required">*</span></label>
-      <p-select appendTo="body"
-        id="new-board"
-        [options]="boardOptions"
-        optionLabel="label"
-        optionValue="value"
-        [ngModel]="newBoard()"
-        (ngModelChange)="newBoard.set($event)"
-        placeholder="Select the exam board"
-        styleClass="w-full">
-      </p-select>
-    </div>
 
     <!-- Parent Link Flow: explicit choice between linking an existing
          Parent right now, or deferring it — "Link Parent" (row action)
@@ -317,25 +304,10 @@
       <label>Teacher Code</label>
       <p class="registry__hint registry__hint--inline">Auto-generated (format INK-T-XXXX) once the account is created — not editable here.</p>
     </div>
-    <div class="registry__form-field">
-      <label for="new-teacher-boards">Boards Taught <span class="registry__required">*</span></label>
-      <p-multiSelect appendTo="body"
-        id="new-teacher-boards"
-        [options]="boardOptions"
-        optionLabel="label"
-        optionValue="value"
-        [ngModel]="newBoards()"
-        (ngModelChange)="newBoards.set($event)"
-        placeholder="Select the board(s) this teacher is qualified to teach"
-        display="chip"
-        styleClass="w-full">
-      </p-multiSelect>
-    </div>
     <!-- Multi-Level Teacher Assignment: a Teacher can be qualified to
          teach more than one academic level at once (e.g. O Level, AS
-         Level, and A Level Composite together) — required, at least one,
-         same treatment as Boards Taught above. Independent of the
-         optional initial Batch/Subject assignment below; sent to the
+         Level, and A Level Composite together) — required, at least one.
+         Independent of the optional initial Batch/Subject assignment below; sent to the
          backend as level_ids (array of level UUIDs), not a single
          level_id. -->
     <div class="registry__form-field">
@@ -563,20 +535,6 @@
           <small class="registry__field-error">Must be in the format 12345-1234567-1.</small>
         }
       </div>
-      <div class="registry__form-field">
-        <label for="edit-board">Board <span class="registry__required">*</span></label>
-        <p-select appendTo="body"
-          id="edit-board"
-          [options]="boardOptions"
-          optionLabel="label"
-          optionValue="value"
-          [ngModel]="editBoard()"
-          (ngModelChange)="onEditBoardChange($event)"
-          placeholder="Select the exam board"
-          styleClass="w-full">
-        </p-select>
-      </div>
-
       <!-- Editable: Batch -> Level -> Subject cascade. Batch scopes which
            offered-subjects pool Level/Subject draw from (a subject is only
            ever pickable if it's an actual active offering for THIS batch);
@@ -641,7 +599,7 @@
           styleClass="w-full">
         </p-multiSelect>
         @if (!crossLevelMode() && editLevelId() && !levelSubjectsLoading() && subjectOptions().length === 0) {
-          <p class="registry__readonly-empty">No subjects offered for this Board + Level yet.</p>
+          <p class="registry__readonly-empty">No subjects offered for this Level yet.</p>
         }
       </div>
 
@@ -705,21 +663,6 @@
         <label for="edit-teacher-code">Teacher Code</label>
         <input id="edit-teacher-code" pInputText [ngModel]="editTeacherCode()" (ngModelChange)="editTeacherCode.set($event)" class="w-full" />
       </div>
-      <div class="registry__form-field">
-        <label for="edit-teacher-boards">Boards Taught <span class="registry__required">*</span></label>
-        <p-multiSelect appendTo="body"
-          id="edit-teacher-boards"
-          [options]="boardOptions"
-          optionLabel="label"
-          optionValue="value"
-          [ngModel]="editBoards()"
-          (ngModelChange)="editBoards.set($event)"
-          placeholder="Select the board(s) this teacher is qualified to teach"
-          display="chip"
-          styleClass="w-full">
-        </p-multiSelect>
-      </div>
-
       <!-- Read-only: classes/subjects taught (spec module 2). Not an editable
            profile field — comes from teacher_subject_assignments, assigned
            via the Academic module, not here. -->

@@ -20,7 +20,7 @@ import { TeacherFilterPair } from '../ui/teacher-cascading-filter/teacher-cascad
  * — rather than inferring anything from raw TimetableSlot rows, so a
  * batch/subject the Coordinator has since withdrawn the offering for
  * drops out of the cascade even if old timetable slots referencing it
- * still exist.
+ * still exist. One pair per active batch+subject combination.
  */
 export function loadOfferedPairs(
   staff: AcademicsStaffService,
@@ -35,7 +35,6 @@ export function loadOfferedPairs(
           .map((s): TeacherFilterPair => ({
             subjectId: s.subject_id,
             batchId: batches[i].id,
-            board: s.board,
           })),
       ),
     ),

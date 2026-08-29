@@ -12,14 +12,11 @@
     <div class="teacher-workload__header">
       <h2 class="teacher-workload__title">{{ t.full_name }}</h2>
       <p class="teacher-workload__email">{{ t.email }}</p>
-      <div class="teacher-workload__badges">
-        @if (t.teacher_code) {
+      @if (t.teacher_code) {
+        <div class="teacher-workload__badges">
           <p-tag severity="secondary" [value]="t.teacher_code" />
-        }
-        @for (board of t.boards; track board) {
-          <p-tag severity="info" [value]="boardLabel(board)" />
-        }
-      </div>
+        </div>
+      }
     </div>
 
     <div class="teacher-workload__stats">

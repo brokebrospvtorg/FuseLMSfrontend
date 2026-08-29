@@ -1,4 +1,4 @@
-import { UserRole, UserStatus, Board } from './enums';
+import { UserRole, UserStatus } from './enums';
 
 /** Mirrors app/models/identity.py — User table */
 export interface User {
@@ -25,9 +25,6 @@ export interface StudentProfile {
   nationality: string | null;
   cnic: string | null;
   registration_id: string | null;
-  // schema_update_11: required exam board this student is registered
-  // under (British Council / Edexcel / LRN).
-  board: Board;
 }
 
 export interface TeacherProfile {
@@ -37,9 +34,6 @@ export interface TeacherProfile {
   gender: string | null;
   cnic: string | null;
   teacher_code: string | null;
-  // schema_update_11: the board(s) this teacher is qualified to teach —
-  // at least one. Populated by the router from TeacherBoard rows.
-  boards: Board[];
 }
 
 export interface ParentProfile {

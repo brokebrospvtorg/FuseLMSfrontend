@@ -12,7 +12,6 @@ import { MessageModule } from 'primeng/message';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { TeachingScheduleEntry } from '../../../core/models/academic.model';
-import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 
 const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 type WeekDay = (typeof WEEK_DAYS)[number];
@@ -63,7 +62,6 @@ export class TeacherTimetableComponent implements OnInit {
   weekDays = WEEK_DAYS;
   dayLabels = DAY_LABELS;
   dayLabelsShort = DAY_LABELS_SHORT;
-  boardOptions = BOARD_OPTIONS;
 
   // getDay(): 0=Sun..6=Sat. Sunday isn't a WEEK_DAYS entry (matches the
   // Coordinator Timetable Builder's own Mon-Sat convention) — default to
@@ -149,11 +147,7 @@ export class TeacherTimetableComponent implements OnInit {
     });
   }
 
-  boardLabel(board: string | null): string | null {
-    return board ? (this.boardOptions.find((o) => o.value === board)?.label ?? board) : null;
-  }
-
-  /** \"HH:MM:SS\" / \"HH:MM\" -> minutes since midnight, for start_time ASC sorting. */
+  /** "HH:MM:SS" / "HH:MM" -> minutes since midnight, for start_time ASC sorting. */
   private toMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
     return (h || 0) * 60 + (m || 0);
@@ -178,7 +172,6 @@ export class TeacherTimetableComponent implements OnInit {
       queryParams: {
         batch_id: entry.batch_id,
         subject_id: entry.subject_id,
-        board: entry.board,
         slot_id: entry.id,
       },
     });

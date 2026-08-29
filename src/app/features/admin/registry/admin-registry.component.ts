@@ -29,8 +29,6 @@ import {
 } from '../../../core/models/registry.model';
 import { Batch, Level, Subject, BatchSubject } from '../../../core/models/academic.model';
 import { evaluatePasswordStrength } from '../../../shared/utils/password-strength.util';
-import { Board } from '../../../core/models/enums';
-import { BOARD_OPTIONS } from '../batches/admin-batches.component';
 
 const ROLE_FILTER_OPTIONS = [
   { label: 'All roles', value: null },
@@ -158,12 +156,6 @@ export class AdminRegistryComponent implements OnInit {
   // here at all — it's server-generated (INK-T-XXXX) the moment the
   // account is created. No signal for it anymore; the Add User dialog
   // just shows an informational note (see template) instead of an input.
-  // schema_update_11: required Board fields — single-select for a Student
-  // (the board they're registered under), multi-select for a Teacher (the
-  // board(s) they're qualified to teach, at least one).
-  newBoard = signal<Board | null>(null);
-  newBoards = signal<Board[]>([]);
-  boardOptions = BOARD_OPTIONS;
   genderOptions = GENDER_OPTIONS;
   religionOptions = RELIGION_OPTIONS;
   nationalityOptions = NATIONALITY_OPTIONS;
@@ -201,8 +193,7 @@ export class AdminRegistryComponent implements OnInit {
   // Multi-Level Teacher Assignment: a Teacher can now be qualified to
   // teach more than one academic level at once (e.g. O Level, AS Level,
   // and A Level Composite together) — this is a required, teacher-wide
-  // qualification (same "required, at least one" treatment as
-  // newBoards/Boards Taught below), independent of whether an initial
+  // qualification, independent of whether an initial
   // Batch/Subject assignment is made. Sent to the backend as `level_ids`
   // (an array of level UUIDs) rather than the old single `level_id`.
   newTeacherLevelIds = signal<string[]>([]);
@@ -287,18 +278,12 @@ export class AdminRegistryComponent implements OnInit {
   levelOptions = computed(() =>
     this.academicLevels().map((l) => ({ label: l.name, value: l.id })),
   );
-  // Subjects scoped to whichever level AND board is currently picked in
+  // Subjects scoped to whichever level is currently picked in
   // the dialog — the default-mode pool (requirement: "By default, the
   // Subject Multi-Select highlights/filters subjects matching the chosen
   // Primary Level"). Sourced from GET .../offered-subjects (BatchSubject),
-  // never the raw catalog — see that interface's own docstring: a Subject
-  // catalog row isn't scoped to a board by itself (Subject.board can be
-  // null/"All"), only an actual offered-subjects row says whether it's
-  // really running under the board this student is registered under. The
-  // catalog-only version of this (GET /academic/subjects?level_id=) was
-  // Board Offering Scope Bug's root cause — it let Physics show up for a
-  // student under LRN even though only the British Council offering of
-  // Physics had ever been turned on for the current batch.
+  // never the raw catalog — only an actual offered-subjects row says
+  // whether a subject is really running for the chosen batch.
   levelSubjects = signal<BatchSubject[]>([]);
   levelSubjectsLoading = signal(false);
   // The single "current" Batch — the global default (Registry-wide
@@ -385,8 +370,6 @@ export class AdminRegistryComponent implements OnInit {
   editRegistrationId = signal('');
   editHireDate = signal<Date | null>(null);
   editTeacherCode = signal('');
-  editBoard = signal<Board | null>(null);
-  editBoards = signal<Board[]>([]);
 
   constructor(
     private registryService: RegistryService,
@@ -469,15 +452,12 @@ export class AdminRegistryComponent implements OnInit {
 
   /** Batch handler for the Add Teacher initial-assignment cascade: resets
    *  the Subject stage below it and fetches this batch's offered (active)
-   *  subjects across all boards — Subject narrowing happens client-side
+   *  subjects — Subject narrowing happens client-side
    *  from there, against whichever Level(s) the teacher is qualified for
    *  (newTeacherLevelIds, set independently below — a teacher's Level
    *  qualification doesn't reset just because a different Batch is picked
-   *  for the optional initial assignment). No board filter here because
-   *  the actual assignment endpoint (assignTeacherToBatch) resolves the
-   *  usable board itself from whatever's actually active for the chosen
-   *  batch/subject — this cascade only needs Batch -> Subject, filtered by
-   *  the teacher's selected Level(s). */
+   *  for the optional initial assignment). This cascade only needs
+   *  Batch -> Subject, filtered by the teacher's selected Level(s). */
   onNewTeacherBatchChange(batchId: string | null): void {
     this.newTeacherBatchId.set(batchId);
     this.newTeacherSubjectIds.set([]);
@@ -509,9 +489,8 @@ export class AdminRegistryComponent implements OnInit {
   /** Batch stage handler for the Add Student Cascading Scope — mirrors
    *  onNewTeacherBatchChange above exactly, just against the Student's own
    *  set of signals so picking a batch in one form never disturbs the
-   *  other. Board isn't filtered here for the same reason as the Teacher
-   *  cascade: the offered-subjects list already spans every board active
-   *  for this batch, and Level/Subject narrow it down from there. */
+   *  other. Level/Subject narrow the offered-subjects list down from
+   *  there. */
   onNewStudentBatchChange(batchId: string | null): void {
     this.newStudentBatchId.set(batchId);
     this.newStudentLevelId.set(null);
@@ -538,31 +517,27 @@ export class AdminRegistryComponent implements OnInit {
     this.newStudentSubjectIds.set([]);
   }
 
-  /** Refetches the subject list scoped to `levelId`, the currently-picked
-   *  `editBatchId()`, AND the currently-selected `editBoard()` — Board
-   *  Offering Scope Bug fix, extended to Batch: a subject can never be
-   *  picked unless it's an actual active offering (batch_subjects) for
-   *  the CHOSEN batch, under this student's board, at this level.
-   *  Previously scoped to level only (GET /academic/subjects?level_id=),
-   *  which meant a subject only ever offered under British Council still
-   *  showed up — and was assignable — for a student registered under LRN;
-   *  and before Batch became an explicit cascade stage, this was
-   *  hard-pinned to whichever batch was flagged is_current, so a subject
-   *  only offered in a different batch couldn't be reached at all.
-   *  Requires editBatchId() and editBoard() to both already be resolved;
-   *  if either isn't ready yet (e.g. this fires from one of two
-   *  independent in-flight requests when the dialog first opens), this
-   *  safely no-ops to an empty list — the other request's completion
-   *  re-calls this with everything available. */
+  /** Refetches the subject list scoped to `levelId` and the
+   *  currently-picked `editBatchId()`: a subject can never be picked
+   *  unless it's an actual active offering (batch_subjects) for the
+   *  CHOSEN batch, at this level. Previously scoped to level only
+   *  (GET /academic/subjects?level_id=), and before Batch became an
+   *  explicit cascade stage, this was hard-pinned to whichever batch was
+   *  flagged is_current, so a subject only offered in a different batch
+   *  couldn't be reached at all.
+   *  Requires editBatchId() to already be resolved; if it isn't ready yet
+   *  (e.g. this fires from one of two independent in-flight requests when
+   *  the dialog first opens), this safely no-ops to an empty list — the
+   *  other request's completion re-calls this with everything
+   *  available. */
   loadLevelSubjects(levelId: string | null): void {
     const batchId = this.editBatchId();
-    const board = this.editBoard();
-    if (!levelId || !batchId || !board) {
+    if (!levelId || !batchId) {
       this.levelSubjects.set([]);
       return;
     }
     this.levelSubjectsLoading.set(true);
-    this.academicService.getOfferedSubjects(batchId, board).subscribe({
+    this.academicService.getOfferedSubjects(batchId).subscribe({
       next: (offered) => {
         this.levelSubjects.set(offered.filter((s) => s.level_id === levelId));
         this.levelSubjectsLoading.set(false);
@@ -575,8 +550,8 @@ export class AdminRegistryComponent implements OnInit {
    *  re-scopes the offered-subjects pool to the newly-picked batch. In
    *  default (non-cross-level) mode the previous subject selection is
    *  cleared first (a subject offered in one batch isn't necessarily
-   *  offered in another), mirroring onEditLevelChange/onEditBoardChange
-   *  above; cross-level mode's subject pool (allSubjects) isn't
+   *  offered in another), mirroring onEditLevelChange below;
+   *  cross-level mode's subject pool (allSubjects) isn't
    *  batch-scoped at all, so nothing is cleared there. Level is left
    *  untouched — a Student's academic level doesn't depend on which
    *  batch their subject enrollment is being managed against. */
@@ -603,22 +578,6 @@ export class AdminRegistryComponent implements OnInit {
       this.editSubjectIds.set([]);
     }
     this.loadLevelSubjects(levelId);
-  }
-
-  /** Fired when the Admin changes the Board dropdown inside Edit Details.
-   *  Same reasoning as onEditLevelChange — a subject offered under LRN
-   *  isn't necessarily offered under British Council, so switching board
-   *  invalidates the previous (board-scoped) subject selection in default
-   *  mode and reloads the option pool for the new board. Cross-level mode
-   *  currently bypasses board scoping the same way it bypasses level
-   *  scoping (see allSubjects/loadAllSubjects — an intentional Admin
-   *  override, unaffected by this fix), so nothing is cleared there. */
-  onEditBoardChange(board: Board | null): void {
-    this.editBoard.set(board);
-    if (!this.crossLevelMode()) {
-      this.editSubjectIds.set([]);
-    }
-    this.loadLevelSubjects(this.editLevelId());
   }
 
   /** Refetches every subject across every level, once, then caches it —
@@ -714,8 +673,6 @@ export class AdminRegistryComponent implements OnInit {
     this.newCnic.set('');
     this.newRegistrationId.set('');
     this.newHireDate.set(null);
-    this.newBoard.set(null);
-    this.newBoards.set([]);
     this.newParentId.set(null);
     this.newRelationshipLabel.set('');
     this.newParentLinkMode.set('later');
@@ -768,21 +725,8 @@ export class AdminRegistryComponent implements OnInit {
       Swal.fire({ icon: 'warning', title: 'Invalid CNIC', text: 'CNIC must be in the format 12345-1234567-1.' });
       return;
     }
-    // schema_update_11: Board is required on the Student form (single) and
-    // the Teacher form (at least one) — matches the backend's
-    // UserCreate._require_board_for_role validator exactly, so a bad
-    // submission is caught here instead of round-tripping to a 422.
-    if (role === 'student' && !this.newBoard()) {
-      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Board is required for a Student.' });
-      return;
-    }
-    if (role === 'teacher' && this.newBoards().length === 0) {
-      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Board a Teacher is qualified to teach.' });
-      return;
-    }
     // Multi-Level Teacher Assignment: a Teacher must be qualified for at
-    // least one academic level (e.g. O Level, AS Level, A Level Composite)
-    // — same "required, at least one" treatment as Boards Taught above.
+    // least one academic level (e.g. O Level, AS Level, A Level Composite).
     if (role === 'teacher' && this.newTeacherLevelIds().length === 0) {
       Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Level this Teacher is qualified to teach.' });
       return;
@@ -872,14 +816,12 @@ export class AdminRegistryComponent implements OnInit {
         // Student form no longer has a control for it (system-generated,
         // same as Roll Number).
         registration_id: role === 'parent' ? this.newRegistrationId() || null : null,
-        board: role === 'student' ? this.newBoard() : null,
         // Designation control has been removed entirely from the Teacher
         // form — no longer sent on create.
         hire_date: role === 'teacher' && this.newHireDate() ? this.toIsoDate(this.newHireDate()!) : null,
         // No teacher_code here — Admin Teacher Creation point 1: the
         // server always generates it (INK-T-XXXX); CreateUserRequest
         // doesn't even have a field for it any more.
-        boards: role === 'teacher' ? this.newBoards() : null,
         // Multi-Level Teacher Assignment: the level(s) this teacher is
         // qualified to teach, sent as an array of level UUIDs.
         level_ids: role === 'teacher' ? this.newTeacherLevelIds() : null,
@@ -1053,8 +995,6 @@ export class AdminRegistryComponent implements OnInit {
     this.editSubjectIds.set([]);
     this.levelSubjects.set([]);
     this.crossLevelMode.set(false);
-    this.editBoard.set(null);
-    this.editBoards.set([]);
 
     if (user.role === 'teacher') {
       this.teacherAssignmentsLoading.set(true);
@@ -1140,25 +1080,14 @@ export class AdminRegistryComponent implements OnInit {
         this.editRegistrationId.set(detail.parent_profile?.registration_id ?? '');
         this.editHireDate.set(this.fromIsoDate(detail.teacher_profile?.hire_date));
         this.editTeacherCode.set(detail.teacher_profile?.teacher_code ?? '');
-        this.editBoard.set(detail.student_profile?.board ?? null);
-        // Same reasoning as the editLevelId/editBatchId prefill above: set
-        // the signal directly rather than going through onEditBoardChange
-        // (which would clear the just-prefilled editSubjectIds), then
-        // re-run loadLevelSubjects now that board is known. This and the
-        // getStudentEnrollments call above race independently — whichever
-        // of the two resolves last is the one that ends up with
-        // editLevelId, editBatchId, AND editBoard all set, so the earlier
-        // one's call is a harmless no-op (see loadLevelSubjects' own
-        // comment).
+        // Same reasoning as the editLevelId/editBatchId prefill above: this
+        // and the getStudentEnrollments call above race independently —
+        // whichever of the two resolves last is the one that ends up with
+        // editLevelId AND editBatchId both set, so the earlier one's call
+        // is a harmless no-op (see loadLevelSubjects' own comment).
         if (detail.role === 'student') {
           this.loadLevelSubjects(this.editLevelId());
         }
-        // teacher_profile can legitimately come back null (e.g. a teacher
-        // record whose profile row is missing server-side — now logged
-        // there rather than silently dropped) — default to an empty list
-        // either way so the Boards multi-select just starts unset instead
-        // of failing to render.
-        this.editBoards.set(detail.teacher_profile?.boards ?? []);
         this.editDetailsLoading.set(false);
       },
       error: (err) => {
@@ -1191,17 +1120,6 @@ export class AdminRegistryComponent implements OnInit {
       Swal.fire({ icon: 'warning', title: 'Invalid CNIC', text: 'CNIC must be in the format 12345-1234567-1.' });
       return;
     }
-    // schema_update_11: same required-Board rule as Add User — a Student
-    // edit always resends the (required) board, a Teacher edit always
-    // resends at least one board.
-    if (user.role === 'student' && !this.editBoard()) {
-      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Board is required for a Student.' });
-      return;
-    }
-    if (user.role === 'teacher' && this.editBoards().length === 0) {
-      Swal.fire({ icon: 'warning', title: 'Missing info', text: 'Select at least one Board a Teacher is qualified to teach.' });
-      return;
-    }
     // Batch -> Level -> Subject cascade: a Batch must be picked before any
     // subject can be assigned/saved against it — mirrors the backend's own
     // "Assign an academic level before assigning subjects" guard for Level.
@@ -1225,12 +1143,10 @@ export class AdminRegistryComponent implements OnInit {
         // Registration ID is only ever sent for a Parent now — the
         // Student form no longer has a control for it.
         registration_id: user.role === 'parent' ? this.editRegistrationId() || null : undefined,
-        board: user.role === 'student' ? this.editBoard() : undefined,
         // Designation control has been removed entirely from the Teacher
         // form — no longer sent on update.
         hire_date: user.role === 'teacher' && this.editHireDate() ? this.toIsoDate(this.editHireDate()!) : undefined,
         teacher_code: user.role === 'teacher' ? this.editTeacherCode() || null : undefined,
-        boards: user.role === 'teacher' ? this.editBoards() : undefined,
         // level_id left undefined (not null) when unset, so it's skipped
         // server-side rather than read as "clear the level" — a student
         // with no level assigned yet just has editLevelId() === null here.

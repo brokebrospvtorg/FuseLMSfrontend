@@ -1,9 +1,9 @@
 <div class="page">
   <h1 class="page__title">Teachers</h1>
   <p class="page__subtitle">
-    Every active teacher, with their qualified boards and current workload.
-    Click a row to see their exact batches and subjects, or use Manage to
-    add or remove an assignment.
+    Every active teacher, with their current workload. Click a row to see
+    their exact batches and subjects, or use Manage to add or remove an
+    assignment.
   </p>
 
   <p-card>
@@ -32,7 +32,6 @@
             <th>Name</th>
             <th>Teacher Code</th>
             <th>Email</th>
-            <th>Boards</th>
             <th>Workload</th>
             <th style="width: 7rem"></th>
           </tr>
@@ -44,15 +43,6 @@
             <td>{{ row.full_name }}</td>
             <td>{{ row.teacher_code ?? '—' }}</td>
             <td>{{ row.email }}</td>
-            <td>
-              @if (row.boards.length === 0) {
-                <p-tag severity="secondary" value="No boards yet" />
-              } @else {
-                @for (b of row.boards; track b) {
-                  <p-tag severity="info" [value]="boardLabel(b)" />
-                }
-              }
-            </td>
             <td>
               <span class="teachers__workload-count">
                 {{ row.active_subjects_count }} subject{{ row.active_subjects_count === 1 ? '' : 's' }}

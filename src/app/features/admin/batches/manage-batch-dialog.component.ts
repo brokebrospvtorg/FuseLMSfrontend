@@ -17,8 +17,7 @@ import { UserService } from '../../../core/services/user.service';
 import { Batch, Level, Subject, OfferedSubject } from '../../../core/models/academic.model';
 import { TeacherAssignment } from '../../../core/models/academics-staff.model';
 import { User } from '../../../core/models/user.model';
-import { UserRole, Board } from '../../../core/models/enums';
-import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
+import { UserRole } from '../../../core/models/enums';
 import { isAssignableTeacher } from '../../../shared/utils/active-teacher.util';
 
 /**
@@ -40,11 +39,10 @@ import { isAssignableTeacher } from '../../../shared/utils/active-teacher.util';
  *    validate against batch_subjects, but offering it first is the
  *    intended flow, and it's the only list the offered-subjects endpoint
  *    can honestly represent).
- * Both cascade off the same Level dropdown AND the Board dropdown
- * (schema_update_15): a batch isn't tied to one board, so every offering
- * and every teacher assignment needs its Board context picked explicitly
- * (or pre-filled from the Board Tab the admin opened this dialog from —
- * see `defaultBoard` below) rather than assumed from the batch itself.
+ * Both cascade off the same Level dropdown. Board removed: offerings are
+ * now keyed on plain (batch_id, subject_id), so there's no separate
+ * per-board context to pick — a subject is either offered on this batch
+ * or it isn't.
  *
  * Follows this codebase's established pattern (signals + FormsModule
  * `[ngModel]`/`(ngModelChange)`, see AdminBatchesComponent /
@@ -76,18 +74,12 @@ import { isAssignableTeacher } from '../../../shared/utils/active-teacher.util';
 export class ManageBatchDialogComponent implements OnChanges {
   @Input() visible = false;
   @Input() batch: Batch | null = null;
-  /** Board Tab the parent had selected when "Manage" was clicked (null on
-   *  the "All Boards" tab) — used only to pre-fill the Board dropdown
-   *  below; the admin can still change it. */
-  @Input() defaultBoard: Board | null = null;
-
-  boardOptions = BOARD_OPTIONS;
 
   @Output() closed = new EventEmitter<void>();
   /** Emitted after any successful "Save Offered Subjects" or "Assign
-   *  Teacher to Subject" — either can change what the Batches table's
-   *  Board tabs show (assigned_teachers_count in particular feeds that
-   *  filter), so the parent should reload its batch list on this. */
+   *  Teacher to Subject" — either can change the Batches table's
+   *  assigned_teachers_count, so the parent should reload its batch list
+   *  on this. */
   @Output() saved = new EventEmitter<void>();
 
   levels = signal<Level[]>([]);
@@ -116,11 +108,6 @@ export class ManageBatchDialogComponent implements OnChanges {
   assignableTeachers = computed(() => this.teachers().filter(isAssignableTeacher));
 
   // --- cascading selection state ---
-  // schema_update_15: Board is now a third axis alongside Level — a batch
-  // can have the same subject offered under multiple boards, so both
-  // "Offer Subjects" and "Assign Teacher" need an explicit board context,
-  // not just a level.
-  selectedBoard = signal<Board | null>(null);
   selectedLevelId = signal<string | null>(null);
   selectedSubjectIdsToOffer = signal<string[]>([]);
   selectedAssignSubjectId = signal<string | null>(null);
@@ -142,9 +129,6 @@ export class ManageBatchDialogComponent implements OnChanges {
 
   assignedTeacherNames = computed(() => {
     const teachersById = new Map(this.teachers().map((t) => [t.id, t.full_name]));
-    // A teacher can appear more than once in assignedTeachers() (once per
-    // active board — see TeacherAssignment.board's own docstring); collapse
-    // to one name per distinct teacher_id for display here.
     const seen = new Set<string>();
     const names: string[] = [];
     for (const a of this.assignedTeachers()) {
@@ -155,17 +139,11 @@ export class ManageBatchDialogComponent implements OnChanges {
     return names;
   });
 
-  /** Subjects offered on this batch for the currently selected Level AND
-   *  Board — the source list for "Assign Teacher" (schema_update_15: the
-   *  same subject can be offered twice, once per board, so filtering by
-   *  level alone is no longer enough to know which offering — and which
-   *  board — a teacher is being assigned under). */
-  offeredSubjectsForLevel = computed(() => {
-    const board = this.selectedBoard();
-    return this.offeredSubjects().filter(
-      (s) => s.level_id === this.selectedLevelId() && (!board || s.board === board),
-    );
-  });
+  /** Subjects offered on this batch for the currently selected Level —
+   *  the source list for "Assign Teacher". */
+  offeredSubjectsForLevel = computed(() =>
+    this.offeredSubjects().filter((s) => s.level_id === this.selectedLevelId()),
+  );
 
   constructor(
     private academicsStaffService: AcademicsStaffService,
@@ -184,9 +162,6 @@ export class ManageBatchDialogComponent implements OnChanges {
   }
 
   private resetSelections(): void {
-    // Pre-fill from the Board Tab the admin opened this dialog from, if
-    // any — see `defaultBoard`'s own docstring. Admin can still change it.
-    this.selectedBoard.set(this.defaultBoard);
     this.selectedLevelId.set(null);
     this.selectedSubjectIdsToOffer.set([]);
     this.selectedAssignSubjectId.set(null);
@@ -256,60 +231,45 @@ export class ManageBatchDialogComponent implements OnChanges {
     });
   }
 
-  /** Board dropdown handler — mirrors onLevelChange: changing the board
-   *  context invalidates the "Assign Teacher" subject pick (offered under
-   *  the OLD board may not be offered under the new one) and re-syncs the
-   *  "Offer Subjects" multi-select against what's already offered under
-   *  the newly selected board. */
-  onBoardChange(board: Board | null): void {
-    this.selectedBoard.set(board);
-    this.selectedAssignSubjectId.set(null);
-    this.assignedTeachers.set([]);
-    this.syncOfferSelectionForLevel();
-  }
-
   /** Pre-checks the "Offer Subjects" multi-select with whatever's
-   *  already active for the currently selected level + board, so Save
-   *  only ever submits the real diff instead of blindly re-offering
-   *  everything. */
+   *  already active for the currently selected level, so Save only ever
+   *  submits the real diff instead of blindly re-offering everything. */
   private syncOfferSelectionForLevel(): void {
     const levelId = this.selectedLevelId();
-    const board = this.selectedBoard();
-    if (!levelId || !board) {
+    if (!levelId) {
       this.selectedSubjectIdsToOffer.set([]);
       return;
     }
     const alreadyOffered = this.offeredSubjects()
-      .filter((s) => s.level_id === levelId && s.board === board)
+      .filter((s) => s.level_id === levelId)
       .map((s) => s.subject_id);
     this.selectedSubjectIdsToOffer.set(alreadyOffered);
   }
 
   saveOfferedSubjects(): void {
     const levelId = this.selectedLevelId();
-    const board = this.selectedBoard();
-    if (!this.batch || !levelId || !board) return;
+    if (!this.batch || !levelId) return;
 
     const selected = new Set(this.selectedSubjectIdsToOffer());
     const currentlyOffered = new Set(
       this.offeredSubjects()
-        .filter((s) => s.level_id === levelId && s.board === board)
+        .filter((s) => s.level_id === levelId)
         .map((s) => s.subject_id),
     );
     const toActivate = [...selected].filter((id) => !currentlyOffered.has(id));
     const toDeactivate = [...currentlyOffered].filter((id) => !selected.has(id));
 
     if (toActivate.length === 0 && toDeactivate.length === 0) {
-      Swal.fire({ icon: 'info', title: 'Nothing to save', text: 'No changes to the offered subjects for this level and board.' });
+      Swal.fire({ icon: 'info', title: 'Nothing to save', text: 'No changes to the offered subjects for this level.' });
       return;
     }
 
     const calls: Observable<OfferedSubject[]>[] = [];
     if (toActivate.length > 0) {
-      calls.push(this.academicsStaffService.offerSubjects(this.batch.id, { subject_ids: toActivate, board, is_active: true }));
+      calls.push(this.academicsStaffService.offerSubjects(this.batch.id, { subject_ids: toActivate, is_active: true }));
     }
     if (toDeactivate.length > 0) {
-      calls.push(this.academicsStaffService.offerSubjects(this.batch.id, { subject_ids: toDeactivate, board, is_active: false }));
+      calls.push(this.academicsStaffService.offerSubjects(this.batch.id, { subject_ids: toDeactivate, is_active: false }));
     }
 
     this.savingOffered.set(true);

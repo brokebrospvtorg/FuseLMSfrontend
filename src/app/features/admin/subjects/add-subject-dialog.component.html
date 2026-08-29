@@ -33,19 +33,6 @@
   </div>
 
   <div class="add-subject__field">
-    <label for="add-subject-board">Board</label>
-    <p-select appendTo="body"
-      id="add-subject-board"
-      [options]="boardOptions"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="board()"
-      (ngModelChange)="board.set($event)"
-      placeholder="Select a board"
-      styleClass="w-full" />
-  </div>
-
-  <div class="add-subject__field">
     <label>Offered Levels</label>
     @if (loadingLevels()) {
       <p class="add-subject__hint">Loading levels…</p>

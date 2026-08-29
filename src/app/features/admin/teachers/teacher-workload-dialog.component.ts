@@ -5,15 +5,14 @@ import { DialogModule } from 'primeng/dialog';
 import { TagModule } from 'primeng/tag';
 
 import { TeacherWorkloadSummary } from '../../../core/models/teacher.model';
-import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 
 /**
  * Teacher Workload drawer — the clickable Teacher row's inline detail
- * view: assigned boards and the exact batches/subjects they're
- * currently teaching. Levels are deliberately not shown on this screen
- * (Teachers view spec) even though TeacherWorkloadSummary.levels is
- * still present on the input — see this component's `teacher` Input
- * type — the backend keeps returning it, this drawer just never reads it.
+ * view: the exact batches/subjects they're currently teaching. Levels
+ * are deliberately not shown on this screen (Teachers view spec) even
+ * though TeacherWorkloadSummary.levels is still present on the input —
+ * see this component's `teacher` Input type — the backend keeps
+ * returning it, this drawer just never reads it.
  *
  * Presentational only, same split as BatchSummaryDialogComponent: the
  * parent (AdminTeachersComponent) owns the open/selected-teacher state.
@@ -37,13 +36,6 @@ export class TeacherWorkloadDialogComponent {
   @Input() teacher: TeacherWorkloadSummary | null = null;
 
   @Output() closed = new EventEmitter<void>();
-
-  boardOptions = BOARD_OPTIONS;
-
-  boardLabel(board: string): string {
-    const boardLower = board?.toLowerCase();
-    return this.boardOptions.find((o) => o.value.toLowerCase() === boardLower)?.label ?? board;
-  }
 
   /** Assignments grouped by subject — "Mathematics: May/June 2026, Oct/Nov
    *  2026" reads better than one flat row per subject+batch pair when a

@@ -70,9 +70,7 @@
             @if (isToday(entry)) { <p-tag severity="info" value="Today" /> }
           </div>
           <p class="timetable-card__subject">📌 {{ entry.subject_name }}</p>
-          <p class="timetable-card__meta">🏫 {{ entry.batch_name }}
-            @if (boardLabel(entry.board); as label) { <span class="timetable-card__board">· {{ label }}</span> }
-          </p>
+          <p class="timetable-card__meta">🏫 {{ entry.batch_name }}</p>
           @if (isToday(entry)) {
             <p-button label="Mark Attendance" size="small" styleClass="timetable-card__action" (onClick)="markAttendance(entry)" />
           }
@@ -104,7 +102,6 @@
                     <span class="timetable-grid__subject">{{ entry.subject_name }}</span>
                     <span class="timetable-grid__meta">
                       {{ entry.batch_name }}
-                      @if (boardLabel(entry.board); as label) { · {{ label }} }
                     </span>
                     <span class="timetable-grid__meta">{{ formatTime(entry.start_time) }} – {{ formatTime(entry.end_time) }}</span>
                   </div>

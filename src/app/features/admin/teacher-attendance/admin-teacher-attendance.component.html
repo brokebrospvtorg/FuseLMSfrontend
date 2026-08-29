@@ -15,8 +15,8 @@
     <p-message severity="error" [text]="pickerError()!" />
   } @else {
     <p-card>
-      <!-- Cascading Selection: Batch -> Board -> Level -> Subject, via the
-           shared cascade widget — the chain stops at Subject; Date (below)
+      <!-- Cascading Selection: Batch -> Level -> Subject, via the shared
+           cascade widget — the chain stops at Subject; Date (below)
            determines which day's periods get fetched for that selection. -->
       <app-teacher-cascading-filter
         [batches]="batches()"
@@ -41,7 +41,7 @@
     </p-card>
 
     @if (!subjectContext()) {
-      <p class="text-slate-400 italic py-4">Pick a batch, board, level, and subject to load its periods.</p>
+      <p class="text-slate-400 italic py-4">Pick a batch, level, and subject to load its periods.</p>
     } @else if (loading()) {
       <div class="flex justify-center py-10">
         <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />

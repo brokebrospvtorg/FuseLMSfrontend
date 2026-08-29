@@ -9,7 +9,6 @@ import {
   PeriodRecord, CoordinatorRosterEntry, CoordinatorStudentOverrideRequest, TeacherAttendanceLogEntry,
   AdminTeacherAttendanceEntry, AdminTeacherAttendanceMarkRequest, AttendanceRecordWriteResult,
 } from '../models/attendance.model';
-import { Board } from '../models/enums';
 
 @Injectable({ providedIn: 'root' })
 export class AttendanceService {
@@ -87,12 +86,11 @@ export class AttendanceService {
 
   /** Day-Wise UI's "View Summary" — read-only historical log of classes
    *  this teacher has already taken, filtered by the compulsory
-   *  Batch -> Board -> Level/Class -> Subject cascade (Board itself isn't
-   *  a query param — see the backend docstring for why — the Period/Date
-   *  stage that follows is this same response, turned into cascading-
-   *  filter options by the caller). dateFrom/dateTo remain available for
-   *  callers that want a plain range instead. Backend caps date_to at
-   *  today server-side regardless of what's passed here. */
+   *  Batch -> Level/Class -> Subject cascade (Board removed) — the
+   *  Period/Date stage that follows is this same response, turned into
+   *  cascading-filter options by the caller. dateFrom/dateTo remain
+   *  available for callers that want a plain range instead. Backend caps
+   *  date_to at today server-side regardless of what's passed here. */
   getMyAttendanceHistoryLog(
     subjectId?: string,
     levelId?: string,
@@ -128,21 +126,19 @@ export class AttendanceService {
     });
   }
 
-  // --- Admin: Teacher Attendance (View & Edit, cascading Batch -> Board
-  // -> Level -> Subject scope, full parity with the Coordinator's own
-  // Day-Wise view) ---
+  // --- Admin: Teacher Attendance (View & Edit, cascading Batch -> Level
+  // -> Subject scope, full parity with the Coordinator's own Day-Wise
+  // view) ---
 
   /** One row per period on `date` matching the cascade filters, with the
    *  assigned teacher's own current attendance status (null = unmarked). */
   getAdminTeacherAttendance(
     date: string,
     batchId: string,
-    board?: Board,
     levelId?: string,
     subjectId?: string,
   ): Observable<AdminTeacherAttendanceEntry[]> {
     let params = new HttpParams().set('date', date).set('batch_id', batchId);
-    if (board) params = params.set('board', board);
     if (levelId) params = params.set('level_id', levelId);
     if (subjectId) params = params.set('subject_id', subjectId);
 

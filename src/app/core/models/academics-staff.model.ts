@@ -1,4 +1,4 @@
-import { AssessmentStatus, Board } from './enums';
+import { AssessmentStatus } from './enums';
 
 /** Mirrors app/schemas/marks.py (staff-facing shapes, not the student "me" read-only ones) */
 
@@ -131,12 +131,4 @@ export interface TeacherAssignment {
   batch_id: string;
   assigned_by: string;
   assigned_at: string;
-  // Over-Inclusive Cascading Dropdowns fix: the active batch_subjects
-  // board this assignment is actually usable under, resolved server-side
-  // — see TeacherSubjectAssignmentOut.board's docstring in
-  // app/schemas/academic.py. GET /academic/teacher-assignments fans one
-  // assignment out into one row per active board, so the same
-  // subject_id+batch_id pair can appear more than once here, each with a
-  // different board — that's expected, not a duplicate.
-  board: Board;
 }

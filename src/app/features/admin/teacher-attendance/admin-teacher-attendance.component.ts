@@ -45,16 +45,16 @@ interface AdminAttendanceRow {
  * parity). Backend: app/routers/attendance.py —
  * GET/POST /api/attendance/admin/teacher-attendance.
  *
- * Cascading Selection: the enforced Batch -> Board -> Level -> Subject
- * chain (shared <app-teacher-cascading-filter> widget, same as the
+ * Cascading Selection: the enforced Batch -> Level -> Subject chain
+ * (shared <app-teacher-cascading-filter> widget, same as the
  * Coordinator's Student Attendance and Mark Override screens) scopes
  * which periods show up at all; a Date field alongside it (capped at
  * today, same "no future dates" rule used everywhere attendance is
  * edited) determines which day's periods are fetched. Every period on
- * that day for the selected Batch/Board/Level/Subject renders as one
- * row, each with its OWN assigned teacher and that teacher's own
- * attendance status for that period+date — this is genuinely a Teacher
- * Attendance screen, not a student roster.
+ * that day for the selected Batch/Level/Subject renders as one row,
+ * each with its OWN assigned teacher and that teacher's own attendance
+ * status for that period+date — this is genuinely a Teacher Attendance
+ * screen, not a student roster.
  *
  * Mark & Edit: an unmarked row (status === null) can be marked directly,
  * no reason required — there is nothing being corrected yet. A row that
@@ -95,10 +95,10 @@ export class AdminTeacherAttendanceComponent implements OnInit {
   pickerLoading = signal(true);
   pickerError = signal<string | null>(null);
 
-  // Batch -> Board -> Level -> Subject stage. The chain intentionally
-  // stops at Subject (periodsEnabled=false) — unlike the Teacher/
-  // Coordinator single-period screens, this page shows EVERY period for
-  // the selected Subject+Batch on the chosen date at once, not just one.
+  // Batch -> Level -> Subject stage. The chain intentionally stops at
+  // Subject (periodsEnabled=false) — unlike the Teacher/Coordinator
+  // single-period screens, this page shows EVERY period for the selected
+  // Subject+Batch on the chosen date at once, not just one.
   subjectContext = signal<TeacherFilterSubjectContext | null>(null);
   selectedDate = signal<Date>(new Date());
 
@@ -131,7 +131,7 @@ export class AdminTeacherAttendanceComponent implements OnInit {
             this.pickerLoading.set(false);
           },
           error: () => {
-            this.pickerError.set('Could not load the batch/board/subject offerings right now.');
+            this.pickerError.set('Could not load the batch/subject offerings right now.');
             this.pickerLoading.set(false);
           },
         });
@@ -143,8 +143,8 @@ export class AdminTeacherAttendanceComponent implements OnInit {
     });
   }
 
-  /** Fires whenever the Batch -> Board -> Level -> Subject chain resolves
-   *  (or stops resolving) — reloads the period rows for whatever Date is
+  /** Fires whenever the Batch -> Level -> Subject chain resolves (or
+   *  stops resolving) — reloads the period rows for whatever Date is
    *  currently selected. */
   onSubjectContextChange(ctx: TeacherFilterSubjectContext | null): void {
     this.subjectContext.set(ctx);
@@ -170,7 +170,7 @@ export class AdminTeacherAttendanceComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     this.attendanceService
-      .getAdminTeacherAttendance(this.toIsoDate(this.selectedDate()), ctx.batch.id, ctx.board, ctx.levelId, ctx.subject.id)
+      .getAdminTeacherAttendance(this.toIsoDate(this.selectedDate()), ctx.batch.id, ctx.levelId, ctx.subject.id)
       .subscribe({
         next: (entries: AdminTeacherAttendanceEntry[]) => {
           this.rows.set(

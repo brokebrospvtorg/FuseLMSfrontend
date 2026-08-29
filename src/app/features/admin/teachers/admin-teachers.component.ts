@@ -6,7 +6,6 @@ import { forkJoin } from 'rxjs';
 import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
-import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
@@ -15,7 +14,6 @@ import { TeacherService } from '../../../core/services/teacher.service';
 import { UserService } from '../../../core/services/user.service';
 import { TeacherWorkloadSummary } from '../../../core/models/teacher.model';
 import { UserRole } from '../../../core/models/enums';
-import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 import { TeacherWorkloadDialogComponent } from './teacher-workload-dialog.component';
 import { ManageTeacherDialogComponent } from './manage-teacher-dialog.component';
 
@@ -23,8 +21,8 @@ import { ManageTeacherDialogComponent } from './manage-teacher-dialog.component'
  * Admin/Coordinator: Teachers.
  *
  * Sidebar page for the Teachers section — one row per active teacher
- * (GET /api/teachers/workload-summary), showing name, code, and boards
- * at a glance. Mounted at both /admin/teachers and /coordinator/teachers
+ * (GET /api/teachers/workload-summary), showing name, code, and current
+ * workload at a glance. Mounted at both /admin/teachers and /coordinator/teachers
  * (see app.routes.ts), same reuse pattern already used for
  * Batches/Timetable/Student Attendance across the two portals — the
  * backend endpoint itself is Admin/Coordinator only (require_roles).
@@ -54,24 +52,24 @@ import { ManageTeacherDialogComponent } from './manage-teacher-dialog.component'
  * strictly-Teacher rows, with no change to either backend endpoint.
  *
  * Clicking a row opens the read-only Teacher Workload drawer
- * (TeacherWorkloadDialogComponent) with that teacher's assigned boards
- * and the exact batches/subjects they're currently teaching. The
- * "Manage" action in the Actions column instead opens
+ * (TeacherWorkloadDialogComponent) with the exact batches/subjects
+ * they're currently teaching. The "Manage" action in the Actions
+ * column instead opens
  * ManageTeacherDialogComponent — a read/write view that can add or
  * remove batch/subject assignments — stopPropagation'd so it doesn't
  * also trigger the row's own click-to-view handler.
  *
  * Note: the API response (TeacherWorkloadSummary) still carries a
- * `levels` field — the backend continues to compute and return it — this
- * screen simply doesn't render it. See TeacherWorkloadSummary in
- * core/models/teacher.model.ts if a future screen needs it back.
+ * `levels` field — the backend continues to compute and return it —
+ * this screen simply doesn't render it. See TeacherWorkloadSummary in
+ * core/models/teacher.model.ts if a future screen needs it.
  */
 @Component({
   selector: 'app-admin-teachers',
   standalone: true,
   imports: [
     CommonModule, FormsModule, CardModule, TableModule, InputTextModule,
-    TagModule, ButtonModule, ProgressSpinnerModule, MessageModule,
+    ButtonModule, ProgressSpinnerModule, MessageModule,
     TeacherWorkloadDialogComponent, ManageTeacherDialogComponent,
   ],
   templateUrl: './admin-teachers.component.html',
@@ -83,8 +81,6 @@ export class AdminTeachersComponent implements OnInit {
   error = signal<string | null>(null);
 
   searchTerm = signal('');
-
-  boardOptions = BOARD_OPTIONS;
 
   /** Client-side filter over the already-loaded (and already
    *  strictly-Teacher-filtered) list — matches on name, email, or
@@ -144,11 +140,6 @@ export class AdminTeachersComponent implements OnInit {
     });
   }
 
-  boardLabel(board: string): string {
-    const boardLower = board?.toLowerCase();
-    return this.boardOptions.find((o) => o.value.toLowerCase() === boardLower)?.label ?? board;
-  }
-
   /** Row click handler — opens the read-only Teacher Workload drawer for
    *  this teacher, using the row's own already-loaded data. */
   openTeacherWorkload(teacher: TeacherWorkloadSummary): void {
@@ -175,7 +166,7 @@ export class AdminTeachersComponent implements OnInit {
   }
 
   /** ManageTeacherDialogComponent's `saved` output — an assignment was
-   *  added or removed, so boards/workload counts on the list may now be
+   *  added or removed, so workload counts on the list may now be
    *  stale. Reload rather than patch client-side. */
   onTeacherWorkloadSaved(): void {
     this.loadTeachers();

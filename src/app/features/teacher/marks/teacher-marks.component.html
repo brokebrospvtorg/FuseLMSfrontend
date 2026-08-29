@@ -7,7 +7,7 @@
     } @else if (allowedPairs().length === 0) {
       <p class="page__empty">You don't have any subject assignments yet. Ask your Coordinator to assign you a subject/batch.</p>
     } @else {
-      <!-- Batch -> Board -> Level -> Subject cascade, scoped to this
+      <!-- Batch -> Level -> Subject cascade, scoped to this
            teacher's own assignments. No Period stage here — Marks entry
            is keyed by assessment, not by a day's time slot. -->
       <div class="marks-tab__select">

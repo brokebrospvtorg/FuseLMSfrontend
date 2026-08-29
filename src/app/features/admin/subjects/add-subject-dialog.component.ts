@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
 
 import { DialogModule } from 'primeng/dialog';
-import { SelectModule } from 'primeng/select';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -12,8 +11,6 @@ import { MessageModule } from 'primeng/message';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { Level, Subject } from '../../../core/models/academic.model';
-import { Board } from '../../../core/models/enums';
-import { SUBJECT_BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 
 /**
  * Admin/Coordinator: "Add Subject" dialog (schema_update_16). Restores the
@@ -37,7 +34,7 @@ import { SUBJECT_BOARD_OPTIONS } from '../../../shared/utils/board-options.util'
   selector: 'app-add-subject-dialog',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, DialogModule, SelectModule, CheckboxModule,
+    CommonModule, FormsModule, DialogModule, CheckboxModule,
     ButtonModule, InputTextModule, MessageModule,
   ],
   templateUrl: './add-subject-dialog.component.html',
@@ -51,24 +48,20 @@ export class AddSubjectDialogComponent implements OnChanges {
    *  should append it (or just reload its catalog list) to refresh. */
   @Output() saved = new EventEmitter<Subject>();
 
-  boardOptions = SUBJECT_BOARD_OPTIONS;
-
   levels = signal<Level[]>([]);
   loadingLevels = signal(false);
 
   name = signal('');
   code = signal('');
-  board = signal<Board | null>(null);
   selectedLevelIds = signal<string[]>([]);
 
   saving = signal(false);
 
   /** Submit disabled until every required field is filled — name, code,
-   *  board, and at least one offered level (spec requirement). */
+   *  and at least one offered level (spec requirement). */
   canSubmit = computed(() =>
     this.name().trim().length > 0 &&
     this.code().trim().length > 0 &&
-    this.board() !== null &&
     this.selectedLevelIds().length > 0 &&
     !this.saving(),
   );
@@ -88,7 +81,6 @@ export class AddSubjectDialogComponent implements OnChanges {
   private resetForm(): void {
     this.name.set('');
     this.code.set('');
-    this.board.set(null);
     this.selectedLevelIds.set([]);
     this.saving.set(false);
   }
@@ -119,14 +111,12 @@ export class AddSubjectDialogComponent implements OnChanges {
   }
 
   submit(): void {
-    const board = this.board();
-    if (!this.canSubmit() || !board) return;
+    if (!this.canSubmit()) return;
 
     this.saving.set(true);
     this.academicsStaffService.createSubject({
       name: this.name().trim(),
       code: this.code().trim(),
-      board,
       level_ids: this.selectedLevelIds(),
     }).subscribe({
       next: (subject) => {

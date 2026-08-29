@@ -1,4 +1,4 @@
-import { AttendanceStatus, Board } from './enums';
+import { AttendanceStatus } from './enums';
 
 /** Mirrors app/models/attendance.py */
 
@@ -73,14 +73,6 @@ export interface TeacherTimetableSlot {
   day_of_week: string;
   start_time: string;
   end_time: string;
-  // Over-Inclusive Cascading Dropdowns fix: the active batch_subjects
-  // board this slot's subject+batch is actually offered under, resolved
-  // server-side — see TimetableSlotDetailOut.board's docstring in
-  // app/schemas/attendance.py. GET /timetable/slots (Teacher-scoped) and
-  // GET /timetable/my-teaching-schedule fan one slot out into one row per
-  // active board, so the same period can appear more than once here, each
-  // with a different board — that's expected, not a duplicate.
-  board: Board;
 }
 
 export interface StudentAttendanceMarkItem {
@@ -150,38 +142,23 @@ export interface TimetableSlotDetail {
   day_of_week: string;
   start_time: string;
   end_time: string;
-  // Mirrors TimetableSlotDetailOut.board — populated on Teacher-scoped
-  // reads only (see that field's docstring in app/schemas/attendance.py);
-  // null on the Admin/Coordinator Interactive Timetable Builder's
-  // unfiltered listing. The Coordinator Portal's Batch -> Board -> Level
-  // -> Subject cascades (Attendance, Timetable) don't rely on this field —
-  // they resolve board from the offered-subjects catalog instead (see
-  // shared/utils/offered-pairs.util.ts) — but it's typed here so it isn't
-  // silently dropped if the backend does start sending it on this path.
-  board?: Board | null;
 }
 
+/** Board removed: TimetableSlotCreate (backend) never accepted a `board`
+ *  field to begin with — the field this interface used to carry was a
+ *  holdover from before the Board entity was dropped entirely. Omitted
+ *  here rather than sent-and-ignored. */
 export interface CreateTimetableSlotRequest {
   level_id: string;
   subject_id: string;
   teacher_id: string;
   batch_id: string;
-  // Required by the backend's TimetableSlotCreateCascading (POST
-  // /timetable/slots) — not a TimetableSlot column itself, it's used
-  // server-side to validate the Coordinator's cascade selection is
-  // actually one of this batch+subject's real active offering boards,
-  // then discarded before the row is built. Omitting it is a 422
-  // ("Field required"), not a silent default.
-  board: Board;
   day_of_week: string;
   start_time: string;
   end_time: string;
 }
 
-/** Every field optional — PATCH sends only what's changing. No `board`
- *  here: TimetableSlotUpdate (backend) doesn't accept it — board isn't a
- *  TimetableSlot column, and an edit isn't re-validated against the
- *  cascade the way a create is. */
+/** Every field optional — PATCH sends only what's changing. */
 export interface UpdateTimetableSlotRequest {
   level_id?: string;
   subject_id?: string;
@@ -195,9 +172,9 @@ export interface UpdateTimetableSlotRequest {
 // --- Admin: Teacher Attendance (View & Edit, full Coordinator parity) ---
 
 /** GET /api/attendance/admin/teacher-attendance — one row per period on
- *  the selected date, matching the Batch -> Board -> Level -> Subject
- *  cascade, with the assigned teacher's own attendance status for that
- *  period+date (null fields = never marked yet at all). */
+ *  the selected date, matching the Batch -> Level -> Subject cascade
+ *  (Board removed), with the assigned teacher's own attendance status for
+ *  that period+date (null fields = never marked yet at all). */
 export interface AdminTeacherAttendanceEntry {
   timetable_slot_id: string;
   date: string;
@@ -205,7 +182,6 @@ export interface AdminTeacherAttendanceEntry {
   end_time: string;
   batch_id: string;
   batch_name: string;
-  board: Board;
   level_id: string;
   level_code: string | null;
   subject_id: string;

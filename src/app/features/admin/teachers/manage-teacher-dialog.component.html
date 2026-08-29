@@ -10,14 +10,11 @@
   @if (teacher; as t) {
     <div class="manage-teacher__header">
       <p class="manage-teacher__email">{{ t.email }}</p>
-      <div class="manage-teacher__badges">
-        @if (t.teacher_code) {
+      @if (t.teacher_code) {
+        <div class="manage-teacher__badges">
           <p-tag severity="secondary" [value]="t.teacher_code" />
-        }
-        @for (board of t.boards; track board) {
-          <p-tag severity="info" [value]="boardLabel(board)" />
-        }
-      </div>
+        </div>
+      }
     </div>
 
     <!-- --- Current Assignments --- -->
@@ -35,7 +32,6 @@
                  [paginator]="assignmentRows().length > 5">
           <ng-template pTemplate="header">
             <tr>
-              <th>Board</th>
               <th>Batch</th>
               <th>Subject</th>
               <th style="width: 6rem"></th>
@@ -43,7 +39,6 @@
           </ng-template>
           <ng-template pTemplate="body" let-row>
             <tr>
-              <td><p-tag severity="info" [value]="boardLabel(row.board)" /></td>
               <td>{{ row.batch_name }}</td>
               <td>{{ row.subject_name }}</td>
               <td>

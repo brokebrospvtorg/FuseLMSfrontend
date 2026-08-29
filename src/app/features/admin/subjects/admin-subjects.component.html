@@ -28,7 +28,6 @@
           <tr>
             <th>Name</th>
             <th>Code</th>
-            <th>Board</th>
             <th>Levels</th>
             <th>Status</th>
             <th style="width: 14rem">Actions</th>
@@ -38,7 +37,6 @@
           <tr>
             <td>{{ subject.name }}</td>
             <td>{{ subject.code }}</td>
-            <td>{{ subject.board }}</td>
             <td>
               @for (level of subject.levels; track level.id) {
                 <p-tag severity="secondary" [value]="level.name" styleClass="admin-subjects__level-tag" />

@@ -14,17 +14,15 @@ import { TeacherService } from '../../../core/services/teacher.service';
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
 import { TeacherWorkloadSummary } from '../../../core/models/teacher.model';
 import { Batch, OfferedSubject, Subject } from '../../../core/models/academic.model';
-import { Board } from '../../../core/models/enums';
-import { BOARD_OPTIONS } from '../../../shared/utils/board-options.util';
 
 /**
  * One row of the "Current Assignments" table below — a display-joined
  * version of AcademicsStaffService.getTeacherAssignmentsFor()'s raw
- * TeacherAssignment (id/subject_id/batch_id/board only), enriched with
- * subject_name/batch_name resolved client-side against `allSubjects`/
- * `batches` (see `assignmentRows` below). Carries the real assignment
- * `id` — unlike TeacherWorkloadSummary.assignments — so "Remove" has
- * something to call DELETE .../assignments/{id} with.
+ * TeacherAssignment (id/subject_id/batch_id only), enriched with
+ * subject_name/batch_name resolved client-side against
+ * `allSubjects`/`batches` (see `assignmentRows` below). Carries the real
+ * assignment `id` — unlike TeacherWorkloadSummary.assignments — so
+ * "Remove" has something to call DELETE .../assignments/{id} with.
  */
 interface TeacherAssignmentRow {
   id: string;
@@ -32,7 +30,6 @@ interface TeacherAssignmentRow {
   subject_name: string;
   batch_id: string;
   batch_name: string;
-  board: Board;
 }
 
 /**
@@ -53,11 +50,11 @@ interface TeacherAssignmentRow {
  * already has loaded) is display-only and doesn't carry each row's real
  * assignment id, so it can't drive a Remove button on its own. This
  * dialog instead re-fetches via AcademicsStaffService.getTeacherAssignmentsFor()
- * — the same underlying teacher_subject_assignments rows, fanned out one
- * row per active board — and de-dupes by id to build `assignmentRows`.
- * Subject/batch display names are resolved client-side against the full
- * subject catalog and batch list (both loaded once per open) rather than
- * adding a second backend shape purpose-built for this table.
+ * — the same underlying teacher_subject_assignments rows — and de-dupes
+ * by id to build `assignmentRows`. Subject/batch display names are
+ * resolved client-side against the full subject catalog and batch list
+ * (both loaded once per open) rather than adding a second backend shape
+ * purpose-built for this table.
  *
  * Add Assignment form cascades Batch -> Subject, sourcing the Subject
  * dropdown from AcademicsStaffService.getOfferedSubjects(batchId) — same
@@ -84,14 +81,12 @@ export class ManageTeacherDialogComponent implements OnChanges {
 
   @Output() closed = new EventEmitter<void>();
   /** Emitted after any successful Assign or Remove — the parent's
-   *  Teachers list (boards/workload counts) should reload, same
-   *  convention as ManageBatchDialogComponent's `saved`. */
+   *  Teachers list (workload counts) should reload, same convention as
+   *  ManageBatchDialogComponent's `saved`. */
   @Output() saved = new EventEmitter<void>();
 
-  boardOptions = BOARD_OPTIONS;
-
   // --- Current Assignments (signals; refreshed after every write) ---
-  private rawAssignmentIds = signal<{ id: string; subject_id: string; batch_id: string; board: Board }[]>([]);
+  private rawAssignmentIds = signal<{ id: string; subject_id: string; batch_id: string }[]>([]);
   loadingAssignments = signal(false);
   removingId = signal<string | null>(null);
 
@@ -100,11 +95,7 @@ export class ManageTeacherDialogComponent implements OnChanges {
   loadingBatches = signal(false);
   allSubjects = signal<Subject[]>([]);
 
-  /** De-duped, name-resolved rows for the "Current Assignments" table.
-   *  getTeacherAssignmentsFor() fans one assignment out into one row per
-   *  active board (see TeacherAssignment.board's own docstring), so the
-   *  same assignment id can appear more than once — collapsed here to one
-   *  row per id, keeping whichever board came back first. */
+  /** De-duped, name-resolved rows for the "Current Assignments" table. */
   assignmentRows = computed<TeacherAssignmentRow[]>(() => {
     const subjectsById = new Map(this.allSubjects().map((s) => [s.id, s.name]));
     const batchesById = new Map(this.batches().map((b) => [b.id, b.name]));
@@ -119,7 +110,6 @@ export class ManageTeacherDialogComponent implements OnChanges {
         subject_name: subjectsById.get(a.subject_id) ?? 'Unknown subject',
         batch_id: a.batch_id,
         batch_name: batchesById.get(a.batch_id) ?? 'Unknown batch',
-        board: a.board,
       });
     }
     return rows.sort(
@@ -205,7 +195,7 @@ export class ManageTeacherDialogComponent implements OnChanges {
     this.academicsStaffService.getTeacherAssignmentsFor(teacher.id).subscribe({
       next: (rows) => {
         this.rawAssignmentIds.set(rows.map((r) => ({
-          id: r.id, subject_id: r.subject_id, batch_id: r.batch_id, board: r.board,
+          id: r.id, subject_id: r.subject_id, batch_id: r.batch_id,
         })));
         this.loadingAssignments.set(false);
       },
@@ -230,11 +220,6 @@ export class ManageTeacherDialogComponent implements OnChanges {
       },
       error: () => this.loadingOfferedSubjects.set(false),
     });
-  }
-
-  boardLabel(board: string): string {
-    const boardLower = board?.toLowerCase();
-    return this.boardOptions.find((o) => o.value.toLowerCase() === boardLower)?.label ?? board;
   }
 
   /** "Assign" — POST /api/teachers/{teacher_id}/assignments. On success,

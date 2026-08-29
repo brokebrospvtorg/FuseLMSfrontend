@@ -28,7 +28,7 @@
         </div>
       </div>
 
-      <!-- Batch -> Board -> Level -> Subject -> Period cascade. Every
+      <!-- Batch -> Level -> Subject -> Period cascade. Every
            stage is restricted to this teacher's own teaching slots; the
            Period stage is further restricted to today's weekday (see
            loadPeriodsForToday). -->
@@ -113,7 +113,7 @@
 
 <!-- Sub-Sprint 3.3/3.4 — View Summary: read-only historical log of classes
      already taken (today or earlier), gated behind the SAME compulsory
-     Batch -> Board -> Level/Class -> Subject -> Period/Date cascade the
+     Batch -> Level/Class -> Subject -> Period/Date cascade the
      marking grid above uses. Nothing in here is editable; it's a pure
      lookup, same as the marking screen being locked to today. -->
 <p-dialog
@@ -136,7 +136,7 @@
   </app-teacher-cascading-filter>
 
   @if (!selectedHistoryEntry()) {
-    <p class="page__empty">Pick a Batch, Board, Level, Subject and Period/Date above to view that class's attendance.</p>
+    <p class="page__empty">Pick a Batch, Level, Subject and Period/Date above to view that class's attendance.</p>
   } @else {
     <div class="summary-detail">
       <div class="summary-detail__header">

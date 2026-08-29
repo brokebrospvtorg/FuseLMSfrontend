@@ -7,31 +7,18 @@ import { SelectModule } from 'primeng/select';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { Batch, Subject, Level } from '../../../core/models/academic.model';
-import { Board } from '../../../core/models/enums';
-import { BOARD_OPTIONS } from '../../utils/board-options.util';
 import { CascadingSelect } from '../../utils/cascading-select';
 
-/** One (subject, batch, board) combination a teacher is actually permitted
- *  to act on — the authorization guard for every stage of the cascade
+/** One (subject, batch) combination a teacher is actually permitted to
+ *  act on — the authorization guard for every stage of the cascade
  *  below. Built by the caller from whatever "my own" list it already has:
  *  TeacherAssignment[] for the Marks screen, TeacherTimetableSlot[] for
  *  Attendance. Nothing in this component ever widens past this set — the
  *  catalog-wide Subject/Batch lists passed in via `subjects`/`batches` are
- *  only used to resolve names/labels for the pairs in this list.
- *
- *  `board` is REQUIRED and is the authoritative source for every board
- *  option this component ever shows — it comes straight from the backend
- *  (GET /academic/teacher-assignments / GET /timetable/slots), which
- *  resolves it from the batch's actual active `batch_subjects` offering,
- *  not from the catalog Subject's own `board` field (which can be "All").
- *  See those endpoints' docstrings for why this distinction matters: an
- *  "All Boards" catalog Subject used to make every board show up for
- *  every batch a teacher touched it in, regardless of which board(s) were
- *  actually offered+active there. */
+ *  only used to resolve names/labels for the pairs in this list. */
 export interface TeacherFilterPair {
   subjectId: string;
   batchId: string;
-  board: Board;
 }
 
 export interface TeacherFilterOption<TData = unknown> {
@@ -45,7 +32,6 @@ export interface TeacherFilterOption<TData = unknown> {
  *  `selectionChange` below. */
 export interface TeacherFilterSelection<TPeriod = unknown> {
   batch: Batch;
-  board: Board;
   levelId: string;
   levelName: string;
   subject: Subject;
@@ -58,15 +44,14 @@ export interface TeacherFilterSelection<TPeriod = unknown> {
  *  start loading assessments; Attendance additionally waits for a period. */
 export interface TeacherFilterSubjectContext {
   batch: Batch;
-  board: Board;
   levelId: string;
   levelName: string;
   subject: Subject;
 }
 
 /**
- * Reusable Batch -> Board -> Level -> Subject -> Period/Class cascading
- * filter for the Teacher Portal's Attendance and Marks-entry screens.
+ * Reusable Batch -> Level -> Subject -> Period/Class cascading filter for
+ * the Teacher Portal's Attendance and Marks-entry screens.
  *
  * Every stage's *options* are computed synchronously from the catalog data
  * the parent already loads on init (`batches`, `subjects`) intersected
@@ -128,13 +113,12 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
   @Input() periodLabel = 'Period';
   @Input() periodPlaceholder = 'Select a period';
   /** Required when `periodsEnabled` is true. Called with the fully
-   *  resolved Batch/Board/Level/Subject context every time Subject
-   *  changes; return the Period/Class options for that combination. */
+   *  resolved Batch/Level/Subject context every time Subject changes;
+   *  return the Period/Class options for that combination. */
   @Input() loadPeriods: ((ctx: TeacherFilterSubjectContext) => Observable<TeacherFilterOption<TPeriod>[]>) | null =
     null;
 
   @Input() batchLabel = 'Batch';
-  @Input() boardLabel = 'Board';
   @Input() levelLabel = 'Level';
   @Input() subjectLabel = 'Subject';
 
@@ -151,7 +135,6 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
 
   // --- Current selection at each stage ---
   selectedBatchId = signal<string | null>(null);
-  selectedBoard = signal<Board | null>(null);
   selectedLevelId = signal<string | null>(null);
   selectedSubjectId = signal<string | null>(null);
   selectedPeriodValue = signal<string | null>(null);
@@ -183,23 +166,17 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
       .map((b) => ({ label: b.name, value: b.id, data: b }));
   }
 
-  // --- Stage 2: Board (depends on Batch) ---
-  readonly boards = new CascadingSelect<string, TeacherFilterOption<Board>>((batchId) =>
-    of(this.computeBoardOptions(batchId)),
+  // --- Stage 2: Level (depends on Batch) ---
+  readonly levelsSel = new CascadingSelect<string, TeacherFilterOption<Level | null>>((batchId) =>
+    of(this.computeLevelOptions(batchId)),
   );
 
-  // --- Stage 3: Level (depends on Batch + Board) ---
-  readonly levelsSel = new CascadingSelect<{ batchId: string; board: Board }, TeacherFilterOption<Level | null>>(
-    (ctx) => of(this.computeLevelOptions(ctx.batchId, ctx.board)),
+  // --- Stage 3: Subject (depends on Batch + Level) ---
+  readonly subjectsSel = new CascadingSelect<{ batchId: string; levelId: string }, TeacherFilterOption<Subject>>(
+    (ctx) => of(this.computeSubjectOptions(ctx.batchId, ctx.levelId)),
   );
 
-  // --- Stage 4: Subject (depends on Batch + Board + Level) ---
-  readonly subjectsSel = new CascadingSelect<
-    { batchId: string; board: Board; levelId: string },
-    TeacherFilterOption<Subject>
-  >((ctx) => of(this.computeSubjectOptions(ctx.batchId, ctx.board, ctx.levelId)));
-
-  // --- Stage 5: Period/Class (depends on the full context; caller-supplied) ---
+  // --- Stage 4: Period/Class (depends on the full context; caller-supplied) ---
   readonly periods = new CascadingSelect<TeacherFilterSubjectContext, TeacherFilterOption<TPeriod>>((ctx) => {
     if (!this.periodsEnabled || !this.loadPeriods) return of([]);
     return this.loadPeriods(ctx);
@@ -215,30 +192,9 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
     }
   }
 
-  private computeBoardOptions(batchId: string | null): TeacherFilterOption<Board>[] {
-    if (!batchId) return [];
-    // Over-Inclusive Cascading Dropdowns fix: boards come straight off
-    // allowedPairs (server-resolved from the batch's actual active
-    // batch_subjects offering), never inferred from the catalog Subject's
-    // own `board` field. Before this fix, a Subject catalogued as "All
-    // Boards" made every board show up here for every batch a teacher was
-    // assigned/scheduled in, even batches where only one board's offering
-    // was actually active — or none at all.
-    const boardsPresent = new Set<Board>(
-      this.allowedPairs.filter((p) => p.batchId === batchId).map((p) => p.board),
-    );
-    return BOARD_OPTIONS.filter((opt) => boardsPresent.has(opt.value)).map((opt) => ({
-      label: opt.label,
-      value: opt.value,
-      data: opt.value,
-    }));
-  }
-
-  private computeLevelOptions(batchId: string, board: Board): TeacherFilterOption<Level | null>[] {
+  private computeLevelOptions(batchId: string): TeacherFilterOption<Level | null>[] {
     const allowedSubjectIds = new Set(
-      this.allowedPairs
-        .filter((p) => p.batchId === batchId && p.board === board)
-        .map((p) => p.subjectId),
+      this.allowedPairs.filter((p) => p.batchId === batchId).map((p) => p.subjectId),
     );
     const levelsById = new Map(this.levels.map((l) => [l.id, l]));
     const seen = new Map<string, TeacherFilterOption<Level | null>>();
@@ -261,11 +217,9 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
     });
   }
 
-  private computeSubjectOptions(batchId: string, board: Board, levelId: string): TeacherFilterOption<Subject>[] {
+  private computeSubjectOptions(batchId: string, levelId: string): TeacherFilterOption<Subject>[] {
     const allowedSubjectIds = new Set(
-      this.allowedPairs
-        .filter((p) => p.batchId === batchId && p.board === board)
-        .map((p) => p.subjectId),
+      this.allowedPairs.filter((p) => p.batchId === batchId).map((p) => p.subjectId),
     );
     return this.subjects
       .filter((s) => s.level_id === levelId && allowedSubjectIds.has(s.id))
@@ -279,28 +233,11 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
 
   onBatchChange(batchId: string | null): void {
     this.selectedBatchId.set(batchId);
-    this.selectedBoard.set(null);
     this.selectedLevelId.set(null);
     this.selectedSubjectId.set(null);
     this.selectedPeriodValue.set(null);
 
-    this.boards.loadFor(batchId);
-    this.levelsSel.reset();
-    this.subjectsSel.reset();
-    this.periods.reset();
-
-    this.emitSubjectChange();
-    this.emitSelectionChange();
-  }
-
-  onBoardChange(board: Board | null): void {
-    this.selectedBoard.set(board);
-    this.selectedLevelId.set(null);
-    this.selectedSubjectId.set(null);
-    this.selectedPeriodValue.set(null);
-
-    const batchId = this.selectedBatchId();
-    this.levelsSel.loadFor(batchId && board ? { batchId, board } : null);
+    this.levelsSel.loadFor(batchId);
     this.subjectsSel.reset();
     this.periods.reset();
 
@@ -314,8 +251,7 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
     this.selectedPeriodValue.set(null);
 
     const batchId = this.selectedBatchId();
-    const board = this.selectedBoard();
-    this.subjectsSel.loadFor(batchId && board && levelId ? { batchId, board, levelId } : null);
+    this.subjectsSel.loadFor(batchId && levelId ? { batchId, levelId } : null);
     this.periods.reset();
 
     this.emitSubjectChange();
@@ -344,9 +280,8 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
 
   private currentSubjectContext(subjectId: string | null): TeacherFilterSubjectContext | null {
     const batchId = this.selectedBatchId();
-    const board = this.selectedBoard();
     const levelId = this.selectedLevelId();
-    if (!batchId || !board || !levelId || !subjectId) return null;
+    if (!batchId || !levelId || !subjectId) return null;
 
     const batch = this.batches.find((b) => b.id === batchId);
     const subject = this.subjectsSel.options().find((o) => o.value === subjectId)?.data;
@@ -355,7 +290,6 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
 
     return {
       batch,
-      board,
       levelId,
       levelName: levelOption?.label ?? '',
       subject,
@@ -387,23 +321,22 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
 
   /**
    * Programmatically drives the whole cascade to a specific
-   * (batch, board, subject[, period]) combination — used for deep-linking,
-   * e.g. from the Teacher Timetable's "Mark Attendance" button straight
-   * into a specific slot's roster instead of making the teacher re-pick
-   * every stage by hand.
+   * (batch, subject[, period]) combination — used for deep-linking, e.g.
+   * from the Teacher Timetable's "Mark Attendance" button straight into a
+   * specific slot's roster instead of making the teacher re-pick every
+   * stage by hand.
    *
-   * Deliberately does NOT call onBatchChange()/onBoardChange()/etc. — each
+   * Deliberately does NOT call onBatchChange()/onLevelChange()/etc. — each
    * of those kicks off its OWN loadFor(), which would double-fetch here
-   * (harmless in practice since Board/Level/Subject resolve synchronously
-   * via of(...), but wasteful, and would double-emit intermediate null
-   * selectionChange events along the way). Instead this chains
-   * loadFor(..., onLoaded) once per stage — the same "populate parent, set
-   * child only once its options have actually loaded" pattern
-   * CascadingSelect's own docstring describes for edit/patch mode,
-   * applied at every stage instead of just one. The final Period stage
-   * (Attendance's real per-day slots) genuinely is async — this is why
-   * the whole chain has to be callback-based rather than four sequential
-   * synchronous calls.
+   * (harmless in practice since Level/Subject resolve synchronously via
+   * of(...), but wasteful, and would double-emit intermediate null
+   * selectionChange events along the way). Instead this chains loadFor(...,
+   * onLoaded) once per stage — the same "populate parent, set child only
+   * once its options have actually loaded" pattern CascadingSelect's own
+   * docstring describes for edit/patch mode, applied at every stage
+   * instead of just one. The final Period stage (Attendance's real per-day
+   * slots) genuinely is async — this is why the whole chain has to be
+   * callback-based rather than sequential synchronous calls.
    *
    * If subjectId isn't in `subjects`, or the resolved combination isn't
    * actually in `allowedPairs`, this silently does nothing — the caller
@@ -412,45 +345,37 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
    * inconsistent state. Use hasSelection() after calling this to know
    * whether it actually landed.
    */
-  applyDeepLink(target: { batchId: string; subjectId: string; board: Board; periodValue?: string | null }): void {
+  applyDeepLink(target: { batchId: string; subjectId: string; periodValue?: string | null }): void {
     const subject = this.subjects.find((s) => s.id === target.subjectId);
     const isAllowed = this.allowedPairs.some(
-      (p) => p.batchId === target.batchId && p.subjectId === target.subjectId && p.board === target.board,
+      (p) => p.batchId === target.batchId && p.subjectId === target.subjectId,
     );
     if (!subject || !isAllowed) return;
 
     this.selectedBatchId.set(target.batchId);
-    this.selectedBoard.set(null);
     this.selectedLevelId.set(null);
     this.selectedSubjectId.set(null);
     this.selectedPeriodValue.set(null);
 
-    this.boards.loadFor(target.batchId, () => {
-      this.selectedBoard.set(target.board);
+    this.levelsSel.loadFor(target.batchId, () => {
+      this.selectedLevelId.set(subject.level_id);
 
-      this.levelsSel.loadFor({ batchId: target.batchId, board: target.board }, () => {
-        this.selectedLevelId.set(subject.level_id);
+      this.subjectsSel.loadFor({ batchId: target.batchId, levelId: subject.level_id }, () => {
+        this.selectedSubjectId.set(target.subjectId);
+        this.emitSubjectChange();
 
-        this.subjectsSel.loadFor(
-          { batchId: target.batchId, board: target.board, levelId: subject.level_id },
-          () => {
-            this.selectedSubjectId.set(target.subjectId);
-            this.emitSubjectChange();
-
-            const ctx = this.currentSubjectContext(target.subjectId);
-            if (this.periodsEnabled && ctx) {
-              this.periods.loadFor(ctx, (periodOptions) => {
-                const match = target.periodValue
-                  ? periodOptions.find((o) => o.value === target.periodValue)
-                  : undefined;
-                if (match) this.selectedPeriodValue.set(match.value);
-                this.emitSelectionChange();
-              });
-            } else {
-              this.emitSelectionChange();
-            }
-          },
-        );
+        const ctx = this.currentSubjectContext(target.subjectId);
+        if (this.periodsEnabled && ctx) {
+          this.periods.loadFor(ctx, (periodOptions) => {
+            const match = target.periodValue
+              ? periodOptions.find((o) => o.value === target.periodValue)
+              : undefined;
+            if (match) this.selectedPeriodValue.set(match.value);
+            this.emitSelectionChange();
+          });
+        } else {
+          this.emitSelectionChange();
+        }
       });
     });
   }
@@ -462,7 +387,6 @@ export class TeacherCascadingFilterComponent<TPeriod = unknown> implements OnCha
   hasSelection(): boolean {
     return (
       this.selectedBatchId() !== null &&
-      this.selectedBoard() !== null &&
       this.selectedLevelId() !== null &&
       this.selectedSubjectId() !== null &&
       (!this.periodsEnabled || this.selectedPeriodValue() !== null)

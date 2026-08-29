@@ -14,9 +14,10 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
 
 import { AcademicsStaffService } from '../../../core/services/academics-staff.service';
-import { Subject, Batch, Level, BatchSubject } from '../../../core/models/academic.model';
+import { Subject, Batch, Level } from '../../../core/models/academic.model';
 import { AssessmentFull, RosterEntry, MarkUpsertPayload } from '../../../core/models/academics-staff.model';
 import { calculatePercentage, calculateGrade } from '../../../shared/utils/grading.util';
+import { loadOfferedPairs } from '../../../shared/utils/offered-pairs.util';
 import {
   TeacherCascadingFilterComponent, TeacherFilterPair, TeacherFilterSubjectContext,
 } from '../../../shared/ui/teacher-cascading-filter/teacher-cascading-filter.component';
@@ -33,12 +34,12 @@ interface MarksEntryRow extends RosterEntry {
  * "bypass the Teacher lock entirely" screen the spec calls for).
  *
  * Deliberately NOT scoped to "my assignments" like Teacher's screen —
- * Coordinator sees every active (Batch, Board, Level, Subject) offering
- * across the whole school via the same shared
- * TeacherCascadingFilterComponent Teacher's screen uses (mandatory
- * Batch -> Board -> Level -> Subject order, enforced by that component —
- * see its own docstring), just with `allowedPairs` built from EVERY
- * batch's active offered-subjects instead of one teacher's assignments.
+ * Coordinator sees every active (Batch, Level, Subject) offering across
+ * the whole school via the same shared TeacherCascadingFilterComponent
+ * Teacher's screen uses (mandatory Batch -> Level -> Subject order,
+ * enforced by that component — see its own docstring; Board removed),
+ * just with `allowedPairs` built from EVERY batch's active
+ * offered-subjects instead of one teacher's assignments.
  * And unlike Teacher's screen, there's no `locked` gate after first
  * save: marks stay directly editable, and there's no Request-Edit
  * workflow here because there's nothing to request — Coordinator just
@@ -72,11 +73,12 @@ export class CoordinatorMarksManagementComponent implements OnInit {
   /** Authorization/scope guard for the cascading filter — for a
    *  Coordinator this isn't "what am I assigned to" (there's no such
    *  restriction), it's "what's actually active anywhere in the school":
-   *  every is_active=true row across every batch's offered-subjects,
-   *  fanned out per board same as Teacher's own allowedPairs. Built once
-   *  in ngOnInit by looping getOfferedSubjects() per batch — batch counts
-   *  are small (a handful of exam sessions at a time), so this is a
-   *  one-time N+1 on load, not a per-keystroke cost. */
+   *  every is_active=true row across every batch's offered-subjects, one
+   *  pair per (subject, batch) combination (Board removed — no more
+   *  per-board fan-out). Built once in ngOnInit via the shared
+   *  loadOfferedPairs helper, which loops getOfferedSubjects() per
+   *  batch — batch counts are small (a handful of exam sessions at a
+   *  time), so this is a one-time N+1 on load, not a per-keystroke cost. */
   allowedPairs = signal<TeacherFilterPair[]>([]);
 
   // --- Assessments for the selected subject+batch ---
@@ -118,40 +120,25 @@ export class CoordinatorMarksManagementComponent implements OnInit {
   }
 
   /** Fetches every batch's active offered-subjects and flattens them into
-   *  the (subject, batch, board) triples the cascading filter needs —
-   *  the school-wide equivalent of what GET /academic/teacher-assignments
+   *  the (subject, batch) pairs the cascading filter needs — the
+   *  school-wide equivalent of what GET /academic/teacher-assignments
    *  already resolves per-teacher server-side. No such bulk endpoint
    *  exists for "every active offering across every batch" (nothing
-   *  needed it before this screen), so this loops the existing
-   *  per-batch endpoint instead of adding a new one for a single caller. */
+   *  needed it before this screen), so this uses the shared
+   *  loadOfferedPairs helper, which loops the existing per-batch
+   *  endpoint instead of adding a new one for a single caller. */
   private loadAllowedPairs(batches: Batch[]): void {
     if (batches.length === 0) {
       this.pickerLoading.set(false);
       return;
     }
-    let remaining = batches.length;
-    const pairs: TeacherFilterPair[] = [];
-    for (const batch of batches) {
-      this.staffService.getOfferedSubjects(batch.id).subscribe({
-        next: (offered: BatchSubject[]) => {
-          for (const o of offered) {
-            if (o.is_active) pairs.push({ subjectId: o.subject_id, batchId: batch.id, board: o.board });
-          }
-          if (--remaining === 0) {
-            this.allowedPairs.set(pairs);
-            this.pickerLoading.set(false);
-          }
-        },
-        error: () => {
-          // One batch's offered-subjects failing to load shouldn't block
-          // every other batch from showing up in the picker.
-          if (--remaining === 0) {
-            this.allowedPairs.set(pairs);
-            this.pickerLoading.set(false);
-          }
-        },
-      });
-    }
+    loadOfferedPairs(this.staffService, batches).subscribe({
+      next: (pairs) => {
+        this.allowedPairs.set(pairs);
+        this.pickerLoading.set(false);
+      },
+      error: () => this.pickerLoading.set(false),
+    });
   }
 
   onSubjectChange(ctx: TeacherFilterSubjectContext | null): void {

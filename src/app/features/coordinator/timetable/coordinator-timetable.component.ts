@@ -50,10 +50,10 @@ type TeacherAssigneeOption = TeacherFilterOption<string>;
  * a slot has (see TimetableSlot's own note in the backend router).
  *
  * Cascading Dropdowns: both the search filter panel and the Add/Edit Slot
- * dialog now enforce the same strict chain — [Batch] -> [Board] ->
- * [Level/Class] -> [Subject] -> [Teacher Assignee] — via two independent
- * instances of the shared `<app-teacher-cascading-filter>` widget (one
- * per #searchCascade / #formCascade template ref, since @ViewChild only
+ * dialog now enforce the same strict chain — [Batch] -> [Level/Class] ->
+ * [Subject] -> [Teacher Assignee] — via two independent instances of the
+ * shared `<app-teacher-cascading-filter>` widget (Board removed; one per
+ * #searchCascade / #formCascade template ref, since @ViewChild only
  * resolves the first match by type). The widget's "Period" stage is
  * reused here as the Teacher Assignee stage: `loadTeacherAssigneesFor`
  * supplies teachers actually assigned to the selected Subject+Batch
@@ -97,7 +97,7 @@ export class CoordinatorTimetableComponent implements OnInit {
   pickerLoading = signal(true);
   pickerError = signal<string | null>(null);
 
-  // --- Search filter panel: Batch -> Board -> Level -> Subject -> Teacher
+  // --- Search filter panel: Batch -> Level -> Subject -> Teacher
   // Assignee. Each stage narrows `filteredSlots` progressively; the chain
   // resets to "show everything" the moment an earlier stage is cleared. ---
   searchSubjectCtx = signal<TeacherFilterSubjectContext | null>(null);
@@ -138,9 +138,9 @@ export class CoordinatorTimetableComponent implements OnInit {
   submitting = signal(false);
   formNote = signal<string | null>(null);
 
-  // Full Batch -> Board -> Level -> Subject -> Teacher Assignee selection
-  // for the dialog; null until every stage resolves. day/start/end aren't
-  // part of the cascade — they're plain fields alongside it.
+  // Full Batch -> Level -> Subject -> Teacher Assignee selection for the
+  // dialog; null until every stage resolves. day/start/end aren't part
+  // of the cascade — they're plain fields alongside it.
   formSelection = signal<TeacherFilterSelection<string> | null>(null);
   formDay = signal<string | null>(null);
   formStartTime = signal<Date | null>(null);
@@ -168,7 +168,7 @@ export class CoordinatorTimetableComponent implements OnInit {
             this.pickerLoading.set(false);
           },
           error: () => {
-            this.pickerError.set('Could not load the batch/board/subject offerings right now.');
+            this.pickerError.set('Could not load the batch/subject offerings right now.');
             this.pickerLoading.set(false);
           },
         });
@@ -192,10 +192,9 @@ export class CoordinatorTimetableComponent implements OnInit {
   }
 
   /** Teacher Assignee stage: teachers actually assigned to teach the
-   *  cascade's resolved Subject within its resolved Batch. Fanned out per
-   *  active board server-side (same as every other offering-backed list),
-   *  so this dedupes by teacher id — a teacher assigned once shouldn't
-   *  appear twice just because the subject's offering spans 2+ boards. */
+   *  cascade's resolved Subject within its resolved Batch. This dedupes
+   *  by teacher id in case the same assignment is ever returned more
+   *  than once — a teacher assigned once shouldn't appear twice. */
   loadTeacherAssigneesFor = (
     ctx: TeacherFilterSubjectContext,
   ): Observable<TeacherAssigneeOption[]> => {
@@ -246,31 +245,24 @@ export class CoordinatorTimetableComponent implements OnInit {
     this.formEndTime.set(this.timeStringToDate(slot.end_time));
     this.dialogOpen.set(true);
 
-    // A raw TimetableSlot doesn't store which board its offering was
-    // under (that's resolved server-side, per-request, from the active
-    // batch_subjects rows) — pick whichever active board this slot's
-    // batch+subject pair currently has, sorted first, same fallback
-    // convention the backend itself uses when board is otherwise
-    // ambiguous. If the offering's since been withdrawn entirely (no
-    // board left), leave the cascade blank rather than guessing — the
-    // Coordinator re-picks Batch/Board/Level/Subject/Teacher from scratch.
-    const boards = this.allowedPairs()
-      .filter((p) => p.batchId === slot.batch_id && p.subjectId === slot.subject_id)
-      .map((p) => p.board)
-      .sort();
-    const board = boards[0];
+    // If the offering behind this slot's batch+subject pair has since
+    // been withdrawn entirely, leave the cascade blank rather than
+    // guessing — the Coordinator re-picks Batch, Level, Subject, and
+    // Teacher from scratch.
+    const stillOffered = this.allowedPairs().some(
+      (p) => p.batchId === slot.batch_id && p.subjectId === slot.subject_id,
+    );
 
     queueMicrotask(() => {
-      if (!board) {
+      if (!stillOffered) {
         this.formNote.set(
-          "This subject's offering for this batch has changed — please re-select Batch, Board, Level, Subject, and Teacher.",
+          "This subject's offering for this batch has changed — please re-select Batch, Level, Subject, and Teacher.",
         );
         return;
       }
       this.formCascade?.applyDeepLink({
         batchId: slot.batch_id,
         subjectId: slot.subject_id,
-        board,
         periodValue: slot.teacher_id,
       });
     });
@@ -290,7 +282,7 @@ export class CoordinatorTimetableComponent implements OnInit {
       Swal.fire({
         icon: 'warning',
         title: 'Missing info',
-        text: 'Complete Batch, Board, Level, Subject, Teacher Assignee, Day, and both times before saving.',
+        text: 'Complete Batch, Level, Subject, Teacher Assignee, Day, and both times before saving.',
       });
       return;
     }
@@ -298,18 +290,11 @@ export class CoordinatorTimetableComponent implements OnInit {
     this.submitting.set(true);
 
     if (this.dialogMode() === 'create') {
-      // board is REQUIRED here (TimetableSlotCreateCascading on the
-      // backend) — this used to be missing entirely, which is exactly
-      // what produced the 422 "board: Field required" error. It's not a
-      // stripped-disabled-control issue (this form has no
-      // FormGroup/FormControl at all, just signals) — it was purely
-      // omitted from this object literal.
       const createPayload: CreateTimetableSlotRequest = {
         level_id: selection.levelId,
         subject_id: selection.subject.id,
         teacher_id: selection.period.value,
         batch_id: selection.batch.id,
-        board: selection.board,
         day_of_week: day,
         start_time: this.dateToTimeString(start),
         end_time: this.dateToTimeString(end),
@@ -321,8 +306,6 @@ export class CoordinatorTimetableComponent implements OnInit {
     } else {
       const slotId = this.editingSlotId();
       if (!slotId) return;
-      // No `board` here — TimetableSlotUpdate (backend) doesn't accept it,
-      // see UpdateTimetableSlotRequest's own comment.
       const updatePayload: UpdateTimetableSlotRequest = {
         level_id: selection.levelId,
         subject_id: selection.subject.id,

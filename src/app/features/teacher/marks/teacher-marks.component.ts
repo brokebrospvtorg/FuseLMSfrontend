@@ -66,10 +66,10 @@ interface GradeRow extends GradeFull {
   styleUrl: './teacher-marks.component.scss',
 })
 export class TeacherMarksComponent implements OnInit {
-  // --- Batch -> Board -> Level -> Subject picker, scoped to this
-  // teacher's own assignments. There's no Period stage for Marks entry
-  // (marks are keyed by assessment, not by a day's time slot), so the
-  // cascade terminates at Subject — see periodsEnabled below. ---
+  // --- Batch -> Level -> Subject picker, scoped to this teacher's own
+  // assignments. There's no Period stage for Marks entry (marks are
+  // keyed by assessment, not by a day's time slot), so the cascade
+  // terminates at Subject — see periodsEnabled below. ---
   assignments = signal<TeacherAssignment[]>([]);
   subjects = signal<Subject[]>([]);
   batches = signal<Batch[]>([]);
@@ -79,17 +79,10 @@ export class TeacherMarksComponent implements OnInit {
   selectedSubjectId = signal<string | null>(null);
   selectedBatchId = signal<string | null>(null);
 
-  // Authorization guard for the cascading filter: only subject/batch/board
+  // Authorization guard for the cascading filter: only subject/batch
   // combinations this teacher is actually assigned to are ever offered.
-  // `board` comes straight off the assignment (server-resolved from the
-  // batch's actual active offering — see TeacherAssignment.board's
-  // docstring) rather than being inferred client-side. A single
-  // subject_id+batch_id pair can appear more than once here (fanned out
-  // per active board by GET /academic/teacher-assignments) — that's
-  // expected and is exactly what lets the Board dropdown show only the
-  // boards this teacher is genuinely assigned under for this batch.
   allowedPairs = computed<TeacherFilterPair[]>(() =>
-    this.assignments().map((a) => ({ subjectId: a.subject_id, batchId: a.batch_id, board: a.board })),
+    this.assignments().map((a) => ({ subjectId: a.subject_id, batchId: a.batch_id })),
   );
 
   // --- Assessments for the selected subject+batch ---

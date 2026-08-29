@@ -34,20 +34,14 @@ export class AcademicService {
    * was never implemented on the backend and always 404'd ("Could not
    * load available subjects right now").
    *
-   * `board` is optional and narrows to offerings under one examining
-   * Board (schema_update_15 — the same batch/subject can be offered more
-   * than once, once per board). Omitting it returns offerings across
-   * every board, same as calling GET .../offered-subjects with no query
-   * param at all — callers that know which board they care about (e.g. a
-   * Student's own registered board) should always pass it rather than
-   * filtering the unfiltered list client-side, per that endpoint's own
-   * docstring.
+   * Board removed: a batch_subjects row is now a plain (batch_id,
+   * subject_id) offering, so this always returns every offering for the
+   * batch — no per-board narrowing to opt into.
    */
-  getOfferedSubjects(batchId: string, board?: string): Observable<BatchSubject[]> {
-    const url = board
-      ? `${this.baseUrl}/batches/${batchId}/offered-subjects?board=${encodeURIComponent(board)}`
-      : `${this.baseUrl}/batches/${batchId}/offered-subjects`;
-    return this.http.get<BatchSubject[]>(url, { withCredentials: true });
+  getOfferedSubjects(batchId: string): Observable<BatchSubject[]> {
+    return this.http.get<BatchSubject[]>(`${this.baseUrl}/batches/${batchId}/offered-subjects`, {
+      withCredentials: true,
+    });
   }
 
   /**

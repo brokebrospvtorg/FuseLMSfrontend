@@ -21,7 +21,7 @@ import { AttendanceService } from '../../../core/services/attendance.service';
 import { Subject, Batch, Level } from '../../../core/models/academic.model';
 import { RosterEntry } from '../../../core/models/academics-staff.model';
 import { TeacherTimetableSlot, TeacherAttendanceLogEntry } from '../../../core/models/attendance.model';
-import { AttendanceStatus, Board } from '../../../core/models/enums';
+import { AttendanceStatus } from '../../../core/models/enums';
 import {
   TeacherCascadingFilterComponent, TeacherFilterPair, TeacherFilterOption, TeacherFilterSelection,
   TeacherFilterSubjectContext,
@@ -56,8 +56,8 @@ interface AttendanceRow extends RosterEntry {
  *      that Teachers can only create/edit attendance where
  *      attendance_date == date.today().
  * 3.4 (this pass) — View Summary's filter is now the same compulsory
- *      Batch -> Board -> Level/Class -> Subject -> Period/Date cascade as
- *      the marking grid above it (a second, independent instance of
+ *      Batch -> Level/Class -> Subject -> Period/Date cascade as the
+ *      marking grid above it (a second, independent instance of
  *      <app-teacher-cascading-filter>, reusing this teacher's own
  *      `allowedPairs`), replacing the old single free-standing Subject
  *      dropdown. The Period/Date stage is populated from
@@ -106,32 +106,26 @@ export class TeacherAttendanceComponent implements OnInit {
   pickerLoading = signal(true);
   pickerError = signal<string | null>(null);
 
-  // Authorization guard for the Batch -> Board -> Level -> Subject -> Period
-  // cascade below: only subject/batch/board combinations this teacher
-  // actually has a teaching slot in are ever offered, at any stage of the
-  // chain. `board` comes straight off the slot (server-resolved from the
-  // batch's actual active offering — see TeacherTimetableSlot.board's
-  // docstring) rather than being inferred client-side.
+  // Authorization guard for the Batch -> Level -> Subject -> Period
+  // cascade below: only subject/batch combinations this teacher actually
+  // has a teaching slot in are ever offered, at any stage of the chain.
   allowedPairs = computed<TeacherFilterPair[]>(() => {
     const seen = new Set<string>();
     const pairs: TeacherFilterPair[] = [];
     for (const s of this.slots()) {
-      const key = `${s.subject_id}::${s.batch_id}::${s.board}`;
+      const key = `${s.subject_id}::${s.batch_id}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      pairs.push({ subjectId: s.subject_id, batchId: s.batch_id, board: s.board });
+      pairs.push({ subjectId: s.subject_id, batchId: s.batch_id });
     }
     return pairs;
   });
 
-  // Period stage of the cascading filter: once Subject (+ its Batch +
-  // Board) is resolved, offer only this teacher's periods for that exact
-  // subject/batch/board that fall on today's weekday — same day-wise
+  // Period stage of the cascading filter: once Subject (+ its Batch) is
+  // resolved, offer only this teacher's periods for that exact
+  // subject/batch that fall on today's weekday — same day-wise
   // restriction the old single-dropdown picker enforced, now scoped one
-  // level deeper. `board` is included in the match because a slot fanned
-  // out across multiple active boards (see TeacherTimetableSlot.board's
-  // docstring) would otherwise show the same period twice once a Subject
-  // offered under 2+ boards was selected.
+  // level deeper.
   loadPeriodsForToday = (ctx: TeacherFilterSubjectContext) => {
     const weekday = this.weekdayFor(this.today);
     const options: PeriodOption[] = this.slots()
@@ -139,7 +133,6 @@ export class TeacherAttendanceComponent implements OnInit {
         (s) =>
           s.subject_id === ctx.subject.id &&
           s.batch_id === ctx.batch.id &&
-          s.board === ctx.board &&
           s.day_of_week === weekday,
       )
       .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -152,7 +145,7 @@ export class TeacherAttendanceComponent implements OnInit {
   };
 
   // The cascading filter's full selection once a Period has been picked —
-  // null until every stage (Batch/Board/Level/Subject/Period) resolves.
+  // null until every stage (Batch/Level/Subject/Period) resolves.
   currentSelection = signal<TeacherFilterSelection<TeacherTimetableSlot> | null>(null);
   selectedPeriod = computed<PeriodOption | null>(() => this.currentSelection()?.period ?? null);
 
@@ -179,7 +172,7 @@ export class TeacherAttendanceComponent implements OnInit {
     () => this.summarySelection()?.period?.data ?? null,
   );
 
-  // Period/Date stage: for the Batch/Board/Level/Subject just resolved,
+  // Period/Date stage: for the Batch/Level/Subject just resolved,
   // fetch this teacher's past sessions for that exact combination and
   // turn each period+date row into one cascade option. Errors are
   // swallowed by CascadingSelect itself (see its own docstring) — the
@@ -243,14 +236,14 @@ export class TeacherAttendanceComponent implements OnInit {
 
   /**
    * Deep-link from the Timetable screen's "Mark Attendance" button:
-   * ?batch_id=...&subject_id=...&board=...&slot_id=... — drives the whole
-   * cascade to that combination automatically instead of making the
-   * teacher re-pick every stage.
+   * ?batch_id=...&subject_id=...&slot_id=... — drives the whole cascade
+   * to that combination automatically instead of making the teacher
+   * re-pick every stage.
    *
    * Prefers the LIVE slot (looked up in this.slots() by slot_id) over the
-   * raw query params for batch_id/subject_id/board whenever that slot
-   * still exists — the Timetable page that generated this link may have
-   * been rendered from data that's since gone stale (e.g. the Coordinator
+   * raw query params for batch_id/subject_id whenever that slot still
+   * exists — the Timetable page that generated this link may have been
+   * rendered from data that's since gone stale (e.g. the Coordinator
    * edited this teacher's timetable in the time between the two page
    * loads). Falls back to the raw params only if the slot_id doesn't
    * resolve to anything live anymore (rather than doing nothing at all).
@@ -266,17 +259,15 @@ export class TeacherAttendanceComponent implements OnInit {
     const slotId = params.get('slot_id');
     const rawBatchId = params.get('batch_id');
     const rawSubjectId = params.get('subject_id');
-    const rawBoard = params.get('board') as Board | null;
-    if (!rawBatchId || !rawSubjectId || !rawBoard) return; // nothing to deep-link to — plain manual-pick screen
+    if (!rawBatchId || !rawSubjectId) return; // nothing to deep-link to — plain manual-pick screen
 
     const liveSlot = slotId ? this.slots().find((s) => s.id === slotId) : undefined;
     const batchId = liveSlot?.batch_id ?? rawBatchId;
     const subjectId = liveSlot?.subject_id ?? rawSubjectId;
-    const board = liveSlot?.board ?? rawBoard;
     const periodValue = liveSlot ? liveSlot.id : slotId;
 
     queueMicrotask(() => {
-      this.cascadingFilter?.applyDeepLink({ batchId, subjectId, board, periodValue });
+      this.cascadingFilter?.applyDeepLink({ batchId, subjectId, periodValue });
     });
   }
 

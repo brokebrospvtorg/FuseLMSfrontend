@@ -19,7 +19,7 @@
         <span class="timetable-builder__filter-title">Filter by</span>
         <p-button label="Clear filters" size="small" severity="secondary" [text]="true" (onClick)="clearSearchFilters()" />
       </div>
-      <!-- Search filters — strict cascade: Batch -> Board -> Level/Class ->
+      <!-- Search filters — strict cascade: Batch -> Level/Class ->
            Subject -> Teacher Assignee. Narrows the table below
            progressively; clearing any stage falls back toward "show
            everything". -->
@@ -81,8 +81,8 @@
     <p class="timetable-builder__form-note">{{ formNote() }}</p>
   }
 
-  <!-- Strict cascade for slot creation/edit: Batch -> Board -> Level/Class
-       -> Subject -> Teacher Assignee. Day/Start/End remain plain fields
+  <!-- Strict cascade for slot creation/edit: Batch -> Level/Class ->
+       Subject -> Teacher Assignee. Day/Start/End remain plain fields
        below it since they aren't part of the offering hierarchy. -->
   <app-teacher-cascading-filter #formCascade
     [batches]="batches()"

@@ -30,21 +30,10 @@
           [disabled]="creatableOptions().length === 0"
           styleClass="w-full md:w-20rem" />
       </div>
-      <div class="batches__create-field">
-        <label>Board</label>
-        <p-select appendTo="body"
-          [options]="boardOptions"
-          optionLabel="label"
-          optionValue="value"
-          [ngModel]="selectedBoard()"
-          (ngModelChange)="selectedBoard.set($event)"
-          placeholder="Select a board"
-          styleClass="w-full md:w-14rem" />
-      </div>
       <p-button
         label="Create"
         icon="pi pi-plus"
-        [disabled]="!selectedTemplateKey() || !selectedBoard()"
+        [disabled]="!selectedTemplateKey()"
         [loading]="creating()"
         (onClick)="createSelectedBatch()" />
     </div>
@@ -60,32 +49,6 @@
   } @else if (batches().length === 0) {
     <p class="text-slate-500 py-4">No batches yet — create one above.</p>
   } @else {
-    <div class="batches__tabs">
-      <button
-        type="button"
-        class="batches__tab"
-        [class.batches__tab--active]="selectedBoardTab() === 'all'"
-        (click)="selectedBoardTab.set('all')">
-        All Boards
-      </button>
-      @for (option of boardOptions; track option.value) {
-        <button
-          type="button"
-          class="batches__tab"
-          [class.batches__tab--active]="selectedBoardTab() === option.value"
-          (click)="selectedBoardTab.set(option.value)">
-          {{ option.label }}
-        </button>
-      }
-    </div>
-
-    @if (selectedBoardTab() !== 'all') {
-      <p class="text-sm text-slate-500 -mt-2">
-        Every batch can host {{ boardLabel(selectedBoardTab()) }} subjects — batches already showing
-        an "Active" tag below have at least one {{ boardLabel(selectedBoardTab()) }} subject offered;
-        open "Manage" on any other batch to start offering {{ boardLabel(selectedBoardTab()) }} there too.
-      </p>
-    }
     <p-card>
       @if (filteredBatches().length === 0) {
         <p class="text-slate-500 py-4">No batches yet — create one above.</p>
@@ -95,7 +58,6 @@
             <tr>
             <th>Batch</th>
             <th>Students</th>
-            <th>Board{{ selectedBoardTab() === 'all' ? '' : 's' }}</th>
             <th>Start</th>
             <th>End</th>
             <th>Status</th>
@@ -115,21 +77,6 @@
               <p-tag
                 [severity]="row.active_students_count > 0 ? 'success' : 'secondary'"
                 [value]="row.active_students_count + (row.active_students_count === 1 ? ' Student' : ' Students')" />
-            </td>
-            <td>
-              @if (selectedBoardTab() === 'all') {
-                @if (row.active_boards.length === 0) {
-                  <p-tag severity="secondary" value="No offerings yet" />
-                } @else {
-                  @for (b of row.active_boards; track b) {
-                    <p-tag severity="info" [value]="boardLabel(b)" />
-                  }
-                }
-              } @else if (isActiveForBoard(row, selectedBoardTab())) {
-                <p-tag severity="success" [value]="boardLabel(selectedBoardTab()) + ' — Active'" />
-              } @else {
-                <p-tag severity="secondary" [value]="'No ' + boardLabel(selectedBoardTab()) + ' offerings yet'" />
-              }
             </td>
             <td>{{ row.start_date | date: 'mediumDate' }}</td>
             <td>{{ row.end_date | date: 'mediumDate' }}</td>
@@ -191,41 +138,36 @@
 <app-manage-batch-dialog
   [visible]="manageDialogOpen()"
   [batch]="manageBatch()"
-  [defaultBoard]="manageBatchDefaultBoard()"
   (closed)="closeManageBatch()"
   (saved)="onManageBatchSaved()" />
 
 <p-dialog
-  header="Edit Default Board"
+  header="Edit Session / Year"
   [visible]="editDialogOpen()"
   [modal]="true"
   [style]="{ width: '26rem' }"
   (onHide)="closeEditBatch()">
   @if (editBatch(); as batch) {
-    <div class="edit-board">
-      <p class="edit-board__batch-name">{{ batch.name }}</p>
-      <p class="text-sm text-slate-500">
-        This is just the board captured when the batch was created — it doesn't limit which boards'
-        subjects can be offered on this batch. Use "Manage" to offer subjects under any board.
-      </p>
-      <label for="edit-board-select">Board</label>
+    <div class="edit-session-year">
+      <p class="edit-session-year__batch-name">{{ batch.name }}</p>
+      <label for="edit-session-year-select">Session / Year</label>
       <p-select
-        inputId="edit-board-select"
+        inputId="edit-session-year-select"
         appendTo="body"
-        [options]="boardOptions"
+        [options]="editSessionYearOptions()"
         optionLabel="label"
         optionValue="value"
-        [ngModel]="editBoardSelection()"
-        (ngModelChange)="editBoardSelection.set($event)"
-        placeholder="Select a board"
+        [ngModel]="editSelectionKey()"
+        (ngModelChange)="editSelectionKey.set($event)"
+        placeholder="Select a session/year"
         styleClass="w-full" />
-      <div class="edit-board__actions">
+      <div class="edit-session-year__actions">
         <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeEditBatch()" />
         <p-button
           label="Save"
-          [disabled]="!editBoardSelection()"
-          [loading]="savingBoardEdit()"
-          (onClick)="saveBoardEdit()" />
+          [disabled]="!editSelectionKey()"
+          [loading]="savingBatchEdit()"
+          (onClick)="saveBatchEdit()" />
       </div>
     </div>
   }
