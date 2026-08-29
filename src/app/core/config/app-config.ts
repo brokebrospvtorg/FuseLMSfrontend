@@ -10,7 +10,21 @@
  * localhost or deployed on Vercel — no separate prod build step to forget.
  *
  */
-const PRODUCTION_API_BASE_URL = 'https://fuselmsback-production.up.railway.app/api';
+// PRODUCTION_API_BASE_URL used to point straight at the old Railway
+// origin. That made every request cross-site from the browser's point of
+// view (Vercel domain != Railway domain), which meant the auth/CSRF
+// cookies were third-party cookies — and WebKit (Safari + Chrome-on-iOS
+// both use it) blocks or evicts those by default under Intelligent
+// Tracking Prevention. That's what caused the immediate
+// logout-back-to-/login loop on iPhone: the login response set the
+// cookie, but the browser refused to keep it, so the very next request
+// came back 401.
+//
+// Fix: route through a same-origin path instead. vercel.json rewrites
+// /api/:path* to the Railway backend at the edge, so the browser only
+// ever talks to its own domain and the cookie is first-party. See
+// vercel.json at the repo root.
+const PRODUCTION_API_BASE_URL = '/api';
 const LOCAL_API_BASE_URL = 'http://localhost:8000/api';
 
 const isLocalHost =
